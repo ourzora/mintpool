@@ -8,6 +8,13 @@ pub enum Premint {
     V2(PremintV2Message),
 }
 
+impl Premint {
+    pub fn from_json(line: String) -> eyre::Result<Self> {
+        let p: Premint = serde_json::from_str(&line)?;
+        Ok(p)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SimplePremint {
     chain_id: u64,

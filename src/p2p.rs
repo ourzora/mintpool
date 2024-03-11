@@ -243,11 +243,14 @@ impl SwarmController {
         };
         let registry_topic = gossipsub::IdentTopic::new("announce::premints");
 
-        self.swarm
+        if let Err(err) = self
+            .swarm
             .behaviour_mut()
             .gossipsub
             .publish(registry_topic, value.as_bytes())
-            .expect("failed to publish");
+        {
+            tracing::error!(error = err.to_string(), "Error announcing self");
+        };
     }
 
     async fn handle_gossipsub_event(&mut self, event: gossipsub::Event) -> eyre::Result<()> {
