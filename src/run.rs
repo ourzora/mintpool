@@ -21,9 +21,10 @@ pub fn start_swarm_and_controller(config: &Config) -> eyre::Result<ControllerInt
     let controller_interface = ControllerInterface::new(ext_cmd_send);
 
     let port = config.port;
+    let network_ip = config.network_ip();
     tokio::spawn(async move {
         swarm_controller
-            .run(port)
+            .run(port, network_ip)
             .await
             .expect("Swarm controller failed");
     });

@@ -1,14 +1,23 @@
 use crate::p2p::NetworkState;
-use crate::types::Premint;
+use crate::types::{MintpoolNodeInfo, Premint};
 use tokio::select;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 #[derive(Debug)]
 pub enum SwarmCommand {
-    ConnectToPeer { address: String },
-    ReturnNetworkState,
+    ConnectToPeer {
+        address: String,
+    },
+    ReturnNetworkState {
+        channel: oneshot::Sender<NetworkState>,
+    },
     AnnounceSelf,
-    Broadcast { message: Premint },
+    Broadcast {
+        message: Premint,
+    },
+    ReturnNodeInfo {
+        channel: oneshot::Sender<MintpoolNodeInfo>,
+    },
 }
 
 pub enum P2PEvent {
@@ -17,10 +26,19 @@ pub enum P2PEvent {
 }
 
 pub enum ControllerCommands {
-    ConnectToPeer { address: String },
-    ReturnNetworkState,
+    ConnectToPeer {
+        address: String,
+    },
+    ReturnNetworkState {
+        channel: oneshot::Sender<NetworkState>,
+    },
     AnnounceSelf,
-    Broadcast { message: Premint },
+    Broadcast {
+        message: Premint,
+    },
+    ReturnNodeInfo {
+        channel: oneshot::Sender<MintpoolNodeInfo>,
+    },
 }
 
 pub struct Controller {
@@ -75,9 +93,9 @@ impl Controller {
                     .send(SwarmCommand::ConnectToPeer { address })
                     .await?;
             }
-            ControllerCommands::ReturnNetworkState => {
+            ControllerCommands::ReturnNetworkState { channel } => {
                 self.swarm_command_sender
-                    .send(SwarmCommand::ReturnNetworkState)
+                    .send(SwarmCommand::ReturnNetworkState { channel })
                     .await?;
             }
             ControllerCommands::AnnounceSelf => {
@@ -88,6 +106,11 @@ impl Controller {
             ControllerCommands::Broadcast { message } => {
                 self.swarm_command_sender
                     .send(SwarmCommand::Broadcast { message })
+                    .await?;
+            }
+            ControllerCommands::ReturnNodeInfo { channel } => {
+                self.swarm_command_sender
+                    .send(SwarmCommand::ReturnNodeInfo { channel })
                     .await?;
             }
         }
@@ -108,5 +131,19 @@ impl ControllerInterface {
     pub async fn send_command(&self, command: ControllerCommands) -> eyre::Result<()> {
         self.command_sender.send(command).await?;
         Ok(())
+    }
+
+    pub async fn get_node_info(&self) -> eyre::Result<MintpoolNodeInfo> {
+        let (snd, recv) = oneshot::channel();
+        self.send_command(ControllerCommands::ReturnNodeInfo { channel: snd })
+            .await?;
+        Ok(recv.await?)
+    }
+
+    pub async fn get_network_state(&self) -> eyre::Result<NetworkState> {
+        let (snd, recv) = oneshot::channel();
+        self.send_command(ControllerCommands::ReturnNetworkState { channel: snd })
+            .await?;
+        Ok(recv.await?)
     }
 }

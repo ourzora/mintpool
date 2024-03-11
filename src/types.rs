@@ -1,5 +1,12 @@
 use alloy_primitives::{Address, U256};
+use libp2p::{Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug)]
+pub struct MintpoolNodeInfo {
+    pub peer_id: PeerId,
+    pub addr: Vec<Multiaddr>,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

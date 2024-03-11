@@ -1,5 +1,4 @@
 use clap::Parser;
-use libp2p::identity;
 use mintpool::run::start_swarm_and_controller;
 use mintpool::stdin::watch_stdin;
 use tracing_subscriber::EnvFilter;

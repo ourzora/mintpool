@@ -1,5 +1,5 @@
 use crate::controller::{P2PEvent, SwarmCommand};
-use crate::types::Premint;
+use crate::types::{MintpoolNodeInfo, Premint};
 use eyre::WrapErr;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
@@ -84,7 +84,7 @@ impl SwarmController {
         }
     }
 
-    pub async fn run(&mut self, port: u64) -> eyre::Result<()> {
+    pub async fn run(&mut self, port: u64, listen_ip: String) -> eyre::Result<()> {
         let registry_topic = gossipsub::IdentTopic::new("announce::premints");
 
         let topic = gossipsub::IdentTopic::new("zora-1155-v1-mints");
@@ -95,7 +95,7 @@ impl SwarmController {
             .subscribe(&registry_topic)?;
 
         self.swarm
-            .listen_on(format!("/ip4/0.0.0.0/tcp/{port}").parse()?)?;
+            .listen_on(format!("/ip4/{listen_ip}/tcp/{port}").parse()?)?;
 
         self.run_loop().await;
         Ok(())
@@ -123,14 +123,10 @@ impl SwarmController {
                     tracing::error!("Error dialing peer: {:?}", err);
                 }
             }
-            SwarmCommand::ReturnNetworkState => {
+            SwarmCommand::ReturnNetworkState { channel } => {
                 let network_state = self.make_network_state();
-                if let Err(err) = self
-                    .event_sender
-                    .send(P2PEvent::NetworkState(network_state))
-                    .await
-                {
-                    tracing::error!("Error sending network state: {:?}", err);
+                if channel.send(network_state).is_err() {
+                    tracing::error!("Error sending network state from swarm",);
                 }
             }
             SwarmCommand::AnnounceSelf => {
@@ -139,6 +135,13 @@ impl SwarmController {
             SwarmCommand::Broadcast { message } => {
                 if let Err(err) = self.broadcast_message(message) {
                     tracing::error!("Error broadcasting message: {:?}", err);
+                }
+            }
+            SwarmCommand::ReturnNodeInfo { channel } => {
+                let peer_id = *self.swarm.local_peer_id();
+                let addr: Vec<Multiaddr> = self.swarm.listeners().cloned().collect();
+                if channel.send(MintpoolNodeInfo { peer_id, addr }).is_err() {
+                    tracing::error!("Error sending node info from swarm",);
                 }
             }
         }
@@ -345,7 +348,7 @@ impl SwarmController {
 
         NetworkState {
             local_peer_id: my_id,
-            network_state: self.swarm.network_info(),
+            network_info: self.swarm.network_info(),
             dht_peers,
             gossipsub_peers,
             all_external_addresses: self.swarm.external_addresses().cloned().collect(),
@@ -362,7 +365,7 @@ pub struct MintpoolBehaviour {
 #[derive(Debug)]
 pub struct NetworkState {
     pub local_peer_id: String,
-    pub network_state: NetworkInfo,
+    pub network_info: NetworkInfo,
     pub dht_peers: Vec<String>,
     pub gossipsub_peers: Vec<String>,
     pub all_external_addresses: Vec<Multiaddr>,
