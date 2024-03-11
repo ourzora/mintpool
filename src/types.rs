@@ -1,11 +1,25 @@
 use alloy_primitives::{Address, U256};
+use libp2p::{Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug)]
+pub struct MintpoolNodeInfo {
+    pub peer_id: PeerId,
+    pub addr: Vec<Multiaddr>,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum Premint {
     Simple(SimplePremint),
     V2(PremintV2Message),
+}
+
+impl Premint {
+    pub fn from_json(line: String) -> eyre::Result<Self> {
+        let p: Premint = serde_json::from_str(&line)?;
+        Ok(p)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]

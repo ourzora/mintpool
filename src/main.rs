@@ -1,5 +1,6 @@
 use clap::Parser;
-use libp2p::identity;
+use mintpool::run::start_swarm_and_controller;
+use mintpool::stdin::watch_stdin;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -13,25 +14,9 @@ async fn main() -> eyre::Result<()> {
 
     tracing::info!("Starting mintpool with config: {:?}", config);
 
-    let mut bytes = [0u8; 32];
-    bytes[0] = config.seed as u8;
+    let ctl = start_swarm_and_controller(&config)?;
+    watch_stdin(ctl).await;
 
-    let id_keys = identity::Keypair::ed25519_from_bytes(bytes).unwrap();
-
-    let (event_send, event_recv) = tokio::sync::mpsc::channel(32);
-    let (sender, receiver) = tokio::sync::mpsc::channel(32);
-
-    let mut swarm_controller = mintpool::p2p::make_swarm_controller(id_keys, receiver, event_send)?;
-    let mut controller = mintpool::controller::Controller::new(sender, event_recv);
-
-    tokio::spawn(async move {
-        swarm_controller
-            .run(config.port)
-            .await
-            .expect("Swarm controller failed");
-    });
-
-    controller.run_loop().await;
     Ok(())
 }
 
