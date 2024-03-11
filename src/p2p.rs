@@ -1,23 +1,21 @@
-use crate::controller::SwarmCommand;
+use crate::controller::{P2PEvent, SwarmCommand};
+use crate::types::Premint;
 use eyre::WrapErr;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
-use libp2p::gossipsub::Topic;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::MemoryStore;
-use libp2p::kad::{GetRecordOk, QueryResult, Quorum, Record};
 use libp2p::multiaddr::Protocol;
 use libp2p::swarm::{NetworkBehaviour, NetworkInfo, SwarmEvent};
 use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr};
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::ops::Add;
-use std::time::{Duration, Instant};
-use tokio::io::AsyncBufReadExt;
-use tokio::{io, select};
+use std::time::Duration;
+use tokio::select;
 
 pub fn make_swarm_controller(
     id_keys: Keypair,
     command_receiver: tokio::sync::mpsc::Receiver<SwarmCommand>,
+    event_sender: tokio::sync::mpsc::Sender<P2PEvent>,
 ) -> eyre::Result<SwarmController> {
     let peer_id = id_keys.public().to_peer_id();
     let swarm = libp2p::SwarmBuilder::with_existing_identity(id_keys)
@@ -61,12 +59,14 @@ pub fn make_swarm_controller(
         swarm,
         "zora-premints-v2".to_string(),
         command_receiver,
+        event_sender,
     ))
 }
 pub struct SwarmController {
-    pub swarm: libp2p::Swarm<MintpoolBehaviour>,
+    swarm: libp2p::Swarm<MintpoolBehaviour>,
     topic_name: String,
     command_receiver: tokio::sync::mpsc::Receiver<SwarmCommand>,
+    event_sender: tokio::sync::mpsc::Sender<P2PEvent>,
 }
 
 impl SwarmController {
@@ -74,11 +74,13 @@ impl SwarmController {
         swarm: libp2p::Swarm<MintpoolBehaviour>,
         topic_name: String,
         command_receiver: tokio::sync::mpsc::Receiver<SwarmCommand>,
+        event_sender: tokio::sync::mpsc::Sender<P2PEvent>,
     ) -> Self {
         Self {
             swarm,
             topic_name,
             command_receiver,
+            event_sender,
         }
     }
 
@@ -121,9 +123,13 @@ impl SwarmController {
                     tracing::error!("Error dialing peer: {:?}", err);
                 }
             }
-            SwarmCommand::ReturnNetworkState { channel } => {
+            SwarmCommand::ReturnNetworkState => {
                 let network_state = self.make_network_state();
-                if let Err(err) = channel.send(network_state) {
+                if let Err(err) = self
+                    .event_sender
+                    .send(P2PEvent::NetworkState(network_state))
+                    .await
+                {
                     tracing::error!("Error sending network state: {:?}", err);
                 }
             }
@@ -212,22 +218,24 @@ impl SwarmController {
         }
     }
 
-    fn broadcast_message(&mut self, message: String) -> eyre::Result<()> {
+    fn broadcast_message(&mut self, message: Premint) -> eyre::Result<()> {
         let topic = gossipsub::IdentTopic::new("zora-1155-v1-mints");
+        let msg = serde_json::to_string(&message).wrap_err("failed to serialize message")?;
+
         self.swarm
             .behaviour_mut()
             .gossipsub
-            .publish(topic, message.as_bytes())
-            .wrap_err(format!("failed to publish message to topic {}", message))?;
+            .publish(topic, msg.as_bytes())
+            .wrap_err(format!("failed to publish message to topic {:?}", message))?;
         Ok(())
     }
 
     fn announce_self(&mut self) {
-        let peer_id = self.swarm.local_peer_id().clone();
+        let peer_id = *self.swarm.local_peer_id();
         let listening_on = self.swarm.listeners().collect::<Vec<_>>();
         tracing::info!("announcing, listening on: {:?}", listening_on);
         let value = if let Some(addr) = self.swarm.listeners().collect::<Vec<_>>().first() {
-            let m = addr.clone().clone().with(Protocol::P2p(peer_id.clone()));
+            let m = (*addr).clone().with(Protocol::P2p(peer_id.clone()));
             tracing::info!("sending full address: {:?}", m.to_string());
             m.to_string()
         } else {
@@ -249,7 +257,7 @@ impl SwarmController {
             gossipsub::Event::Message { message, .. } => {
                 let msg = String::from_utf8_lossy(&message.data);
                 if message.topic == registry_topic.hash() {
-                    tracing::info!("Need peer: {:?}", msg);
+                    tracing::info!("New peer: {:?}", msg);
                     let addr: Multiaddr = msg
                         .to_string()
                         .parse()
@@ -257,7 +265,18 @@ impl SwarmController {
 
                     self.swarm.dial(addr)?;
                 } else {
-                    tracing::info!("Received message: {:?}", msg);
+                    match serde_json::from_str::<Premint>(&msg) {
+                        Ok(premint) => {
+                            self.event_sender
+                                .send(P2PEvent::PremintReceived(premint.clone()))
+                                .await
+                                .wrap_err("failed to send premint event")?;
+                            tracing::debug!("premint event sent: {:?}", premint);
+                        }
+                        Err(err) => {
+                            tracing::error!("Error parsing premint: {:?}", err);
+                        }
+                    }
                 }
             }
             gossipsub::Event::Subscribed { peer_id, topic } => {

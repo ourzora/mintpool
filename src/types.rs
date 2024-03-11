@@ -1,14 +1,22 @@
 use alloy_primitives::{Address, U256};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum Premint {
+    Simple(SimplePremint),
+    V2(PremintV2Message),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SimplePremint {
     chain_id: u64,
     sender: Address,
+    token_id: u64,
     media: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PremintV2Message {
     collection: PremintV2Collection,
@@ -16,7 +24,7 @@ pub struct PremintV2Message {
     chain_id: u64,
     signature: String,
 }
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PremintV2Collection {
     contract_admin: Address,
@@ -24,7 +32,7 @@ pub struct PremintV2Collection {
     contract_name: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PremintV2 {
     token_creation_config: TokenCreationConfigV2,
@@ -33,7 +41,7 @@ pub struct PremintV2 {
     deleted: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenCreationConfigV2 {
     token_uri: String,
@@ -47,4 +55,31 @@ pub struct TokenCreationConfigV2 {
     payout_recipient: Address,
     fixed_price_minter: Address,
     creator_referral: Address,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_premint_serde() {
+        let premint = Premint::Simple(SimplePremint {
+            chain_id: 1,
+            sender: "0x66f9664f97F2b50F62D13eA064982f936dE76657"
+                .parse()
+                .unwrap(),
+            token_id: 1,
+            media: "https://ipfs.io/ipfs/Qm".to_string(),
+        });
+
+        let json = serde_json::to_string(&premint).unwrap();
+        println!("{}", json);
+        let premint: Premint = serde_json::from_str(&json).unwrap();
+        println!("{:?}", premint);
+
+        let premint = Premint::V2(PremintV2Message::default());
+        let json = serde_json::to_string(&premint).unwrap();
+        println!("{}", json);
+        let premint: Premint = serde_json::from_str(&json).unwrap();
+        println!("{:?}", premint);
+    }
 }
