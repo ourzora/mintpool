@@ -1,0 +1,30 @@
+[package]
+name = "mintpool"
+version.workspace = true
+edition.workspace = true
+default-run = "mintpool"
+
+[dependencies]
+mintpool-primitives.workspace = true
+mintpool-controller.workspace = true
+
+clap = { version = "4.5.2", features = ["derive"] }
+colored = "2.1.0"
+eyre = "0.6.12"
+envconfig = "0.10.0"
+libp2p = { version = "0.53.2", features = [
+    "tokio",
+    "tcp",
+    "macros",
+    "noise",
+    "yamux",
+    "kad",
+    "gossipsub",
+] }
+tokio = { version = "1.36.0", features = ["full"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing = "0.1.40"
+
+[[bin]]
+name = "mintpool"
+path = "src/main.rs"

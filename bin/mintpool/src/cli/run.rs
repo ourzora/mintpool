@@ -1,7 +1,8 @@
-use crate::config::Config;
-use crate::controller::{Controller, ControllerInterface};
-use crate::p2p::make_swarm_controller;
+use super::config::Config;
+
 use libp2p::identity;
+use mintpool_controller::controller::{Controller, ControllerInterface};
+use mintpool_controller::p2p::make_swarm_controller;
 
 /// Starts the libp2p swarm and the controller, returns an interface for interacting with the controller.
 /// All interactions with the controller should be done through `ControllerInterface` for memory safety.

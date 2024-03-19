@@ -1,6 +1,7 @@
-use crate::controller::{ControllerCommands, ControllerInterface};
-use crate::types::Premint;
 use colored::Colorize;
+
+use mintpool_controller::controller::{ControllerCommands, ControllerInterface};
+use mintpool_primitives::premint::Premint;
 use tokio::io::AsyncBufReadExt;
 use tokio::{io, select};
 

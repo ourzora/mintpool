@@ -1,6 +1,6 @@
 use clap::Parser;
-use mintpool::run::start_swarm_and_controller;
-use mintpool::stdin::watch_stdin;
+use mintpool::cli::run::start_swarm_and_controller;
+use mintpool::cli::stdin::watch_stdin;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -10,7 +10,7 @@ async fn main() -> eyre::Result<()> {
         .pretty()
         .try_init();
 
-    let config = mintpool::config::init();
+    let config = mintpool::cli::config::init();
 
     tracing::info!("Starting mintpool with config: {:?}", config);
 

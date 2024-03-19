@@ -1,5 +1,4 @@
-use crate::controller::{P2PEvent, SwarmCommand};
-use crate::types::{MintpoolNodeInfo, Premint};
+use super::controller::{P2PEvent, SwarmCommand};
 use eyre::WrapErr;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
@@ -8,6 +7,8 @@ use libp2p::kad::store::MemoryStore;
 use libp2p::multiaddr::Protocol;
 use libp2p::swarm::{NetworkBehaviour, NetworkInfo, SwarmEvent};
 use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr};
+use mintpool_primitives::node::MintpoolNodeInfo;
+use mintpool_primitives::premint::Premint;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::Duration;
 use tokio::select;

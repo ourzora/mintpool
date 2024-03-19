@@ -1,20 +1,16 @@
-[package]
+[workspace]
+default-members = ["bin/mintpool"]
+members = ["bin/mintpool/", "crates/primitives", "crates/controller"]
+# Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
+# https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
+resolver = "2"
+
+[workspace.package]
 name = "mintpool"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-libp2p = { version= "0.53.2", features = ["tokio", "tcp", "macros", "noise", "yamux", "kad", "gossipsub"] }
-tokio = { version = "1.36.0", features = ["full"] }
-eyre = "0.6.12"
-async-trait = "0.1.77"
-serde = { version = "1.0.197" , features = ["derive"]}
-serde_json = "1.0.114"
-alloy-primitives = {version =  "0.6.4" , features = ["serde"]}
-clap = { version = "4.5.2", features = ["derive"] }
-envconfig = "0.10.0"
-colored = "2.1.0"
+[workspace.dependencies]
+mintpool = { path = "bin/mintpool" }
+mintpool-controller = { path = "crates/controller" }
+mintpool-primitives = { path = "crates/primitives" }

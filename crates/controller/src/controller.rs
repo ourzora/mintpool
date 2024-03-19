@@ -1,5 +1,7 @@
-use crate::p2p::NetworkState;
-use crate::types::{MintpoolNodeInfo, Premint};
+use super::p2p::NetworkState;
+
+use mintpool_primitives::node::MintpoolNodeInfo;
+use mintpool_primitives::premint::Premint;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
