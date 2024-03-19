@@ -48,8 +48,7 @@ async fn test_announcing_to_network() {
 async fn test_list_all_premints() {
     let num_nodes = 3;
 
-    let nodes = build::build_connected_swarm(2310, num_nodes).await;
-    build::connect_all_to_first(nodes.clone()).await;
+    let nodes = build::fully_connected_swarm(2310, num_nodes).await;
     let (first, nodes) = build::split_first_rest(nodes).await;
 
     first
@@ -124,7 +123,7 @@ mod build {
         nodes
     }
 
-    pub async fn build_connected_swarm(
+    pub async fn fully_connected_swarm(
         start_port: u64,
         num_nodes: u64,
     ) -> Vec<ControllerInterface> {
