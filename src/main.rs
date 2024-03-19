@@ -14,7 +14,7 @@ async fn main() -> eyre::Result<()> {
 
     tracing::info!("Starting mintpool with config: {:?}", config);
 
-    let ctl = start_swarm_and_controller(&config)?;
+    let ctl = start_swarm_and_controller(&config).await?;
     watch_stdin(ctl).await;
 
     Ok(())

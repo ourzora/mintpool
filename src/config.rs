@@ -4,14 +4,25 @@ use envconfig::Envconfig;
 pub struct Config {
     #[envconfig(from = "SEED")]
     pub seed: u64,
+
     #[envconfig(from = "PORT", default = "7777")]
     pub port: u64,
+
     #[envconfig(from = "CONNECT_EXTERNAL", default = "true")]
     pub connect_external: bool,
+
+    #[envconfig(from = "DATABASE_URL")]
+    pub db_url: Option<String>,
+
+    #[envconfig(from = "PERSIST_STATE", default = "false")]
+    pub persist_state: bool,
+
+    #[envconfig(from = "PRUNE_MINTED_PREMINTS", default = "true")]
+    pub prune_minted_premints: bool,
 }
 
 impl Config {
-    pub fn network_ip(&self) -> String {
+    pub fn initial_network_ip(&self) -> String {
         if self.connect_external {
             "0.0.0.0".to_string()
         } else {

@@ -1,5 +1,5 @@
-use crate::controller::{ControllerCommands, ControllerInterface};
-use crate::types::Premint;
+use crate::controller::{ControllerCommands, ControllerInterface, DBQuery};
+use crate::types::{Premint, PremintTypes};
 use colored::Colorize;
 use tokio::io::AsyncBufReadExt;
 use tokio::{io, select};
@@ -88,8 +88,26 @@ async fn process_stdin_line(ctl: ControllerInterface, line: String) {
                 "Error sending announce self command"
             );
         };
+    } else if line.starts_with("/list") {
+        let (snd, recv) = tokio::sync::oneshot::channel();
+        match ctl
+            .send_command(ControllerCommands::Query(DBQuery::ListAll(snd)))
+            .await
+        {
+            Ok(()) => {
+                if let Ok(Ok(premints)) = recv.await {
+                    println!("Available premints:");
+                    premints.iter().for_each(|p| println!("{:?}", p));
+                } else {
+                    tracing::error!("Error getting list all premints response");
+                }
+            }
+            Err(err) => {
+                tracing::error!(error = err.to_string(), "Error sending list all command");
+            }
+        };
     } else {
-        match Premint::from_json(line) {
+        match PremintTypes::from_json(line) {
             Ok(premint) => {
                 if let Err(err) = ctl
                     .send_command(ControllerCommands::Broadcast { message: premint })
