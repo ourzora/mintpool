@@ -8,14 +8,18 @@ edition = "2021"
 [dependencies]
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-libp2p = { version= "0.53.2", features = ["tokio", "tcp", "macros", "noise", "yamux", "kad", "gossipsub"] }
+libp2p = { version = "0.53.2", features = ["tokio", "tcp", "macros", "noise", "yamux", "kad", "gossipsub"] }
 tokio = { version = "1.36.0", features = ["full"] }
 eyre = "0.6.12"
 async-trait = "0.1.77"
-serde = { version = "1.0.197" , features = ["derive"]}
+serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
-alloy-primitives = {version =  "0.6.4" , features = ["serde"]}
+alloy-primitives = { version = "0.6.4", features = ["serde"] }
 clap = { version = "4.5.2", features = ["derive"] }
 envconfig = "0.10.0"
 colored = "2.1.0"
 sqlx = { version = "0.7.4", features = ["runtime-tokio", "macros", "sqlite", "postgres", "any"] }
+
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
