@@ -8,7 +8,7 @@ use tokio::time;
 async fn test_connecting_to_other_nodes() {
     let num_nodes = 10;
 
-    let nodes = build::make_nodes(2000, num_nodes).await;
+    let nodes = build::make_nodes(2000, num_nodes, 1000).await;
     build::connect_all_to_first(nodes.clone()).await;
 
     let (first, nodes) = build::split_first_rest(nodes).await;
@@ -26,7 +26,7 @@ async fn test_connecting_to_other_nodes() {
 async fn test_announcing_to_network() {
     let num_nodes = 3;
 
-    let nodes = build::make_nodes(2300, num_nodes).await;
+    let nodes = build::make_nodes(2300, num_nodes, 1000).await;
     build::connect_all_to_first(nodes.clone()).await;
 
     let (first, nodes) = build::split_first_rest(nodes).await;
@@ -79,6 +79,22 @@ async fn test_list_all_premints() {
     }
 }
 
+#[tokio::test]
+// Connections should not be able to exceed max_connections config
+async fn test_max_connections() {
+    let num_nodes = 5;
+    let limit = 3;
+
+    let nodes = build::make_nodes(2300, num_nodes, limit).await;
+    build::connect_all_to_first(nodes.clone()).await;
+
+    build::announce_all(nodes.clone()).await;
+
+    for node in nodes {
+        asserts::expect_lte_than_connections(&node, limit as usize).await;
+    }
+}
+
 mod build {
     use mintpool::config::Config;
     use mintpool::controller::{ControllerCommands, ControllerInterface};
@@ -89,7 +105,7 @@ mod build {
             node.send_command(ControllerCommands::AnnounceSelf)
                 .await
                 .unwrap();
-            time::sleep(time::Duration::from_millis(1000)).await;
+            time::sleep(time::Duration::from_millis(500)).await;
         }
     }
 
@@ -103,16 +119,22 @@ mod build {
         }
     }
 
-    pub async fn make_nodes(start_port: u64, num_nodes: u64) -> Vec<ControllerInterface> {
+    pub async fn make_nodes(
+        start_port: u64,
+        num_nodes: u64,
+        peer_limit: u64,
+    ) -> Vec<ControllerInterface> {
         let mut nodes = Vec::new();
+        let rand_n = rand::random::<u64>();
         for i in 0..num_nodes {
             let config = Config {
-                seed: i,
+                seed: rand_n + i,
                 port: start_port + i,
                 connect_external: false,
                 db_url: None,
                 persist_state: false,
                 prune_minted_premints: false,
+                peer_limit,
             };
 
             let ctl = mintpool::run::start_swarm_and_controller(&config)
@@ -127,7 +149,7 @@ mod build {
         start_port: u64,
         num_nodes: u64,
     ) -> Vec<ControllerInterface> {
-        let nodes = make_nodes(start_port, num_nodes).await;
+        let nodes = make_nodes(start_port, num_nodes, 1000).await;
         connect_all_to_first(nodes.clone()).await;
         time::sleep(time::Duration::from_secs(1)).await;
 
@@ -177,5 +199,22 @@ mod asserts {
 
         assert_eq!(state.network_info.num_peers(), n);
         assert_eq!(state.gossipsub_peers.len(), n);
+    }
+
+    // expect less than or equal to n connections
+    pub async fn expect_lte_than_connections(
+        ctl: &mintpool::controller::ControllerInterface,
+        n: usize,
+    ) {
+        let state = ctl
+            .get_network_state()
+            .await
+            .expect("failed to get network state");
+        println!("{:?}", state);
+
+        let peers = state.network_info.num_peers();
+        assert!(peers <= n);
+        let peers = state.gossipsub_peers.len();
+        assert!(peers <= n);
     }
 }
