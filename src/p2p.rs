@@ -1,5 +1,5 @@
 use crate::controller::{P2PEvent, SwarmCommand};
-use crate::types::{MintpoolNodeInfo, Premint};
+use crate::types::{MintpoolNodeInfo, Premint, PremintTypes};
 use eyre::WrapErr;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
@@ -221,9 +221,9 @@ impl SwarmController {
         }
     }
 
-    fn broadcast_message(&mut self, message: Premint) -> eyre::Result<()> {
+    fn broadcast_message(&mut self, message: PremintTypes) -> eyre::Result<()> {
         let topic = gossipsub::IdentTopic::new("zora-1155-v1-mints");
-        let msg = serde_json::to_string(&message).wrap_err("failed to serialize message")?;
+        let msg = message.to_json().wrap_err("failed to serialize message")?;
 
         self.swarm
             .behaviour_mut()
@@ -271,7 +271,7 @@ impl SwarmController {
 
                     self.swarm.dial(addr)?;
                 } else {
-                    match serde_json::from_str::<Premint>(&msg) {
+                    match serde_json::from_str::<PremintTypes>(&msg) {
                         Ok(premint) => {
                             self.event_sender
                                 .send(P2PEvent::PremintReceived(premint.clone()))

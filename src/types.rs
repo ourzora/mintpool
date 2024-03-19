@@ -1,6 +1,8 @@
 use alloy_primitives::{Address, U256};
 use libp2p::{Multiaddr, PeerId};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct MintpoolNodeInfo {
@@ -8,21 +10,50 @@ pub struct MintpoolNodeInfo {
     pub addr: Vec<Multiaddr>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug)]
+pub struct PremintMetadata {
+    pub id: String,
+    pub kind: String,
+    pub signer: Address,
+    pub chain_id: i64,
+    pub collection_address: Address,
+    pub token_id: U256,
+    pub uri: String,
+}
+
+pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
+    fn metadata(&self) -> PremintMetadata;
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub enum Premint {
+pub enum PremintTypes {
     Simple(SimplePremint),
     V2(PremintV2Message),
 }
 
-impl Premint {
+impl PremintTypes {
     pub fn from_json(line: String) -> eyre::Result<Self> {
-        let p: Premint = serde_json::from_str(&line)?;
+        let p: PremintTypes = serde_json::from_str(&line)?;
+        Ok(p)
+    }
+
+    pub fn to_json(&self) -> eyre::Result<String> {
+        let p: String = serde_json::to_string(&self)?;
         Ok(p)
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+impl Premint for PremintTypes {
+    fn metadata(&self) -> PremintMetadata {
+        match self {
+            PremintTypes::Simple(p) => p.metadata(),
+            PremintTypes::V2(p) => p.metadata(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct SimplePremint {
     chain_id: u64,
     sender: Address,
@@ -30,7 +61,21 @@ pub struct SimplePremint {
     media: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+impl Premint for SimplePremint {
+    fn metadata(&self) -> PremintMetadata {
+        PremintMetadata {
+            id: format!("{:?}:{:?}:{:?}", self.chain_id, self.sender, self.token_id),
+            kind: "simple".to_string(),
+            signer: self.sender,
+            chain_id: self.chain_id as i64,
+            collection_address: Address::default(),
+            token_id: U256::from(self.token_id),
+            uri: self.media.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PremintV2Message {
     collection: PremintV2Collection,
@@ -38,7 +83,22 @@ pub struct PremintV2Message {
     chain_id: u64,
     signature: String,
 }
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+
+impl Premint for PremintV2Message {
+    fn metadata(&self) -> PremintMetadata {
+        PremintMetadata {
+            id: self.premint.uid.to_string(),
+            kind: "zora_premint_v2".to_string(),
+            signer: self.collection.contract_admin,
+            chain_id: self.chain_id as i64,
+            collection_address: Address::default(), // TODO: source this
+            token_id: U256::from(self.premint.uid),
+            uri: self.premint.token_creation_config.token_uri.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PremintV2Collection {
     contract_admin: Address,
@@ -46,7 +106,7 @@ pub struct PremintV2Collection {
     contract_name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PremintV2 {
     token_creation_config: TokenCreationConfigV2,
@@ -55,7 +115,7 @@ pub struct PremintV2 {
     deleted: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenCreationConfigV2 {
     token_uri: String,
@@ -76,7 +136,7 @@ mod test {
     use super::*;
     #[test]
     fn test_premint_serde() {
-        let premint = Premint::Simple(SimplePremint {
+        let premint = PremintTypes::Simple(SimplePremint {
             chain_id: 1,
             sender: "0x66f9664f97F2b50F62D13eA064982f936dE76657"
                 .parse()
@@ -85,15 +145,15 @@ mod test {
             media: "https://ipfs.io/ipfs/Qm".to_string(),
         });
 
-        let json = serde_json::to_string(&premint).unwrap();
+        let json = premint.to_json().unwrap();
         println!("{}", json);
-        let premint: Premint = serde_json::from_str(&json).unwrap();
+        let premint = PremintTypes::from_json(json).unwrap();
         println!("{:?}", premint);
 
-        let premint = Premint::V2(PremintV2Message::default());
-        let json = serde_json::to_string(&premint).unwrap();
+        let premint = PremintTypes::V2(PremintV2Message::default());
+        let json = premint.to_json().unwrap();
         println!("{}", json);
-        let premint: Premint = serde_json::from_str(&json).unwrap();
+        let premint: PremintTypes = PremintTypes::from_json(json).unwrap();
         println!("{:?}", premint);
     }
 }

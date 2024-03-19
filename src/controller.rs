@@ -1,5 +1,7 @@
 use crate::p2p::NetworkState;
-use crate::types::{MintpoolNodeInfo, Premint};
+use crate::storage::PremintStorage;
+use crate::types::{MintpoolNodeInfo, PremintTypes};
+use sqlx::SqlitePool;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
@@ -13,7 +15,7 @@ pub enum SwarmCommand {
     },
     AnnounceSelf,
     Broadcast {
-        message: Premint,
+        message: PremintTypes,
     },
     ReturnNodeInfo {
         channel: oneshot::Sender<MintpoolNodeInfo>,
@@ -22,7 +24,7 @@ pub enum SwarmCommand {
 
 pub enum P2PEvent {
     NetworkState(NetworkState),
-    PremintReceived(Premint),
+    PremintReceived(PremintTypes),
 }
 
 pub enum ControllerCommands {
@@ -34,17 +36,24 @@ pub enum ControllerCommands {
     },
     AnnounceSelf,
     Broadcast {
-        message: Premint,
+        message: PremintTypes,
     },
     ReturnNodeInfo {
         channel: oneshot::Sender<MintpoolNodeInfo>,
     },
+    Query(DBQuery),
+}
+
+pub enum DBQuery {
+    ListAll(oneshot::Sender<eyre::Result<Vec<PremintTypes>>>),
+    Direct(oneshot::Sender<eyre::Result<SqlitePool>>),
 }
 
 pub struct Controller {
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     swarm_event_receiver: mpsc::Receiver<P2PEvent>,
     external_commands: mpsc::Receiver<ControllerCommands>,
+    store: PremintStorage,
 }
 
 impl Controller {
@@ -52,11 +61,13 @@ impl Controller {
         swarm_command_sender: mpsc::Sender<SwarmCommand>,
         swarm_event_receiver: mpsc::Receiver<P2PEvent>,
         external_commands: mpsc::Receiver<ControllerCommands>,
+        store: PremintStorage,
     ) -> Self {
         Self {
             swarm_command_sender,
             swarm_event_receiver,
             external_commands,
+            store,
         }
     }
 
@@ -75,13 +86,15 @@ impl Controller {
         }
     }
 
-    async fn handle_event(&self, event: P2PEvent) {
+    pub async fn handle_event(&self, event: P2PEvent) {
         match event {
             P2PEvent::NetworkState(network_state) => {
                 tracing::info!("Current network state: {:?}", network_state);
             }
             P2PEvent::PremintReceived(premint) => {
-                tracing::info!("Received premint: {:?}", premint);
+                tracing::debug!(premint = premint.to_json().ok(), "Received premint");
+
+                self.validate_and_insert(premint).await;
             }
         }
     }
@@ -104,17 +117,43 @@ impl Controller {
                     .await?;
             }
             ControllerCommands::Broadcast { message } => {
-                self.swarm_command_sender
-                    .send(SwarmCommand::Broadcast { message })
-                    .await?;
+                match self.validate_and_insert(message.clone()).await {
+                    Ok(_) => {
+                        self.swarm_command_sender
+                            .send(SwarmCommand::Broadcast { message })
+                            .await?;
+                    }
+                    Err(_) => {
+                        tracing::warn!("Invalid premint, not broadcasting");
+                    }
+                }
             }
             ControllerCommands::ReturnNodeInfo { channel } => {
                 self.swarm_command_sender
                     .send(SwarmCommand::ReturnNodeInfo { channel })
                     .await?;
             }
+            ControllerCommands::Query(query) => match query {
+                DBQuery::ListAll(chan) => {
+                    let res = self.store.list_all().await;
+                    if let Err(_err) = chan.send(res) {
+                        tracing::error!("Error sending list all response back to command sender");
+                    }
+                }
+                DBQuery::Direct(chan) => {
+                    if let Err(_err) = chan.send(Ok(self.store.db())) {
+                        tracing::error!("Error sending db arc response back to command sender");
+                    };
+                }
+            },
         }
         Ok(())
+    }
+
+    async fn validate_and_insert(&self, premint: PremintTypes) -> eyre::Result<()> {
+        // TODO: insert rules check here
+
+        self.store.store(premint).await
     }
 }
 

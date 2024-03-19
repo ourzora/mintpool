@@ -1,3 +1,6 @@
+use mintpool::controller::ControllerCommands;
+use mintpool::controller::ControllerCommands::Broadcast;
+use mintpool::types::PremintTypes;
 use tokio::time;
 
 #[tokio::test]
@@ -19,7 +22,7 @@ async fn test_connecting_to_other_nodes() {
 }
 
 #[tokio::test]
-// test
+// test announcing self to the network
 async fn test_announcing_to_network() {
     let num_nodes = 3;
 
@@ -37,6 +40,42 @@ async fn test_announcing_to_network() {
     asserts::expect_n_connections(&first, (num_nodes - 1) as usize).await;
     for node in nodes {
         asserts::expect_n_connections(&node, (num_nodes - 1) as usize).await;
+    }
+}
+
+#[tokio::test]
+// After a premint is announced, all connected nodes should be able to list it
+async fn test_list_all_premints() {
+    let num_nodes = 3;
+
+    let nodes = build::gen_fully_connected_swarm(2310, num_nodes).await;
+    let (first, nodes) = build::split_first_rest(nodes).await;
+
+    first
+        .send_command(Broadcast {
+            message: PremintTypes::V2(Default::default()),
+        })
+        .await
+        .unwrap();
+
+    first
+        .send_command(Broadcast {
+            message: PremintTypes::Simple(Default::default()),
+        })
+        .await
+        .unwrap();
+
+    time::sleep(time::Duration::from_millis(500)).await;
+
+    for node in nodes {
+        let (snd, recv) = tokio::sync::oneshot::channel();
+        node.send_command(ControllerCommands::Query(
+            mintpool::controller::DBQuery::ListAll(snd),
+        ))
+        .await
+        .unwrap();
+        let premints = recv.await.unwrap().unwrap();
+        assert_eq!(premints.len(), 2);
     }
 }
 
@@ -71,11 +110,30 @@ mod build {
                 seed: i,
                 port: start_port + i,
                 connect_external: false,
+                db_url: None,
+                persist_state: false,
+                prune_minted_premints: false,
             };
 
-            let ctl = mintpool::run::start_swarm_and_controller(&config).unwrap();
+            let ctl = mintpool::run::start_swarm_and_controller(&config)
+                .await
+                .unwrap();
             nodes.push(ctl);
         }
+        nodes
+    }
+
+    pub async fn gen_fully_connected_swarm(
+        start_port: u64,
+        num_nodes: u64,
+    ) -> Vec<ControllerInterface> {
+        let nodes = make_nodes(start_port, num_nodes).await;
+        connect_all_to_first(nodes.clone()).await;
+        time::sleep(time::Duration::from_secs(1)).await;
+
+        // have each node broadcast its presence to the network
+        announce_all(nodes.clone()).await;
+        time::sleep(time::Duration::from_secs(1)).await;
         nodes
     }
 
