@@ -157,7 +157,3 @@ mod test {
         println!("{:?}", premint);
     }
 }
-
-
-{"simple":{"chain_id":1,"sender":"0x66f9664f97f2b50f62d13ea064982f936de76659","token_id":1,"media":"https://ipfs.io/ipfs/Qm"}}
-// 
