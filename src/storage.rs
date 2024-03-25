@@ -120,6 +120,7 @@ mod test {
             db_url: None, // in-memory for testing
             persist_state: false,
             prune_minted_premints: false,
+            peer_limit: 1000,
         };
 
         let store = PremintStorage::new(&config).await;
@@ -139,6 +140,7 @@ mod test {
             db_url: None, // in-memory for testing
             persist_state: false,
             prune_minted_premints: false,
+            peer_limit: 1000,
         };
 
         let store = PremintStorage::new(&config).await;

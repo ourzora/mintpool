@@ -85,7 +85,7 @@ async fn test_max_connections() {
     let num_nodes = 5;
     let limit = 3;
 
-    let nodes = build::make_nodes(2300, num_nodes, limit).await;
+    let nodes = build::make_nodes(2350, num_nodes, limit).await;
     build::connect_all_to_first(nodes.clone()).await;
 
     build::announce_all(nodes.clone()).await;
