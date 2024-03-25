@@ -1,8 +1,18 @@
+use alloy_primitives::private::derive_more::Display;
 use alloy_primitives::{Address, U256};
-use libp2p::{Multiaddr, PeerId};
+use libp2p::{gossipsub, Multiaddr, PeerId};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+
+#[derive(Debug, Display)]
+pub struct PremintName(pub String);
+
+impl PremintName {
+    pub fn msg_topic(&self) -> gossipsub::IdentTopic {
+        gossipsub::IdentTopic::new(format!("mintpool::{:?}", self))
+    }
+}
 
 #[derive(Debug)]
 pub struct MintpoolNodeInfo {
@@ -23,6 +33,7 @@ pub struct PremintMetadata {
 
 pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
+    fn kind_id() -> PremintName;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -44,8 +55,8 @@ impl PremintTypes {
     }
 }
 
-impl Premint for PremintTypes {
-    fn metadata(&self) -> PremintMetadata {
+impl PremintTypes {
+    pub fn metadata(&self) -> PremintMetadata {
         match self {
             PremintTypes::Simple(p) => p.metadata(),
             PremintTypes::V2(p) => p.metadata(),
@@ -73,6 +84,10 @@ impl Premint for SimplePremint {
             uri: self.media.clone(),
         }
     }
+
+    fn kind_id() -> PremintName {
+        PremintName("simple".to_string())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
@@ -95,6 +110,10 @@ impl Premint for PremintV2Message {
             token_id: U256::from(self.premint.uid),
             uri: self.premint.token_creation_config.token_uri.clone(),
         }
+    }
+
+    fn kind_id() -> PremintName {
+        PremintName("zora_premint_v2".to_string())
     }
 }
 

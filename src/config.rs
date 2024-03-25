@@ -1,3 +1,4 @@
+use crate::types::PremintName;
 use envconfig::Envconfig;
 
 #[derive(Envconfig, Debug)]
@@ -22,6 +23,10 @@ pub struct Config {
 
     #[envconfig(from = "PEER_LIMIT", default = "1000")]
     pub peer_limit: u64,
+
+    // Comma separated list of default premint types to process
+    #[envconfig(from = "PREMINT_TYPES", default = "zora_premint_v2")]
+    premint_types: String,
 }
 
 impl Config {
@@ -31,6 +36,13 @@ impl Config {
         } else {
             "127.0.0.1".to_string()
         }
+    }
+
+    pub fn premint_types(&self) -> Vec<PremintName> {
+        self.premint_types
+            .split(",")
+            .map(|s| PremintName(s.to_string()))
+            .collect()
     }
 }
 
