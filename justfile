@@ -4,3 +4,5 @@ init:
 seed:
     touch dev.db
     sqlx migrate run
+
+ci: init seed
