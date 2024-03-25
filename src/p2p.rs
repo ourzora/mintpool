@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::controller::{P2PEvent, SwarmCommand};
 use crate::types::{MintpoolNodeInfo, Premint, PremintTypes};
 use eyre::WrapErr;
@@ -5,9 +6,10 @@ use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::MemoryStore;
+use libp2p::kad::Addresses;
 use libp2p::multiaddr::Protocol;
 use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
-use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr};
+use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr, PeerId};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::Duration;
 use tokio::select;
@@ -23,12 +25,13 @@ pub struct SwarmController {
     command_receiver: tokio::sync::mpsc::Receiver<SwarmCommand>,
     event_sender: tokio::sync::mpsc::Sender<P2PEvent>,
     max_peers: u64,
+    local_mode: bool,
 }
 
 impl SwarmController {
     pub fn new(
         id_keys: Keypair,
-        max_peers: u64,
+        config: &Config,
         command_receiver: tokio::sync::mpsc::Receiver<SwarmCommand>,
         event_sender: tokio::sync::mpsc::Sender<P2PEvent>,
     ) -> Self {
@@ -38,7 +41,8 @@ impl SwarmController {
             swarm,
             command_receiver,
             event_sender,
-            max_peers,
+            max_peers: config.peer_limit,
+            local_mode: config.connect_external == false,
         }
     }
 
@@ -120,7 +124,7 @@ impl SwarmController {
         match command {
             SwarmCommand::ConnectToPeer { address } => match address.parse() {
                 Ok(addr) => {
-                    self.dial_if_peers_below_max(addr).await;
+                    self.safe_dial(addr).await;
                 }
                 Err(err) => {
                     tracing::warn!("Error parsing address: {:?}", err);
@@ -278,7 +282,7 @@ impl SwarmController {
                         .parse()
                         .wrap_err(format!("invalid address found from announce: {}", msg))?;
 
-                    self.dial_if_peers_below_max(addr).await;
+                    self.safe_dial(addr).await;
                 } else {
                     match serde_json::from_str::<PremintTypes>(&msg) {
                         Ok(premint) => {
@@ -343,7 +347,7 @@ impl SwarmController {
         false
     }
 
-    async fn dial_if_peers_below_max(&mut self, address: Multiaddr) {
+    async fn safe_dial(&mut self, address: Multiaddr) {
         let state = self.make_network_state();
         let peers = state.gossipsub_peers.len();
         if peers as u64 >= self.max_peers {
@@ -352,6 +356,11 @@ impl SwarmController {
                 max_peers = self.max_peers,
                 "Max peers reached, not connecting to peer"
             );
+            return;
+        }
+
+        if state.all_external_addresses.contains(&address) && !self.local_mode {
+            tracing::warn!("Already connected to peer: {:?}", address);
             return;
         }
 
@@ -366,21 +375,17 @@ impl SwarmController {
             .behaviour_mut()
             .kad
             .kbuckets()
-            .flat_map(|x| {
-                x.iter()
-                    .map(|x| format!("{:?}", x.node.value))
-                    .collect::<Vec<_>>()
-            })
+            .flat_map(|x| x.iter().map(|x| x.node.value.clone()).collect::<Vec<_>>())
             .collect();
 
-        let my_id = self.swarm.local_peer_id().to_string();
+        let my_id = *self.swarm.local_peer_id();
 
         let gossipsub_peers = self
             .swarm
             .behaviour_mut()
             .gossipsub
             .all_mesh_peers()
-            .map(|p| p.to_string())
+            .cloned()
             .collect::<Vec<_>>();
 
         NetworkState {
@@ -395,9 +400,9 @@ impl SwarmController {
 
 #[derive(Debug)]
 pub struct NetworkState {
-    pub local_peer_id: String,
+    pub local_peer_id: PeerId,
     pub network_info: NetworkInfo,
-    pub dht_peers: Vec<String>,
-    pub gossipsub_peers: Vec<String>,
+    pub dht_peers: Vec<Addresses>,
+    pub gossipsub_peers: Vec<PeerId>,
     pub all_external_addresses: Vec<Multiaddr>,
 }
