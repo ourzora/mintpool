@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::controller::{Controller, ControllerInterface};
-use crate::p2p::make_swarm_controller;
+use crate::p2p::SwarmController;
 use crate::storage::PremintStorage;
 use libp2p::identity;
 
@@ -18,7 +18,7 @@ pub async fn start_swarm_and_controller(config: &Config) -> eyre::Result<Control
 
     let store = PremintStorage::new(config).await;
 
-    let mut swarm_controller = make_swarm_controller(id_keys, swrm_recv, event_send)?;
+    let mut swarm_controller = SwarmController::new(id_keys, config, swrm_recv, event_send);
     let mut controller = Controller::new(swrm_cmd_send, event_recv, ext_cmd_recv, store);
     let controller_interface = ControllerInterface::new(ext_cmd_send);
 

@@ -2313,6 +2313,7 @@ dependencies = [
  "envconfig",
  "eyre",
  "libp2p",
+ "rand",
  "serde",
  "serde_json",
  "sqlx",

@@ -94,7 +94,7 @@ impl Controller {
             P2PEvent::PremintReceived(premint) => {
                 tracing::debug!(premint = premint.to_json().ok(), "Received premint");
 
-                self.validate_and_insert(premint).await;
+                let _ = self.validate_and_insert(premint).await;
             }
         }
     }

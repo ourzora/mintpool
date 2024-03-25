@@ -19,6 +19,9 @@ pub struct Config {
 
     #[envconfig(from = "PRUNE_MINTED_PREMINTS", default = "true")]
     pub prune_minted_premints: bool,
+
+    #[envconfig(from = "PEER_LIMIT", default = "1000")]
+    pub peer_limit: u64,
 }
 
 impl Config {
