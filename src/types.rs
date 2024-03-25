@@ -3,6 +3,7 @@ use alloy_primitives::{Address, U256};
 use libp2p::{gossipsub, Multiaddr, PeerId};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use sqlx::{Decode, Encode};
 use std::fmt::Debug;
 
 #[derive(Debug, Display)]
@@ -23,7 +24,7 @@ pub struct MintpoolNodeInfo {
 #[derive(Debug)]
 pub struct PremintMetadata {
     pub id: String,
-    pub kind: String,
+    pub kind: PremintName,
     pub signer: Address,
     pub chain_id: i64,
     pub collection_address: Address,
@@ -76,7 +77,7 @@ impl Premint for SimplePremint {
     fn metadata(&self) -> PremintMetadata {
         PremintMetadata {
             id: format!("{:?}:{:?}:{:?}", self.chain_id, self.sender, self.token_id),
-            kind: "simple".to_string(),
+            kind: Self::kind_id(),
             signer: self.sender,
             chain_id: self.chain_id as i64,
             collection_address: Address::default(),
@@ -103,7 +104,7 @@ impl Premint for PremintV2Message {
     fn metadata(&self) -> PremintMetadata {
         PremintMetadata {
             id: self.premint.uid.to_string(),
-            kind: "zora_premint_v2".to_string(),
+            kind: Self::kind_id(),
             signer: self.collection.contract_admin,
             chain_id: self.chain_id as i64,
             collection_address: Address::default(), // TODO: source this

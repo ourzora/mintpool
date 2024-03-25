@@ -135,6 +135,7 @@ mod build {
                 persist_state: false,
                 prune_minted_premints: false,
                 peer_limit,
+                premint_types: "simple,zora_premint_v2".to_string(),
             };
 
             let ctl = mintpool::run::start_swarm_and_controller(&config)
