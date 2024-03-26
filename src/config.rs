@@ -1,6 +1,8 @@
 use crate::types::PremintName;
 use crate::types::PremintName;
 use envconfig::Envconfig;
+use std::collections::HashMap;
+use std::env;
 
 #[derive(Envconfig, Debug)]
 pub struct Config {
@@ -34,6 +36,8 @@ pub struct Config {
 
     #[envconfig(from = "SUPPORTED_CHAIN_IDS", default = "777777,8423")]
     pub supported_chain_ids: String,
+    // Dynamic configuration: RPC urls take the form of CHAIN_<chain_id>_RPC_WSS
+    // If not provided in the environment, the default is to use the public node
 }
 
 enum ChainInclusionMode {
@@ -57,10 +61,41 @@ impl Config {
             .map(|s| PremintName(s.to_string()))
             .collect()
     }
+
+    pub fn supported_chains(&self) -> Vec<u64> {
+        self.supported_chain_ids
+            .split(',')
+            .map(|s| s.parse().unwrap())
+            .collect()
+    }
+
+    pub fn rpc_url(&self, chain_id: u64) -> eyre::Result<String> {
+        let defaults = HashMap::from([
+            (777777, "wss://rpc.zora.co"),
+            (8423, "wss://base-rpc.publicnode.com"),
+        ]);
+
+        match env::var(format!("CHAIN_{}_RPC_WSS", chain_id)) {
+            Ok(url) => Ok(url),
+            Err(_) => match defaults.get(&chain_id) {
+                Some(url) => Ok(url.to_string()),
+                None => Err(eyre::eyre!("No default RPC URL for chain {}", chain_id)),
+            },
+        }
+    }
+
+    pub fn validate(self) -> Self {
+        for chain_id in self.supported_chains() {
+            self.rpc_url(chain_id).expect(format!("Failed to get RPC URL for configured chain_id {chain_id}. Set environment variable CHAIN_{chain_id}_RPC_WSS").as_str());
+        }
+        self
+    }
 }
 
 pub fn init() -> Config {
-    Config::init_from_env().expect("Failed to load config")
+    Config::init_from_env()
+        .expect("Failed to load config")
+        .validate()
 }
 
 #[cfg(test)]
