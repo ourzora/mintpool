@@ -50,8 +50,8 @@ impl PremintStorage {
     pub async fn store(&self, premint: PremintTypes) -> eyre::Result<()> {
         let metadata = premint.metadata();
         let json = premint.to_json()?;
-        let signer = metadata.signer.to_checksum(None);
-        let collection_address = metadata.collection_address.to_checksum(None);
+        let signer = format!("{:?}", metadata.signer);
+        let collection_address = format!("{:?}", metadata.collection_address);
         let token_id = metadata.token_id.to_string();
         sqlx::query!(
             r#"

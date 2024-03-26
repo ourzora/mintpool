@@ -1,10 +1,8 @@
-use alloy_primitives::private::derive_more::Display;
-use alloy_primitives::{Address, U256};
+use ethers::prelude::{Address, U256};
 use libp2p::{gossipsub, Multiaddr, PeerId};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use sqlx::{Decode, Encode};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 #[derive(Debug, Display)]
 pub struct PremintName(pub String);
