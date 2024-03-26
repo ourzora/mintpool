@@ -1,4 +1,5 @@
 use crate::types::PremintName;
+use crate::types::PremintName;
 use envconfig::Envconfig;
 
 #[derive(Envconfig, Debug)]
@@ -27,6 +28,18 @@ pub struct Config {
     // Comma separated list of default premint types to process
     #[envconfig(from = "PREMINT_TYPES", default = "zora_premint_v2")]
     pub premint_types: String,
+
+    #[envconfig(from = "CHAIN_INCLUSION_MODE", default = "verify")]
+    pub chain_inclusion_mode: ChainInclusionMode,
+
+    #[envconfig(from = "SUPPORTED_CHAIN_IDS", default = "777777,8423")]
+    pub supported_chain_ids: String,
+}
+
+enum ChainInclusionMode {
+    Check,
+    Verify,
+    Trust,
 }
 
 impl Config {
@@ -52,6 +65,8 @@ pub fn init() -> Config {
 
 #[cfg(test)]
 mod test {
+    use crate::config::ChainInclusionMode;
+
     #[test]
     fn test_premint_names() {
         let config = super::Config {
@@ -63,6 +78,8 @@ mod test {
             prune_minted_premints: false,
             peer_limit: 1000,
             premint_types: "simple,zora_premint_v2".to_string(),
+            chain_inclusion_mode: ChainInclusionMode::Check,
+            supported_chain_ids: "7777777".to_string(),
         };
 
         let names = config.premint_names();
@@ -78,7 +95,9 @@ mod test {
             persist_state: false,
             prune_minted_premints: false,
             peer_limit: 1000,
-            premint_types: "zora_premint_v2".to_string(),
+            premint_types: "simple,zora_premint_v2".to_string(),
+            chain_inclusion_mode: ChainInclusionMode::Check,
+            supported_chain_ids: "7777777".to_string(),
         };
 
         let names = config.premint_names();
