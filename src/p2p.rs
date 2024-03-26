@@ -102,8 +102,6 @@ impl SwarmController {
             .gossipsub
             .subscribe(&registry_topic)?;
 
-        println!("{:?}", self.premint_names);
-
         for premint_name in self.premint_names.iter() {
             let topic = premint_name.msg_topic();
             self.swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
