@@ -1,8 +1,19 @@
+use alloy_primitives::private::derive_more::Display;
 use alloy_primitives::{Address, U256};
-use libp2p::{Multiaddr, PeerId};
+use libp2p::{gossipsub, Multiaddr, PeerId};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use sqlx::{Decode, Encode};
 use std::fmt::Debug;
+
+#[derive(Debug, Display)]
+pub struct PremintName(pub String);
+
+impl PremintName {
+    pub fn msg_topic(&self) -> gossipsub::IdentTopic {
+        gossipsub::IdentTopic::new(format!("mintpool::{:?}", self))
+    }
+}
 
 #[derive(Debug)]
 pub struct MintpoolNodeInfo {
@@ -13,7 +24,7 @@ pub struct MintpoolNodeInfo {
 #[derive(Debug)]
 pub struct PremintMetadata {
     pub id: String,
-    pub kind: String,
+    pub kind: PremintName,
     pub signer: Address,
     pub chain_id: i64,
     pub collection_address: Address,
@@ -23,6 +34,7 @@ pub struct PremintMetadata {
 
 pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
+    fn kind_id() -> PremintName;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -44,8 +56,8 @@ impl PremintTypes {
     }
 }
 
-impl Premint for PremintTypes {
-    fn metadata(&self) -> PremintMetadata {
+impl PremintTypes {
+    pub fn metadata(&self) -> PremintMetadata {
         match self {
             PremintTypes::Simple(p) => p.metadata(),
             PremintTypes::V2(p) => p.metadata(),
@@ -65,13 +77,17 @@ impl Premint for SimplePremint {
     fn metadata(&self) -> PremintMetadata {
         PremintMetadata {
             id: format!("{:?}:{:?}:{:?}", self.chain_id, self.sender, self.token_id),
-            kind: "simple".to_string(),
+            kind: Self::kind_id(),
             signer: self.sender,
             chain_id: self.chain_id as i64,
             collection_address: Address::default(),
             token_id: U256::from(self.token_id),
             uri: self.media.clone(),
         }
+    }
+
+    fn kind_id() -> PremintName {
+        PremintName("simple".to_string())
     }
 }
 
@@ -88,13 +104,17 @@ impl Premint for PremintV2Message {
     fn metadata(&self) -> PremintMetadata {
         PremintMetadata {
             id: self.premint.uid.to_string(),
-            kind: "zora_premint_v2".to_string(),
+            kind: Self::kind_id(),
             signer: self.collection.contract_admin,
             chain_id: self.chain_id as i64,
             collection_address: Address::default(), // TODO: source this
             token_id: U256::from(self.premint.uid),
             uri: self.premint.token_creation_config.token_uri.clone(),
         }
+    }
+
+    fn kind_id() -> PremintName {
+        PremintName("zora_premint_v2".to_string())
     }
 }
 

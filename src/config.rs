@@ -1,3 +1,4 @@
+use crate::types::PremintName;
 use envconfig::Envconfig;
 
 #[derive(Envconfig, Debug)]
@@ -22,6 +23,10 @@ pub struct Config {
 
     #[envconfig(from = "PEER_LIMIT", default = "1000")]
     pub peer_limit: u64,
+
+    // Comma separated list of default premint types to process
+    #[envconfig(from = "PREMINT_TYPES", default = "zora_premint_v2")]
+    pub premint_types: String,
 }
 
 impl Config {
@@ -32,8 +37,52 @@ impl Config {
             "127.0.0.1".to_string()
         }
     }
+
+    pub fn premint_names(&self) -> Vec<PremintName> {
+        self.premint_types
+            .split(',')
+            .map(|s| PremintName(s.to_string()))
+            .collect()
+    }
 }
 
 pub fn init() -> Config {
     Config::init_from_env().expect("Failed to load config")
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_premint_names() {
+        let config = super::Config {
+            seed: 0,
+            port: 7777,
+            connect_external: false,
+            db_url: None,
+            persist_state: false,
+            prune_minted_premints: false,
+            peer_limit: 1000,
+            premint_types: "simple,zora_premint_v2".to_string(),
+        };
+
+        let names = config.premint_names();
+        assert_eq!(names.len(), 2);
+        assert_eq!(names[0].0, "simple");
+        assert_eq!(names[1].0, "zora_premint_v2");
+
+        let config = super::Config {
+            seed: 0,
+            port: 7777,
+            connect_external: false,
+            db_url: None,
+            persist_state: false,
+            prune_minted_premints: false,
+            peer_limit: 1000,
+            premint_types: "zora_premint_v2".to_string(),
+        };
+
+        let names = config.premint_names();
+        assert_eq!(names.len(), 1);
+        assert_eq!(names[0].0, "zora_premint_v2");
+    }
 }

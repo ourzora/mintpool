@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::controller::{P2PEvent, SwarmCommand};
-use crate::types::{MintpoolNodeInfo, Premint, PremintTypes};
+use crate::types::{MintpoolNodeInfo, Premint, PremintName, PremintTypes};
+use alloy_primitives::private::derive_more::Display;
 use eyre::WrapErr;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
@@ -26,6 +27,7 @@ pub struct SwarmController {
     event_sender: tokio::sync::mpsc::Sender<P2PEvent>,
     max_peers: u64,
     local_mode: bool,
+    premint_names: Vec<PremintName>,
 }
 
 impl SwarmController {
@@ -42,7 +44,8 @@ impl SwarmController {
             command_receiver,
             event_sender,
             max_peers: config.peer_limit,
-            local_mode: config.connect_external == false,
+            local_mode: !config.connect_external,
+            premint_names: config.premint_names(),
         }
     }
 
@@ -90,17 +93,19 @@ impl SwarmController {
     }
 
     pub async fn run(&mut self, port: u64, listen_ip: String) -> eyre::Result<()> {
-        let registry_topic = gossipsub::IdentTopic::new("announce::premints");
+        self.swarm
+            .listen_on(format!("/ip4/{listen_ip}/tcp/{port}").parse()?)?;
 
-        let topic = gossipsub::IdentTopic::new("zora-1155-v1-mints");
-        self.swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
+        let registry_topic = announce_topic();
         self.swarm
             .behaviour_mut()
             .gossipsub
             .subscribe(&registry_topic)?;
 
-        self.swarm
-            .listen_on(format!("/ip4/{listen_ip}/tcp/{port}").parse()?)?;
+        for premint_name in self.premint_names.iter() {
+            let topic = premint_name.msg_topic();
+            self.swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
+        }
 
         self.run_loop().await;
         Ok(())
@@ -235,7 +240,7 @@ impl SwarmController {
     }
 
     fn broadcast_message(&mut self, message: PremintTypes) -> eyre::Result<()> {
-        let topic = gossipsub::IdentTopic::new("zora-1155-v1-mints");
+        let topic = message.metadata().kind.msg_topic();
         let msg = message.to_json().wrap_err("failed to serialize message")?;
 
         self.swarm
@@ -257,7 +262,7 @@ impl SwarmController {
         } else {
             peer_id.to_string()
         };
-        let registry_topic = gossipsub::IdentTopic::new("announce::premints");
+        let registry_topic = announce_topic();
 
         if let Err(err) = self
             .swarm
@@ -270,8 +275,8 @@ impl SwarmController {
     }
 
     async fn handle_gossipsub_event(&mut self, event: gossipsub::Event) -> eyre::Result<()> {
-        tracing::info!("Gossipsub event: {:?}", event);
-        let registry_topic = gossipsub::IdentTopic::new("announce::premints");
+        tracing::debug!("Gossipsub event: {:?}", event);
+        let registry_topic = announce_topic();
         match event {
             gossipsub::Event::Message { message, .. } => {
                 let msg = String::from_utf8_lossy(&message.data);
@@ -405,4 +410,8 @@ pub struct NetworkState {
     pub dht_peers: Vec<Addresses>,
     pub gossipsub_peers: Vec<PeerId>,
     pub all_external_addresses: Vec<Multiaddr>,
+}
+
+fn announce_topic() -> gossipsub::IdentTopic {
+    gossipsub::IdentTopic::new("mintpool::announce")
 }

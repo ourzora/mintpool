@@ -59,7 +59,7 @@ impl PremintStorage {
             VALUES (?, ?, ?, ?, ?, ?, ?)
         "#,
             metadata.id,
-            metadata.kind,
+            metadata.kind.0,
             signer,
             metadata.chain_id,
             collection_address,
@@ -121,6 +121,7 @@ mod test {
             persist_state: false,
             prune_minted_premints: false,
             peer_limit: 1000,
+            premint_types: "simple".to_string(),
         };
 
         let store = PremintStorage::new(&config).await;
@@ -141,6 +142,7 @@ mod test {
             persist_state: false,
             prune_minted_premints: false,
             peer_limit: 1000,
+            premint_types: "simple".to_string(),
         };
 
         let store = PremintStorage::new(&config).await;
