@@ -1,8 +1,12 @@
 use crate::controller::ControllerCommands;
 use crate::types::{InclusionClaim, Premint};
+// use alloy::network::Ethereum;
 use ethers::prelude::{Log, Middleware, Provider, StreamExt, Ws};
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
+// Temp Fix
+// use alloy_provider::{Provider, RootProvider};
+// use alloy_rpc_client::{RpcClient, WsConnect};
 
 /// Checks for new premints being brought onchain then sends to controller to handle
 struct MintChecker {
@@ -59,6 +63,16 @@ impl MintChecker {
             }
         }
     }
+
+    // async fn make_provider(&self) {
+    //     let ws_transport = WsConnect::new(self.rpc_url.clone());
+    //
+    //     // Connect to the WS client.
+    //     let rpc_client = RpcClient::connect_pubsub(ws_transport).await?;
+    //
+    //     // Create the provider.
+    //     let provider = RootProvider::<Ethereum, _>::new(rpc_client);
+    // }
 
     async fn log_to_claim<T: Premint>(
         &self,

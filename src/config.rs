@@ -1,8 +1,9 @@
 use crate::types::PremintName;
-use crate::types::PremintName;
 use envconfig::Envconfig;
 use std::collections::HashMap;
 use std::env;
+use std::error::Error;
+use std::str::FromStr;
 
 #[derive(Envconfig, Debug)]
 pub struct Config {
@@ -42,10 +43,24 @@ pub struct Config {
     pub trusted_peers: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ChainInclusionMode {
     Check,  // node will check chains for new premints getting included
     Verify, // node will verify that premints are included on chain based on messages from other nodes
     Trust, // node will trust that premints are included on chain based on messages from other trusted nodes
+}
+
+impl FromStr for ChainInclusionMode {
+    type Err = eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "check" => Ok(Self::Check),
+            "verify" => Ok(Self::Verify),
+            "trust" => Ok(Self::Trust),
+            _ => Err(eyre::eyre!("Invalid chain inclusion mode")),
+        }
+    }
 }
 
 impl Config {

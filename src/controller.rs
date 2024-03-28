@@ -147,6 +147,9 @@ impl Controller {
                     };
                 }
             },
+            ControllerCommands::ResolveOnchainMint(_) => {
+                todo!("prune")
+            }
         }
         Ok(())
     }

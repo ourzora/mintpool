@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt::{Debug, Display};
 
-#[derive(Debug, Display)]
+#[derive(Debug)]
 pub struct PremintName(pub String);
 
 impl PremintName {
@@ -294,7 +294,7 @@ mod test {
         let log = Log {
             address: PREMINT_FACTORY_ADDR.clone(),
             topics: vec![H256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
-                         H256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(), 
+                         H256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
                          H256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
                          H256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
             ],
@@ -346,7 +346,7 @@ mod test {
         let log = Log {
             address: PREMINT_FACTORY_ADDR.clone(),
             topics: vec![H256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
-                         H256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(), 
+                         H256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
                          H256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
                          H256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
             ],
