@@ -38,12 +38,14 @@ pub struct Config {
     pub supported_chain_ids: String,
     // Dynamic configuration: RPC urls take the form of CHAIN_<chain_id>_RPC_WSS
     // If not provided in the environment, the default is to use the public node
+    #[envconfig(from = "TRUSTED_PEERS", default = "")]
+    pub trusted_peers: String,
 }
 
-enum ChainInclusionMode {
-    Check,
-    Verify,
-    Trust,
+pub enum ChainInclusionMode {
+    Check,  // node will check chains for new premints getting included
+    Verify, // node will verify that premints are included on chain based on messages from other nodes
+    Trust, // node will trust that premints are included on chain based on messages from other trusted nodes
 }
 
 impl Config {
@@ -66,6 +68,13 @@ impl Config {
         self.supported_chain_ids
             .split(',')
             .map(|s| s.parse().unwrap())
+            .collect()
+    }
+
+    pub fn trusted_peers(&self) -> Vec<String> {
+        self.trusted_peers
+            .split(',')
+            .map(|s| s.to_string())
             .collect()
     }
 

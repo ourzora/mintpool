@@ -138,9 +138,7 @@ mod build {
                 premint_types: "simple,zora_premint_v2".to_string(),
             };
 
-            let ctl = mintpool::run::start_swarm_and_controller(&config)
-                .await
-                .unwrap();
+            let ctl = mintpool::run::start_services(&config).await.unwrap();
             nodes.push(ctl);
         }
         nodes

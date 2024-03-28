@@ -1,13 +1,14 @@
+use crate::controller::ControllerCommands;
 use crate::types::{InclusionClaim, Premint};
-use ethers::prelude::{Filter, Log, Middleware, Provider, StreamExt, Ws};
+use ethers::prelude::{Log, Middleware, Provider, StreamExt, Ws};
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 
 /// Checks for new premints being brought onchain then sends to controller to handle
 struct MintChecker {
     chain_id: u64,
-    rpc: Arc<Provider<Ws>>,
-    channel: Sender<InclusionClaim>,
+    rpc_url: String,
+    channel: Sender<ControllerCommands>,
 }
 
 impl MintChecker {
@@ -15,6 +16,14 @@ impl MintChecker {
         let mut highest_block: Option<u64> = None;
 
         loop {
+            let rpc = if let Ok(p) = Provider::<Ws>::connect(&self.rpc_url).await {
+                Arc::new(p)
+            } else {
+                tracing::error!("Failed to connect to RPC, retrying...");
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                continue;
+            };
+
             let mut filter = if let Some(filter) = T::check_filter(self.chain_id) {
                 filter
             } else {
@@ -28,11 +37,15 @@ impl MintChecker {
                 filter = filter.from_block(highest_block);
             }
 
-            let mut stream = self.rpc.subscribe_logs(&filter).await?;
+            let mut stream = rpc.subscribe_logs(&filter).await?;
             while let Some(log) = stream.next().await {
-                match self.log_to_claim::<T>(log.clone()).await {
+                match self.log_to_claim::<T>(rpc.clone(), log.clone()).await {
                     Ok(claim) => {
-                        if let Err(err) = self.channel.send(claim).await {
+                        if let Err(err) = self
+                            .channel
+                            .send(ControllerCommands::ResolveOnchainMint(claim))
+                            .await
+                        {
                             tracing::error!("Error sending claim to controller: {}", err);
                         }
                     }
@@ -47,13 +60,16 @@ impl MintChecker {
         }
     }
 
-    async fn log_to_claim<T: Premint>(&self, log: Log) -> eyre::Result<InclusionClaim> {
+    async fn log_to_claim<T: Premint>(
+        &self,
+        rpc: Arc<Provider<Ws>>,
+        log: Log,
+    ) -> eyre::Result<InclusionClaim> {
         let tx_hash = log
             .transaction_hash
             .ok_or(eyre::eyre!("No tx hash in log"))?;
 
-        let tx = self
-            .rpc
+        let tx = rpc
             .get_transaction(tx_hash)
             .await?
             .ok_or(eyre::eyre!("No tx found"))?;
