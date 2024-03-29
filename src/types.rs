@@ -1,12 +1,12 @@
+use alloy::rpc::types::eth::{Filter, Log, Transaction};
+use alloy_primitives::{Address, B256, U256};
 use async_trait::async_trait;
-use ethers::contract::EthEvent;
-use ethers::prelude::{abigen, parse_log, Address, Filter, Log, Transaction, H256, U256};
 use libp2p::{gossipsub, Multiaddr, PeerId};
-use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
+
+use crate::premints::zora_v2::PremintV2Message;
 
 #[derive(Debug)]
 pub struct PremintName(pub String);
@@ -39,7 +39,7 @@ pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
 
     fn check_filter(chain_id: u64) -> Option<Filter>;
-    fn map_claim(chain_id: u64, tx: Transaction, log: Log) -> eyre::Result<InclusionClaim>;
+    fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim>;
     async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool;
     fn kind_id() -> PremintName;
 }
@@ -98,7 +98,7 @@ impl Premint for SimplePremint {
         todo!()
     }
 
-    fn map_claim(chain_id: u64, tx: Transaction, log: Log) -> eyre::Result<InclusionClaim> {
+    fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim> {
         todo!()
     }
 
@@ -111,132 +111,11 @@ impl Premint for SimplePremint {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct PremintV2Message {
-    collection: PremintV2Collection,
-    premint: PremintV2,
-    chain_id: u64,
-    signature: String,
-}
-
-abigen!(
-    PremintV2,
-    r"[event PremintedV2(address indexed contractAddress,uint256 indexed tokenId,bool indexed createdNewContract,uint32 uid,address minter,uint256 quantityMinted)]"
-);
-
-static PREMINT_FACTORY_ADDR: Lazy<Address> = Lazy::new(|| {
-    "0x7777773606e7e46C8Ba8B98C08f5cD218e31d340"
-        .parse()
-        .unwrap()
-});
-
-#[async_trait]
-impl Premint for PremintV2Message {
-    fn metadata(&self) -> PremintMetadata {
-        PremintMetadata {
-            id: self.premint.uid.to_string(),
-            kind: Self::kind_id(),
-            signer: self.collection.contract_admin,
-            chain_id: self.chain_id as i64,
-            collection_address: Address::default(), // TODO: source this
-            token_id: U256::from(self.premint.uid),
-            uri: self.premint.token_creation_config.token_uri.clone(),
-        }
-    }
-
-    fn kind_id() -> PremintName {
-        PremintName("zora_premint_v2".to_string())
-    }
-
-    fn check_filter(chain_id: u64) -> Option<Filter> {
-        let supported_chains = vec![7777777, 8423]; // TODO: add the rest here and enable testnet mode
-
-        if !supported_chains.contains(&chain_id) {
-            return None;
-        }
-
-        Some(
-            Filter::new()
-                .address(PREMINT_FACTORY_ADDR.clone())
-                .event(PremintedV2Filter::abi_signature().to_string().as_str()),
-        )
-    }
-
-    fn map_claim(chain_id: u64, tx: Transaction, log: Log) -> eyre::Result<InclusionClaim> {
-        let event: PremintedV2Filter = parse_log(log.clone())?;
-        Ok(InclusionClaim {
-            premint_id: event.uid.to_string(),
-            chain_id,
-            tx_hash: tx.hash,
-            log_index: log.log_index.unwrap_or(U256::zero()).as_u64(),
-            kind: "zora_premint_v2".to_string(),
-        })
-    }
-
-    async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool {
-        let event = parse_log::<PremintedV2Filter>(log.clone());
-        match event {
-            Ok(event) => {
-                let conditions = vec![
-                    log.address == PREMINT_FACTORY_ADDR.clone(),
-                    log.transaction_hash.unwrap_or(H256::zero()) == tx.hash,
-                    claim.tx_hash == tx.hash,
-                    claim.log_index == log.log_index.unwrap_or(U256::zero()).as_u64(),
-                    claim.premint_id == event.uid.to_string(),
-                    claim.kind == "zora_premint_v2".to_string(),
-                    claim.chain_id == chain_id,
-                ];
-
-                // confirm all conditions are true
-                conditions.into_iter().all(|x| x)
-            }
-            Err(e) => {
-                tracing::debug!("Failed to parse log: {}", e);
-                return false;
-            }
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct PremintV2Collection {
-    contract_admin: Address,
-    contract_uri: String,
-    contract_name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct PremintV2 {
-    token_creation_config: TokenCreationConfigV2,
-    uid: u64,
-    version: u64,
-    deleted: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct TokenCreationConfigV2 {
-    token_uri: String,
-    token_max_supply: U256,
-    mint_start: u64,
-    mint_duration: u64,
-    max_tokens_per_address: U256,
-    price_per_token: U256,
-    #[serde(rename = "royaltyBPS")]
-    royalty_bps: U256,
-    payout_recipient: Address,
-    fixed_price_minter: Address,
-    creator_referral: Address,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct InclusionClaim {
     pub premint_id: String,
     pub chain_id: u64,
-    pub tx_hash: H256,
+    pub tx_hash: B256,
     pub log_index: u64,
     pub kind: String,
 }

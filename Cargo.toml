@@ -8,56 +8,77 @@ edition = "2021"
 [dependencies]
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-libp2p = { version = "0.53.2", features = ["tokio", "tcp", "macros", "noise", "yamux", "kad", "gossipsub"] }
+libp2p = { version = "0.53.2", features = [
+    "tokio",
+    "tcp",
+    "macros",
+    "noise",
+    "yamux",
+    "kad",
+    "gossipsub",
+] }
 tokio = { version = "1.36.0", features = ["full"] }
 eyre = "0.6.12"
 async-trait = "0.1.77"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
-ethers = { version = "2.0.14", features = ["ws"] }
 clap = { version = "4.5.2", features = ["derive"] }
 envconfig = "0.10.0"
 colored = "2.1.0"
-sqlx = { version = "0.7.4", features = ["runtime-tokio", "macros", "sqlite", "postgres", "any"] }
+sqlx = { version = "0.7.4", features = [
+    "runtime-tokio",
+    "macros",
+    "sqlite",
+    "postgres",
+    "any",
+] }
 once_cell = "1.19.0"
 rand = "0.8.5"
+futures-util = "0.3"
 
-alloy = { git = "https://github.com/alloy-rs/alloy", rev = "66fa192", features = [
+alloy = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639", features = [
     "sol-types",
-    "serde",
-    "contract",
+    #    "serde",
+    #    "contract",
     "network",
-    "node-bindings",
-    "providers",
-    "rpc",
-    "rpc-client",
+    #    "node-bindings",
+    #    "providers",
+    #    "rpc",
+    #    "rpc-client",
     "rpc-types-eth",
-    "rpc-types-trace",
-    "signers",
-    "transports",
-    "transport-http",
-    "transport-ipc",
-    "transport-ws",
+    #    "rpc-types-trace",
+    #    "signers",
+    #    "transports",
+    #    "transport-http",
+    #    "transport-ipc",
+    #    "transport-ws",
     "pubsub",
 ] }
 
-alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy", rev = "66fa192", features = [
+alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639", features = [
     "pubsub",
     "ws",
 ] }
-alloy-provider = { git = "https://github.com/alloy-rs/alloy", rev = "66fa192", features = [
+alloy-provider = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639", features = [
     "pubsub",
 ] }
 
-[profile.dev.package.sqlx-macros]
-opt-level = 3
+alloy-sol-types = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
+alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "525a233", features = ["serde"] }
 
 
 [patch.crates-io]
-alloy-core = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
-alloy-dyn-abi = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
-alloy-json-abi = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
 alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
-alloy-sol-macro = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
-alloy-sol-types = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
-syn-solidity = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
+
+#[patch.crates-io]
+#alloy-core = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
+#alloy-dyn-abi = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
+#alloy-json-abi = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
+#alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
+#alloy-sol-macro = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
+#alloy-sol-types = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
+#syn-solidity = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
+
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
