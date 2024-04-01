@@ -96,7 +96,7 @@ async fn test_max_connections() {
 }
 
 mod build {
-    use mintpool::config::Config;
+    use mintpool::config::{ChainInclusionMode, Config};
     use mintpool::controller::{ControllerCommands, ControllerInterface};
     use tokio::time;
 
@@ -136,6 +136,9 @@ mod build {
                 prune_minted_premints: false,
                 peer_limit,
                 premint_types: "simple,zora_premint_v2".to_string(),
+                chain_inclusion_mode: ChainInclusionMode::Check,
+                supported_chain_ids: "7777777".to_string(),
+                trusted_peers: None,
             };
 
             let ctl = mintpool::run::start_services(&config).await.unwrap();

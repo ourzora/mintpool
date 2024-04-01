@@ -31,7 +31,7 @@ sol!(
     );
 );
 
-static PREMINT_FACTORY_ADDR: Address = address!("7777773606e7e46C8Ba8B98C08f5cD218e31d340");
+pub static PREMINT_FACTORY_ADDR: Address = address!("7777773606e7e46C8Ba8B98C08f5cD218e31d340");
 
 #[async_trait]
 impl Premint for PremintV2Message {

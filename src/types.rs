@@ -123,8 +123,10 @@ pub struct InclusionClaim {
 #[cfg(test)]
 mod test {
     use super::*;
-    use ethers::prelude::{Bytes, U64};
+    use crate::premints::zora_v2::PREMINT_FACTORY_ADDR;
+    use alloy_primitives::Bytes;
     use std::str::FromStr;
+
     #[test]
     fn test_premint_serde() {
         let premint = PremintTypes::Simple(SimplePremint {
@@ -150,49 +152,34 @@ mod test {
 
     #[test]
     fn test_map_premintv2_claim() {
-        let tx = Transaction {
-            hash: H256::from_str(
-                "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
-            )
-            .unwrap(),
-            nonce: U256::from(37),
-            block_hash: Some(
-                H256::from_str(
+        let log = Log {
+            address: PREMINT_FACTORY_ADDR.clone(),
+            topics: vec![B256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
+                         B256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
+                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+            ],
+            data: Bytes::from_str("0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000edb81afaecc2379635b25a752b787f821a46644c0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+            block_hash:  Some(
+                B256::from_str(
                     "0x0e918f6a5cfda90ce33ac5117880f6db97849a095379acdc162d038aaee56757",
                 )
                 .unwrap(),
             ),
-            block_number: Some(U64::from(12387768)),
-            transaction_index: Some(U64::from(4)),
-            from: Address::from_str("0xeDB81aFaecC2379635B25A752b787f821a46644c").unwrap(),
-            to: Some(PREMINT_FACTORY_ADDR.clone()),
-            value: U256::from(777_000_000_000_000_i64),
-            ..Default::default()
-        };
-
-        let log = Log {
-            address: PREMINT_FACTORY_ADDR.clone(),
-            topics: vec![H256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
-                         H256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
-                         H256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-                         H256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-            ],
-            data: Bytes::from_str("0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000edb81afaecc2379635b25a752b787f821a46644c0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-            block_hash: tx.block_hash,
-            block_number: tx.block_number,
-            transaction_hash: Some(tx.hash.clone()),
-            transaction_index: tx.transaction_index,
+            block_number: Some(U256::from(12387768)),
+            transaction_hash: Some(B256::from_str(
+                "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
+            ).unwrap()),
+            transaction_index: Some(U256::from(4)),
             log_index: Some(U256::from(28)),
-            transaction_log_index: Some(U256::from(28)),
-            log_type: None,
-            removed: None,
+            removed: false,
         };
 
-        let claim = PremintV2Message::map_claim(7777777, tx.clone(), log).unwrap();
+        let claim = PremintV2Message::map_claim(7777777, log.clone()).unwrap();
         let expected = InclusionClaim {
             premint_id: "1".to_string(),
             chain_id: 7777777,
-            tx_hash: tx.clone().hash,
+            tx_hash: log.clone().transaction_hash.unwrap(),
             log_index: 28,
             kind: "zora_premint_v2".to_string(),
         };
@@ -203,19 +190,19 @@ mod test {
     #[tokio::test]
     async fn test_verify_premintv2_claim() {
         let tx = Transaction {
-            hash: H256::from_str(
+            hash: B256::from_str(
                 "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
             )
             .unwrap(),
-            nonce: U256::from(37),
+            nonce: 1,
             block_hash: Some(
-                H256::from_str(
+                B256::from_str(
                     "0x0e918f6a5cfda90ce33ac5117880f6db97849a095379acdc162d038aaee56757",
                 )
                 .unwrap(),
             ),
-            block_number: Some(U64::from(12387768)),
-            transaction_index: Some(U64::from(4)),
+            block_number: Some(U256::from(12387768)),
+            transaction_index: Some(U256::from(4)),
             from: Address::from_str("0xeDB81aFaecC2379635B25A752b787f821a46644c").unwrap(),
             to: Some(PREMINT_FACTORY_ADDR.clone()),
             value: U256::from(777_000_000_000_000_i64),
@@ -224,23 +211,24 @@ mod test {
 
         let log = Log {
             address: PREMINT_FACTORY_ADDR.clone(),
-            topics: vec![H256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
-                         H256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
-                         H256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-                         H256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+            topics: vec![B256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
+                         B256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
+                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
             ],
             data: Bytes::from_str("0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000edb81afaecc2379635b25a752b787f821a46644c0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-            block_hash: tx.block_hash,
-            block_number: tx.block_number,
-            transaction_hash: Some(tx.hash.clone()),
-            transaction_index: tx.transaction_index,
+            block_hash: None,
+            block_number: None,
+            transaction_hash: Some( B256::from_str(
+                "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
+            )
+            .unwrap()),
+            transaction_index: Some(U256::from(4)),
             log_index: Some(U256::from(28)),
-            transaction_log_index: Some(U256::from(28)),
-            log_type: None,
-            removed: None,
+            ..Default::default()
         };
 
-        let claim = PremintV2Message::map_claim(7777777, tx.clone(), log.clone()).unwrap();
+        let claim = PremintV2Message::map_claim(7777777, log.clone()).unwrap();
         assert!(PremintV2Message::verify_claim(7777777, tx.clone(), log.clone(), claim).await);
     }
 }

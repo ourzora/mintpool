@@ -39,8 +39,8 @@ pub struct Config {
     pub supported_chain_ids: String,
     // Dynamic configuration: RPC urls take the form of CHAIN_<chain_id>_RPC_WSS
     // If not provided in the environment, the default is to use the public node
-    #[envconfig(from = "TRUSTED_PEERS", default = "")]
-    pub trusted_peers: String,
+    #[envconfig(from = "TRUSTED_PEERS")]
+    pub trusted_peers: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -87,15 +87,15 @@ impl Config {
     }
 
     pub fn trusted_peers(&self) -> Vec<String> {
-        self.trusted_peers
-            .split(',')
-            .map(|s| s.to_string())
-            .collect()
+        match &self.trusted_peers {
+            None => vec![],
+            Some(peers) => peers.split(',').map(|s| s.to_string()).collect(),
+        }
     }
 
     pub fn rpc_url(&self, chain_id: u64) -> eyre::Result<String> {
         let defaults = HashMap::from([
-            (777777, "wss://rpc.zora.co"),
+            (7777777, "wss://rpc.zora.co"),
             (8423, "wss://base-rpc.publicnode.com"),
         ]);
 
@@ -139,6 +139,7 @@ mod test {
             premint_types: "simple,zora_premint_v2".to_string(),
             chain_inclusion_mode: ChainInclusionMode::Check,
             supported_chain_ids: "7777777".to_string(),
+            trusted_peers: None,
         };
 
         let names = config.premint_names();
@@ -154,9 +155,10 @@ mod test {
             persist_state: false,
             prune_minted_premints: false,
             peer_limit: 1000,
-            premint_types: "simple,zora_premint_v2".to_string(),
+            premint_types: "zora_premint_v2".to_string(),
             chain_inclusion_mode: ChainInclusionMode::Check,
             supported_chain_ids: "7777777".to_string(),
+            trusted_peers: None,
         };
 
         let names = config.premint_names();

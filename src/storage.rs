@@ -107,7 +107,7 @@ impl PremintStorage {
 
 #[cfg(test)]
 mod test {
-    use crate::config::Config;
+    use crate::config::{ChainInclusionMode, Config};
     use crate::storage::PremintStorage;
     use crate::types::{Premint, PremintTypes};
 
@@ -122,6 +122,9 @@ mod test {
             prune_minted_premints: false,
             peer_limit: 1000,
             premint_types: "simple".to_string(),
+            chain_inclusion_mode: ChainInclusionMode::Check,
+            supported_chain_ids: "7777777,".to_string(),
+            trusted_peers: None,
         };
 
         let store = PremintStorage::new(&config).await;
@@ -143,6 +146,9 @@ mod test {
             prune_minted_premints: false,
             peer_limit: 1000,
             premint_types: "simple".to_string(),
+            chain_inclusion_mode: ChainInclusionMode::Check,
+            supported_chain_ids: "7777777,".to_string(),
+            trusted_peers: None,
         };
 
         let store = PremintStorage::new(&config).await;
