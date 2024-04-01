@@ -1,3 +1,5 @@
+use crate::controller::{ControllerCommands, ControllerInterface};
+use crate::types::Premint;
 use alloy::network::Ethereum;
 use alloy::rpc::types::eth::{TransactionInput, TransactionRequest};
 use alloy_primitives::Bytes;
@@ -7,9 +9,7 @@ use futures_util::StreamExt;
 use tokio::sync::mpsc::Sender;
 
 use crate::chain_list::{ChainListProvider, CHAINS};
-use crate::controller::ControllerCommands;
 use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
-use crate::types::Premint;
 
 pub async fn contract_call<T, P>(call: T, provider: P) -> eyre::Result<T::Return>
 where
@@ -34,13 +34,21 @@ where
 }
 
 /// Checks for new premints being brought onchain then sends to controller to handle
-struct MintChecker {
+pub struct MintChecker {
     chain_id: u64,
     rpc_url: String,
-    channel: Sender<ControllerCommands>,
+    controller: ControllerInterface,
 }
 
 impl MintChecker {
+    pub fn new(chain_id: u64, rpc_url: String, controller: ControllerInterface) -> Self {
+        Self {
+            chain_id,
+            rpc_url,
+            controller,
+        }
+    }
+
     pub async fn poll_for_new_mints<T: Premint>(&self) -> eyre::Result<()> {
         let mut highest_block: Option<u64> = None;
 
@@ -64,8 +72,8 @@ impl MintChecker {
                 match T::map_claim(self.chain_id, log.clone()) {
                     Ok(claim) => {
                         if let Err(err) = self
-                            .channel
-                            .send(ControllerCommands::ResolveOnchainMint(claim))
+                            .controller
+                            .send_command(ControllerCommands::ResolveOnchainMint(claim))
                             .await
                         {
                             tracing::error!("Error sending claim to controller: {}", err);

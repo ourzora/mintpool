@@ -152,7 +152,16 @@ impl Controller {
                     };
                 }
             },
-            ControllerCommands::ResolveOnchainMint(claim) => {}
+            ControllerCommands::ResolveOnchainMint(claim) => {
+                // This comes from trusted internal checks run by the running node, so safe to trust
+                // likely want to add some checks here to ensure the claim is valid in future
+                if let Err(err) = self.store.mark_seen_on_chain(claim).await {
+                    tracing::error!(
+                        error = err.to_string(),
+                        "Error marking premint as seen on chain"
+                    );
+                };
+            }
         }
         Ok(())
     }

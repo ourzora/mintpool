@@ -1,10 +1,10 @@
 use clap::Parser;
+use mintpool::api;
+use mintpool::premints::zora_premint_v2::types::ZoraPremintV2;
+use mintpool::run::{start_services, start_watch_chain};
+use mintpool::stdin::watch_stdin;
 use tokio::signal::unix::{signal, SignalKind};
 use tracing_subscriber::EnvFilter;
-
-use mintpool::api;
-use mintpool::run::start_services;
-use mintpool::stdin::watch_stdin;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -26,6 +26,8 @@ async fn main() -> eyre::Result<()> {
     let router = api::make_router(&config, ctl.clone()).await;
     api::start_api(&config, router).await?;
 
+    start_watch_chain::<ZoraPremintV2>(&config, ctl.clone()).await;
+    watch_stdin(ctl).await;
     if config.interactive {
         watch_stdin(ctl).await;
     } else {
