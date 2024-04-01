@@ -27,11 +27,11 @@ impl MintChecker {
             return Err(err);
         };
 
-        if let Some(highest_block) = highest_block {
-            filter = filter.from_block(highest_block);
-        }
-
         loop {
+            // set start block incase of WS disconnect
+            if let Some(highest_block) = highest_block {
+                filter = filter.from_block(highest_block);
+            }
             let mut stream = rpc.subscribe_logs(&filter).await?.into_stream();
 
             while let Some(log) = stream.next().await {

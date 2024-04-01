@@ -33,10 +33,6 @@ sol!(
 
 static PREMINT_FACTORY_ADDR: Address = address!("7777773606e7e46C8Ba8B98C08f5cD218e31d340");
 
-// Lazy::new(|| {
-//     address!("0x7777773606e7e46C8Ba8B98C08f5cD218e31d340")
-// });
-
 #[async_trait]
 impl Premint for PremintV2Message {
     fn metadata(&self) -> PremintMetadata {
@@ -52,13 +48,13 @@ impl Premint for PremintV2Message {
     }
 
     fn check_filter(chain_id: u64) -> Option<Filter> {
-        let supported_chains = vec![7777777, 8423]; // TODO: add the rest here and enable testnet mode
+        let supported_chains = [7777777, 8423]; // TODO: add the rest here and enable testnet mode
         if !supported_chains.contains(&chain_id) {
             return None;
         }
         Some(
             Filter::new()
-                .address(PREMINT_FACTORY_ADDR.clone())
+                .address(PREMINT_FACTORY_ADDR)
                 .event(PremintedV2::SIGNATURE),
         )
     }
@@ -80,12 +76,12 @@ impl Premint for PremintV2Message {
         match event {
             Ok(event) => {
                 let conditions = vec![
-                    log.address == PREMINT_FACTORY_ADDR.clone(),
-                    log.transaction_hash.unwrap_or(B256::default()) == tx.hash,
+                    log.address == PREMINT_FACTORY_ADDR,
+                    log.transaction_hash.unwrap_or_default() == tx.hash,
                     claim.tx_hash == tx.hash,
-                    claim.log_index == log.log_index.unwrap_or(U256::default()).to::<u64>(),
+                    claim.log_index == log.log_index.unwrap_or_default().to::<u64>(),
                     claim.premint_id == event.uid.to_string(),
-                    claim.kind == "zora_premint_v2".to_string(),
+                    claim.kind == *"zora_premint_v2",
                     claim.chain_id == chain_id,
                 ];
 
