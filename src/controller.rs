@@ -152,9 +152,7 @@ impl Controller {
                     };
                 }
             },
-            ControllerCommands::ResolveOnchainMint(_) => {
-                todo!("prune")
-            }
+            ControllerCommands::ResolveOnchainMint(claim) => {}
         }
         Ok(())
     }
