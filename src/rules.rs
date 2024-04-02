@@ -2,6 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 use futures::future::join_all;
+use crate::premints::zora_premint_v2::rules::{is_authorized_to_create_premint};
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 
 use crate::types::Premint;

@@ -14,7 +14,7 @@ use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 
 // TODO: is there any rust sugar to make this more concise?
 //       as it stands, it's not defined as an async function, so can't use async stuff
-fn is_authorized_to_create_premint(premint: &ZoraPremintV2) -> Pin<Box<dyn Future<Output=bool>>> {
+pub fn is_authorized_to_create_premint(premint: &ZoraPremintV2) -> Pin<Box<dyn Future<Output=bool>>> {
 //   * if contract exists, check if the signer is the contract admin
 //   * if contract does not exist, check if the signer is the proposed contract admin
 //   * this logic exists as a function on the premint executor contract
