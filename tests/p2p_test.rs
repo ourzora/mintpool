@@ -53,7 +53,7 @@ async fn test_list_all_premints() {
 
     first
         .send_command(Broadcast {
-            message: PremintTypes::V2(Default::default()),
+            message: PremintTypes::ZoraV2(Default::default()),
         })
         .await
         .unwrap();

@@ -8,4 +8,3 @@ pub mod stdin;
 pub mod storage;
 pub mod types;
 pub mod rules;
-pub mod premints;

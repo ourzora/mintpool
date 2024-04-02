@@ -128,7 +128,7 @@ mod test {
         };
 
         let store = PremintStorage::new(&config).await;
-        let premint = PremintTypes::V2(Default::default());
+        let premint = PremintTypes::ZoraV2(Default::default());
 
         store.store(premint.clone()).await.unwrap();
         let retrieved = store.get_for_id(premint.metadata().id).await.unwrap();
@@ -153,7 +153,7 @@ mod test {
 
         let store = PremintStorage::new(&config).await;
 
-        let premint_v2 = PremintTypes::V2(Default::default());
+        let premint_v2 = PremintTypes::ZoraV2(Default::default());
         store.store(premint_v2.clone()).await.unwrap();
         let premint_simple = PremintTypes::Simple(Default::default());
         store.store(premint_simple.clone()).await.unwrap();

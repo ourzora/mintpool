@@ -5,8 +5,10 @@ use libp2p::{gossipsub, Multiaddr, PeerId};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 
 use crate::premints::zora_v2::PremintV2Message;
+use crate::rules::RulesEngine;
 
 #[derive(Debug)]
 pub struct PremintName(pub String);
@@ -28,7 +30,7 @@ pub struct PremintMetadata {
     pub id: String,
     pub kind: PremintName,
     pub signer: Address,
-    pub chain_id: i64,
+    pub chain_id: U256,
     pub collection_address: Address,
     pub token_id: U256,
     pub uri: String,
@@ -37,6 +39,10 @@ pub struct PremintMetadata {
 #[async_trait]
 pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
+
+    async fn validate(&self, engine: RulesEngine<Self>) -> bool {
+        engine.validate(self).await
+    }
 
     fn check_filter(chain_id: u64) -> Option<Filter>;
     fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim>;
@@ -48,7 +54,7 @@ pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
 #[serde(rename_all = "camelCase")]
 pub enum PremintTypes {
     Simple(SimplePremint),
-    V2(PremintV2Message),
+    ZoraV2(ZoraPremintV2),
 }
 
 impl PremintTypes {
@@ -67,7 +73,7 @@ impl PremintTypes {
     pub fn metadata(&self) -> PremintMetadata {
         match self {
             PremintTypes::Simple(p) => p.metadata(),
-            PremintTypes::V2(p) => p.metadata(),
+            PremintTypes::ZoraV2(p) => p.metadata(),
         }
     }
 }
@@ -123,7 +129,7 @@ pub struct InclusionClaim {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::premints::zora_v2::PREMINT_FACTORY_ADDR;
+    use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
     use alloy_primitives::Bytes;
     use std::str::FromStr;
 
@@ -143,7 +149,7 @@ mod test {
         let premint = PremintTypes::from_json(json).unwrap();
         println!("{:?}", premint);
 
-        let premint = PremintTypes::V2(PremintV2Message::default());
+        let premint = PremintTypes::ZoraV2(PremintV2Message::default());
         let json = premint.to_json().unwrap();
         println!("{}", json);
         let premint: PremintTypes = PremintTypes::from_json(json).unwrap();
