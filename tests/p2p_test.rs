@@ -1,5 +1,6 @@
 mod common;
 
+use crate::common::{asserts, mintpool_build};
 use common::factories::Factory;
 use mintpool::controller::ControllerCommands;
 use mintpool::controller::ControllerCommands::Broadcast;
@@ -12,10 +13,10 @@ use tracing_subscriber::EnvFilter;
 async fn test_connecting_to_other_nodes() {
     let num_nodes = 10;
 
-    let nodes = build::make_nodes(2000, num_nodes, 1000).await;
-    build::connect_all_to_first(nodes.clone()).await;
+    let nodes = mintpool_build::make_nodes(2000, num_nodes, 1000).await;
+    mintpool_build::connect_all_to_first(nodes.clone()).await;
 
-    let (first, nodes) = build::split_first_rest(nodes).await;
+    let (first, nodes) = mintpool_build::split_first_rest(nodes).await;
 
     // Expect the first node to be connected to all other nodes,
     // expect all other nodes to just be connected to the first node.
@@ -30,14 +31,14 @@ async fn test_connecting_to_other_nodes() {
 async fn test_announcing_to_network() {
     let num_nodes = 3;
 
-    let nodes = build::make_nodes(2300, num_nodes, 1000).await;
-    build::connect_all_to_first(nodes.clone()).await;
+    let nodes = mintpool_build::make_nodes(2300, num_nodes, 1000).await;
+    mintpool_build::connect_all_to_first(nodes.clone()).await;
 
-    let (first, nodes) = build::split_first_rest(nodes).await;
+    let (first, nodes) = mintpool_build::split_first_rest(nodes).await;
     time::sleep(time::Duration::from_secs(1)).await;
 
     // have each node broadcast its presence to the network
-    build::announce_all(nodes.clone()).await;
+    mintpool_build::announce_all(nodes.clone()).await;
     time::sleep(time::Duration::from_secs(2)).await;
 
     // Expect all nodes to be connected to all other nodes
@@ -52,8 +53,8 @@ async fn test_announcing_to_network() {
 async fn test_list_all_premints() {
     let num_nodes = 3;
 
-    let nodes = build::gen_fully_connected_swarm(2310, num_nodes).await;
-    let (first, nodes) = build::split_first_rest(nodes).await;
+    let nodes = mintpool_build::gen_fully_connected_swarm(2310, num_nodes).await;
+    let (first, nodes) = mintpool_build::split_first_rest(nodes).await;
 
     first
         .send_command(Broadcast {
@@ -89,10 +90,10 @@ async fn test_max_connections() {
     let num_nodes = 5;
     let limit = 3;
 
-    let nodes = build::make_nodes(2350, num_nodes, limit).await;
-    build::connect_all_to_first(nodes.clone()).await;
+    let nodes = mintpool_build::make_nodes(2350, num_nodes, limit).await;
+    mintpool_build::connect_all_to_first(nodes.clone()).await;
 
-    build::announce_all(nodes.clone()).await;
+    mintpool_build::announce_all(nodes.clone()).await;
 
     for node in nodes {
         asserts::expect_lte_than_connections(&node, limit as usize).await;
@@ -102,7 +103,6 @@ async fn test_max_connections() {
 mod build {
     use mintpool::config::{ChainInclusionMode, Config};
     use mintpool::controller::{ControllerCommands, ControllerInterface};
-    use mintpool::types::Premint;
     use tokio::time;
 
     pub async fn announce_all(nodes: Vec<ControllerInterface>) {
@@ -160,7 +160,6 @@ mod build {
         start_port: u64,
         num_nodes: u64,
     ) -> Vec<ControllerInterface> {
-        tracing::info!("Generating swarm of {} nodes", num_nodes);
         let nodes = make_nodes(start_port, num_nodes, 1000).await;
         connect_all_to_first(nodes.clone()).await;
         time::sleep(time::Duration::from_secs(1)).await;
