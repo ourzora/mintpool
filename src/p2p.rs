@@ -1,5 +1,5 @@
 use crate::controller::{P2PEvent, SwarmCommand};
-use crate::types::{MintpoolNodeInfo, Premint, PremintTypes};
+use crate::types::{MintpoolNodeInfo};
 use eyre::WrapErr;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
@@ -11,6 +11,7 @@ use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::Duration;
 use tokio::select;
+use crate::premints::PremintTypes;
 
 pub fn make_swarm_controller(
     id_keys: Keypair,

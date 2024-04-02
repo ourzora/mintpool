@@ -1,7 +1,7 @@
 use crate::config::Config;
-use crate::types::{Premint, PremintTypes};
 use eyre::WrapErr;
 use sqlx::{Row, SqlitePool};
+use crate::premints::PremintTypes;
 
 async fn init_db(config: &Config) -> SqlitePool {
     let expect_msg =
@@ -108,8 +108,8 @@ impl PremintStorage {
 #[cfg(test)]
 mod test {
     use crate::config::Config;
+    use crate::premints::PremintTypes;
     use crate::storage::PremintStorage;
-    use crate::types::{Premint, PremintTypes};
 
     #[tokio::test]
     async fn test_insert_and_get() {

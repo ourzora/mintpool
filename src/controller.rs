@@ -1,9 +1,10 @@
 use crate::p2p::NetworkState;
 use crate::storage::PremintStorage;
-use crate::types::{MintpoolNodeInfo, PremintTypes};
+use crate::types::{MintpoolNodeInfo};
 use sqlx::SqlitePool;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
+use crate::premints::PremintTypes;
 
 #[derive(Debug)]
 pub enum SwarmCommand {
