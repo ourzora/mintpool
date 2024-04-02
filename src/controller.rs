@@ -1,6 +1,6 @@
 use crate::p2p::NetworkState;
 use crate::storage::PremintStorage;
-use crate::types::{MintpoolNodeInfo, PremintTypes};
+use crate::types::{InclusionClaim, MintpoolNodeInfo, PremintTypes};
 use sqlx::SqlitePool;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
@@ -42,6 +42,7 @@ pub enum ControllerCommands {
         channel: oneshot::Sender<MintpoolNodeInfo>,
     },
     Query(DBQuery),
+    ResolveOnchainMint(InclusionClaim),
 }
 
 pub enum DBQuery {
@@ -146,6 +147,9 @@ impl Controller {
                     };
                 }
             },
+            ControllerCommands::ResolveOnchainMint(_) => {
+                todo!("prune")
+            }
         }
         Ok(())
     }

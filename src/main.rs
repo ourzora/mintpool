@@ -1,5 +1,5 @@
 use clap::Parser;
-use mintpool::run::start_swarm_and_controller;
+use mintpool::run::start_services;
 use mintpool::stdin::watch_stdin;
 use tracing_subscriber::EnvFilter;
 
@@ -14,7 +14,7 @@ async fn main() -> eyre::Result<()> {
 
     tracing::info!("Starting mintpool with config: {:?}", config);
 
-    let ctl = start_swarm_and_controller(&config).await?;
+    let ctl = start_services(&config).await?;
     watch_stdin(ctl).await;
 
     Ok(())

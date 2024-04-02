@@ -1,12 +1,14 @@
-use alloy_primitives::private::derive_more::Display;
-use alloy_primitives::{Address, U256};
+use alloy::rpc::types::eth::{Filter, Log, Transaction};
+use alloy_primitives::{Address, B256, U256};
+use async_trait::async_trait;
 use libp2p::{gossipsub, Multiaddr, PeerId};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use sqlx::{Decode, Encode};
 use std::fmt::Debug;
 
-#[derive(Debug, Display)]
+use crate::premints::zora_v2::PremintV2Message;
+
+#[derive(Debug)]
 pub struct PremintName(pub String);
 
 impl PremintName {
@@ -32,8 +34,13 @@ pub struct PremintMetadata {
     pub uri: String,
 }
 
+#[async_trait]
 pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
+
+    fn check_filter(chain_id: u64) -> Option<Filter>;
+    fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim>;
+    async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool;
     fn kind_id() -> PremintName;
 }
 
@@ -73,6 +80,7 @@ pub struct SimplePremint {
     media: String,
 }
 
+#[async_trait]
 impl Premint for SimplePremint {
     fn metadata(&self) -> PremintMetadata {
         PremintMetadata {
@@ -86,74 +94,39 @@ impl Premint for SimplePremint {
         }
     }
 
+    fn check_filter(chain_id: u64) -> Option<Filter> {
+        todo!()
+    }
+
+    fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim> {
+        todo!()
+    }
+
+    async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool {
+        todo!()
+    }
+
     fn kind_id() -> PremintName {
         PremintName("simple".to_string())
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct PremintV2Message {
-    collection: PremintV2Collection,
-    premint: PremintV2,
-    chain_id: u64,
-    signature: String,
-}
-
-impl Premint for PremintV2Message {
-    fn metadata(&self) -> PremintMetadata {
-        PremintMetadata {
-            id: self.premint.uid.to_string(),
-            kind: Self::kind_id(),
-            signer: self.collection.contract_admin,
-            chain_id: self.chain_id as i64,
-            collection_address: Address::default(), // TODO: source this
-            token_id: U256::from(self.premint.uid),
-            uri: self.premint.token_creation_config.token_uri.clone(),
-        }
-    }
-
-    fn kind_id() -> PremintName {
-        PremintName("zora_premint_v2".to_string())
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct PremintV2Collection {
-    contract_admin: Address,
-    contract_uri: String,
-    contract_name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct PremintV2 {
-    token_creation_config: TokenCreationConfigV2,
-    uid: u64,
-    version: u64,
-    deleted: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct TokenCreationConfigV2 {
-    token_uri: String,
-    token_max_supply: U256,
-    mint_start: u64,
-    mint_duration: u64,
-    max_tokens_per_address: U256,
-    price_per_token: U256,
-    #[serde(rename = "royaltyBPS")]
-    royalty_bps: U256,
-    payout_recipient: Address,
-    fixed_price_minter: Address,
-    creator_referral: Address,
+#[derive(Debug, Clone, PartialEq)]
+pub struct InclusionClaim {
+    pub premint_id: String,
+    pub chain_id: u64,
+    pub tx_hash: B256,
+    pub log_index: u64,
+    pub kind: String,
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::premints::zora_v2::PREMINT_FACTORY_ADDR;
+    use alloy_primitives::Bytes;
+    use std::str::FromStr;
+
     #[test]
     fn test_premint_serde() {
         let premint = PremintTypes::Simple(SimplePremint {
@@ -175,5 +148,87 @@ mod test {
         println!("{}", json);
         let premint: PremintTypes = PremintTypes::from_json(json).unwrap();
         println!("{:?}", premint);
+    }
+
+    #[test]
+    fn test_map_premintv2_claim() {
+        let log = Log {
+            address: PREMINT_FACTORY_ADDR.clone(),
+            topics: vec![B256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
+                         B256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
+                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+            ],
+            data: Bytes::from_str("0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000edb81afaecc2379635b25a752b787f821a46644c0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+            block_hash:  Some(
+                B256::from_str(
+                    "0x0e918f6a5cfda90ce33ac5117880f6db97849a095379acdc162d038aaee56757",
+                )
+                .unwrap(),
+            ),
+            block_number: Some(U256::from(12387768)),
+            transaction_hash: Some(B256::from_str(
+                "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
+            ).unwrap()),
+            transaction_index: Some(U256::from(4)),
+            log_index: Some(U256::from(28)),
+            removed: false,
+        };
+
+        let claim = PremintV2Message::map_claim(7777777, log.clone()).unwrap();
+        let expected = InclusionClaim {
+            premint_id: "1".to_string(),
+            chain_id: 7777777,
+            tx_hash: log.clone().transaction_hash.unwrap(),
+            log_index: 28,
+            kind: "zora_premint_v2".to_string(),
+        };
+
+        assert_eq!(claim, expected);
+    }
+
+    #[tokio::test]
+    async fn test_verify_premintv2_claim() {
+        let tx = Transaction {
+            hash: B256::from_str(
+                "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
+            )
+            .unwrap(),
+            nonce: 1,
+            block_hash: Some(
+                B256::from_str(
+                    "0x0e918f6a5cfda90ce33ac5117880f6db97849a095379acdc162d038aaee56757",
+                )
+                .unwrap(),
+            ),
+            block_number: Some(U256::from(12387768)),
+            transaction_index: Some(U256::from(4)),
+            from: Address::from_str("0xeDB81aFaecC2379635B25A752b787f821a46644c").unwrap(),
+            to: Some(PREMINT_FACTORY_ADDR.clone()),
+            value: U256::from(777_000_000_000_000_i64),
+            ..Default::default()
+        };
+
+        let log = Log {
+            address: PREMINT_FACTORY_ADDR.clone(),
+            topics: vec![B256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
+                         B256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
+                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+            ],
+            data: Bytes::from_str("0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000edb81afaecc2379635b25a752b787f821a46644c0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+            block_hash: None,
+            block_number: None,
+            transaction_hash: Some( B256::from_str(
+                "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
+            )
+            .unwrap()),
+            transaction_index: Some(U256::from(4)),
+            log_index: Some(U256::from(28)),
+            ..Default::default()
+        };
+
+        let claim = PremintV2Message::map_claim(7777777, log.clone()).unwrap();
+        assert!(PremintV2Message::verify_claim(7777777, tx.clone(), log.clone(), claim).await);
     }
 }

@@ -1,12 +1,13 @@
-use crate::config::Config;
+use crate::config::{ChainInclusionMode, Config};
 use crate::controller::{Controller, ControllerInterface};
 use crate::p2p::SwarmController;
 use crate::storage::PremintStorage;
 use libp2p::identity;
 
-/// Starts the libp2p swarm and the controller, returns an interface for interacting with the controller.
+/// Starts the libp2p swarm, the controller, and the checkers if applicable.
+/// Returns an interface for interacting with the controller.
 /// All interactions with the controller should be done through `ControllerInterface` for memory safety.
-pub async fn start_swarm_and_controller(config: &Config) -> eyre::Result<ControllerInterface> {
+pub async fn start_services(config: &Config) -> eyre::Result<ControllerInterface> {
     let mut bytes = [0u8; 32];
     bytes[0] = config.seed as u8;
 
@@ -34,6 +35,12 @@ pub async fn start_swarm_and_controller(config: &Config) -> eyre::Result<Control
     tokio::spawn(async move {
         controller.run_loop().await;
     });
+
+    if config.chain_inclusion_mode == ChainInclusionMode::Check {
+        for chain_id in config.supported_chains() {
+            let rpc_url = config.rpc_url(chain_id).expect(format!("Failed to get RPC URL for configured chain_id {chain_id}. Set environment variable CHAIN_{chain_id}_RPC_WSS").as_str());
+        }
+    }
 
     Ok(controller_interface)
 }

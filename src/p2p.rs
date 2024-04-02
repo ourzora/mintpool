@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::controller::{P2PEvent, SwarmCommand};
 use crate::types::{MintpoolNodeInfo, Premint, PremintName, PremintTypes};
-use alloy_primitives::private::derive_more::Display;
 use eyre::WrapErr;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
