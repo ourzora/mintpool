@@ -1,10 +1,9 @@
 use crate::p2p::NetworkState;
 use crate::storage::PremintStorage;
-use crate::types::{MintpoolNodeInfo};
+use crate::types::{InclusionClaim, MintpoolNodeInfo, PremintTypes};
 use sqlx::SqlitePool;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
-use crate::premints::PremintTypes;
 
 #[derive(Debug)]
 pub enum SwarmCommand {
@@ -43,6 +42,7 @@ pub enum ControllerCommands {
         channel: oneshot::Sender<MintpoolNodeInfo>,
     },
     Query(DBQuery),
+    ResolveOnchainMint(InclusionClaim),
 }
 
 pub enum DBQuery {
@@ -95,7 +95,7 @@ impl Controller {
             P2PEvent::PremintReceived(premint) => {
                 tracing::debug!(premint = premint.to_json().ok(), "Received premint");
 
-                self.validate_and_insert(premint).await;
+                let _ = self.validate_and_insert(premint).await;
             }
         }
     }
@@ -147,6 +147,9 @@ impl Controller {
                     };
                 }
             },
+            ControllerCommands::ResolveOnchainMint(_) => {
+                todo!("prune")
+            }
         }
         Ok(())
     }

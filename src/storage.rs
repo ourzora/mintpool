@@ -1,7 +1,7 @@
 use crate::config::Config;
+use crate::types::{Premint, PremintTypes};
 use eyre::WrapErr;
 use sqlx::{Row, SqlitePool};
-use crate::premints::PremintTypes;
 
 async fn init_db(config: &Config) -> SqlitePool {
     let expect_msg =
@@ -50,8 +50,8 @@ impl PremintStorage {
     pub async fn store(&self, premint: PremintTypes) -> eyre::Result<()> {
         let metadata = premint.metadata();
         let json = premint.to_json()?;
-        let signer = metadata.signer.to_checksum(None);
-        let collection_address = metadata.collection_address.to_checksum(None);
+        let signer = format!("{:?}", metadata.signer);
+        let collection_address = format!("{:?}", metadata.collection_address);
         let token_id = metadata.token_id.to_string();
         sqlx::query!(
             r#"
@@ -59,7 +59,7 @@ impl PremintStorage {
             VALUES (?, ?, ?, ?, ?, ?, ?)
         "#,
             metadata.id,
-            metadata.kind,
+            metadata.kind.0,
             signer,
             metadata.chain_id,
             collection_address,
@@ -107,9 +107,9 @@ impl PremintStorage {
 
 #[cfg(test)]
 mod test {
-    use crate::config::Config;
-    use crate::premints::PremintTypes;
+    use crate::config::{ChainInclusionMode, Config};
     use crate::storage::PremintStorage;
+    use crate::types::{Premint, PremintTypes};
 
     #[tokio::test]
     async fn test_insert_and_get() {
@@ -120,6 +120,11 @@ mod test {
             db_url: None, // in-memory for testing
             persist_state: false,
             prune_minted_premints: false,
+            peer_limit: 1000,
+            premint_types: "simple".to_string(),
+            chain_inclusion_mode: ChainInclusionMode::Check,
+            supported_chain_ids: "7777777,".to_string(),
+            trusted_peers: None,
         };
 
         let store = PremintStorage::new(&config).await;
@@ -139,6 +144,11 @@ mod test {
             db_url: None, // in-memory for testing
             persist_state: false,
             prune_minted_premints: false,
+            peer_limit: 1000,
+            premint_types: "simple".to_string(),
+            chain_inclusion_mode: ChainInclusionMode::Check,
+            supported_chain_ids: "7777777,".to_string(),
+            trusted_peers: None,
         };
 
         let store = PremintStorage::new(&config).await;
