@@ -23,7 +23,7 @@ pub async fn start_services(config: &Config) -> eyre::Result<ControllerInterface
     let mut controller = Controller::new(swrm_cmd_send, event_recv, ext_cmd_recv, store);
     let controller_interface = ControllerInterface::new(ext_cmd_send);
 
-    let port = config.port;
+    let port = config.peer_port;
     let network_ip = config.initial_network_ip();
     tokio::spawn(async move {
         swarm_controller

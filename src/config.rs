@@ -10,8 +10,8 @@ pub struct Config {
     #[envconfig(from = "SEED")]
     pub seed: u64,
 
-    #[envconfig(from = "PORT", default = "7777")]
-    pub port: u64,
+    #[envconfig(from = "PEER_PORT", default = "7778")]
+    pub peer_port: u64,
 
     #[envconfig(from = "CONNECT_EXTERNAL", default = "true")]
     pub connect_external: bool,
@@ -24,6 +24,9 @@ pub struct Config {
 
     #[envconfig(from = "PRUNE_MINTED_PREMINTS", default = "true")]
     pub prune_minted_premints: bool,
+
+    #[envconfig(from = "API_PORT", default = "7777")]
+    pub api_port: u64,
 
     #[envconfig(from = "PEER_LIMIT", default = "1000")]
     pub peer_limit: u64,

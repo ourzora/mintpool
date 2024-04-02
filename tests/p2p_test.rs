@@ -129,7 +129,7 @@ mod build {
         for i in 0..num_nodes {
             let config = Config {
                 seed: rand_n + i,
-                port: start_port + i,
+                peer_port: start_port + i,
                 connect_external: false,
                 db_url: None,
                 persist_state: false,

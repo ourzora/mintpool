@@ -1,4 +1,5 @@
 pub mod chain;
+pub mod api;
 pub mod config;
 pub mod controller;
 pub mod p2p;
