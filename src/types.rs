@@ -1,3 +1,4 @@
+use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 use alloy::rpc::types::eth::{Filter, Log, Transaction};
 use alloy_primitives::{Address, B256, U256};
 use async_trait::async_trait;
@@ -6,7 +7,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-use crate::premints::zora_v2::PremintV2Message;
+// use crate::rules::RulesEngine;
 
 #[derive(Debug)]
 pub struct PremintName(pub String);
@@ -28,7 +29,7 @@ pub struct PremintMetadata {
     pub id: String,
     pub kind: PremintName,
     pub signer: Address,
-    pub chain_id: i64,
+    pub chain_id: U256,
     pub collection_address: Address,
     pub token_id: U256,
     pub uri: String,
@@ -37,6 +38,12 @@ pub struct PremintMetadata {
 #[async_trait]
 pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
+
+    fn guid(&self) -> String;
+
+    // async fn validate(&self, engine: RulesEngine<Self>) -> bool {
+    //     engine.validate(self).await
+    // }
 
     fn check_filter(chain_id: u64) -> Option<Filter>;
     fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim>;
@@ -48,7 +55,7 @@ pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
 #[serde(rename_all = "camelCase")]
 pub enum PremintTypes {
     Simple(SimplePremint),
-    V2(PremintV2Message),
+    ZoraV2(ZoraPremintV2),
 }
 
 impl PremintTypes {
@@ -67,14 +74,21 @@ impl PremintTypes {
     pub fn metadata(&self) -> PremintMetadata {
         match self {
             PremintTypes::Simple(p) => p.metadata(),
-            PremintTypes::V2(p) => p.metadata(),
+            PremintTypes::ZoraV2(p) => p.metadata(),
+        }
+    }
+
+    pub fn guid(&self) -> String {
+        match self {
+            PremintTypes::Simple(p) => p.guid(),
+            PremintTypes::ZoraV2(p) => p.guid(),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct SimplePremint {
-    chain_id: u64,
+    chain_id: U256,
     sender: Address,
     token_id: u64,
     media: String,
@@ -87,11 +101,16 @@ impl Premint for SimplePremint {
             id: format!("{:?}:{:?}:{:?}", self.chain_id, self.sender, self.token_id),
             kind: Self::kind_id(),
             signer: self.sender,
-            chain_id: self.chain_id as i64,
+            chain_id: self.chain_id,
             collection_address: Address::default(),
             token_id: U256::from(self.token_id),
             uri: self.media.clone(),
         }
+    }
+
+    fn guid(&self) -> String {
+        // TODO: make something slightly more unique
+        format!("{:?}:{:?}:{:?}", self.chain_id, self.sender, self.token_id)
     }
 
     fn check_filter(chain_id: u64) -> Option<Filter> {
@@ -123,14 +142,14 @@ pub struct InclusionClaim {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::premints::zora_v2::PREMINT_FACTORY_ADDR;
+    use crate::premints::zora_premint_v2::types::{ZoraPremintConfigV2, PREMINT_FACTORY_ADDR};
     use alloy_primitives::Bytes;
     use std::str::FromStr;
 
     #[test]
     fn test_premint_serde() {
         let premint = PremintTypes::Simple(SimplePremint {
-            chain_id: 1,
+            chain_id: U256::from(1),
             sender: "0x66f9664f97F2b50F62D13eA064982f936dE76657"
                 .parse()
                 .unwrap(),
@@ -143,7 +162,7 @@ mod test {
         let premint = PremintTypes::from_json(json).unwrap();
         println!("{:?}", premint);
 
-        let premint = PremintTypes::V2(PremintV2Message::default());
+        let premint = PremintTypes::ZoraV2(ZoraPremintV2::default());
         let json = premint.to_json().unwrap();
         println!("{}", json);
         let premint: PremintTypes = PremintTypes::from_json(json).unwrap();
@@ -175,7 +194,7 @@ mod test {
             removed: false,
         };
 
-        let claim = PremintV2Message::map_claim(7777777, log.clone()).unwrap();
+        let claim = ZoraPremintV2::map_claim(7777777, log.clone()).unwrap();
         let expected = InclusionClaim {
             premint_id: "1".to_string(),
             chain_id: 7777777,
@@ -228,7 +247,7 @@ mod test {
             ..Default::default()
         };
 
-        let claim = PremintV2Message::map_claim(7777777, log.clone()).unwrap();
-        assert!(PremintV2Message::verify_claim(7777777, tx.clone(), log.clone(), claim).await);
+        let claim = ZoraPremintV2::map_claim(7777777, log.clone()).unwrap();
+        assert!(ZoraPremintV2::verify_claim(7777777, tx.clone(), log.clone(), claim).await);
     }
 }

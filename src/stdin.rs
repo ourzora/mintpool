@@ -1,5 +1,5 @@
 use crate::controller::{ControllerCommands, ControllerInterface, DBQuery};
-use crate::types::{Premint, PremintTypes};
+use crate::types::PremintTypes;
 use colored::Colorize;
 use tokio::io::AsyncBufReadExt;
 use tokio::{io, select};

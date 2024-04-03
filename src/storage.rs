@@ -53,15 +53,17 @@ impl PremintStorage {
         let signer = format!("{:?}", metadata.signer);
         let collection_address = format!("{:?}", metadata.collection_address);
         let token_id = metadata.token_id.to_string();
+        let chain_id = metadata.chain_id.to::<i64>();
+        let id = premint.guid();
         sqlx::query!(
             r#"
             INSERT INTO premints (id, kind, signer, chain_id, collection_address, token_id, json)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         "#,
-            metadata.id,
+            id,
             metadata.kind.0,
             signer,
-            metadata.chain_id,
+            chain_id,
             collection_address,
             token_id,
             json
@@ -128,10 +130,10 @@ mod test {
         };
 
         let store = PremintStorage::new(&config).await;
-        let premint = PremintTypes::V2(Default::default());
+        let premint = PremintTypes::ZoraV2(Default::default());
 
         store.store(premint.clone()).await.unwrap();
-        let retrieved = store.get_for_id(premint.metadata().id).await.unwrap();
+        let retrieved = store.get_for_id(premint.guid()).await.unwrap();
         assert_eq!(premint, retrieved);
     }
 
@@ -153,7 +155,7 @@ mod test {
 
         let store = PremintStorage::new(&config).await;
 
-        let premint_v2 = PremintTypes::V2(Default::default());
+        let premint_v2 = PremintTypes::ZoraV2(Default::default());
         store.store(premint_v2.clone()).await.unwrap();
         let premint_simple = PremintTypes::Simple(Default::default());
         store.store(premint_simple.clone()).await.unwrap();
