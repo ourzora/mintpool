@@ -28,14 +28,11 @@ async fn is_valid_signature(premint: &ZoraPremintV2) -> bool {
 
     let signature = Signature::from_str(premint.signature.as_str()).unwrap();
 
-    let hash = premint.premint.eip712_signing_hash(&eip712_domain! {
-        name: "Preminter",
-        version: "2",
-        chain_id: premint.chain_id.to::<u64>(),
-        verifying_contract: premint.collection_address,
-    });
+    let domain = premint.eip712_domain();
+    let hash = premint.premint.eip712_signing_hash(&domain);
+    let signer = signature.recover_address_from_prehash(&hash).unwrap();
 
-    signature.recover_address_from_prehash(&hash).unwrap() == premint.collection.contractAdmin
+    signer == premint.collection.contractAdmin
 }
 
 #[cfg(test)]

@@ -1,12 +1,15 @@
+use std::borrow::Cow;
+
 use alloy::rpc::types::eth::{Filter, Log, Transaction};
 use alloy::sol_types::private::U256;
 use alloy_primitives::{Address, address};
 use alloy_signer::Signer;
 use alloy_signer_wallet::LocalWallet;
 use alloy_sol_macro::sol;
-use alloy_sol_types::SolEvent;
+use alloy_sol_types::{eip712_domain, Eip712Domain, SolEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+
 use crate::types::{InclusionClaim, Premint, PremintMetadata, PremintName};
 
 sol! {
@@ -87,6 +90,17 @@ pub struct ZoraPremintV2 {
 
 pub static PREMINT_FACTORY_ADDR: Address = address!("7777773606e7e46C8Ba8B98C08f5cD218e31d340");
 
+impl ZoraPremintV2 {
+    pub fn eip712_domain(&self) -> Eip712Domain {
+        Eip712Domain {
+            name: Some(Cow::from("Preminter")),
+            version: Some(Cow::from("2")),
+            chain_id: Some(self.chain_id),
+            verifying_contract: Some(self.collection_address),
+            salt: None,
+        }
+    }
+}
 
 #[async_trait]
 impl Premint for ZoraPremintV2 {
