@@ -21,9 +21,13 @@ mod test {
     fn test() {
         let premint = SimplePremint {
             chain_id: 1,
-            sender: "0x7e5A9B6F4bB9efC27F83E18F29e4326480668f87".parse().unwrap(),
+            sender: "0x7e5A9B6F4bB9efC27F83E18F29e4326480668f87"
+                .parse()
+                .unwrap(),
             media: "ipfs://tokenIpfsId0".parse().unwrap(),
             token_id: 1,
+            name: "Example".to_string(),
+            description: "Just a simple premint concept".to_string(),
         };
 
         println!("{:?}", premint);

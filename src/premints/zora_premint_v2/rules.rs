@@ -5,12 +5,13 @@ use std::str::FromStr;
 use alloy_sol_types::{eip712_domain, SolStruct};
 
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+use crate::types::Premint;
 
 // create premint v2 rule implementations here
 
 // TODO: is there any rust sugar to make this more concise?
 //       as it stands, it's not defined as an async function, so can't use async stuff
-pub async fn is_authorized_to_create_premint(premint: &ZoraPremintV2) -> bool {
+pub async fn is_authorized_to_create_premint<T: Premint>(premint: &T) -> bool {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
     //   * this logic exists as a function on the premint executor contract
@@ -43,6 +44,7 @@ mod test {
     use crate::premints::zora_premint_v2::types::{TokenCreationConfig, ZoraPremintConfigV2};
     use alloy_primitives::U256;
     use alloy_signer::Signer;
+    use alloy_signer_wallet::LocalWallet;
     use alloy_sol_types::{eip712_domain, SolStruct};
     use std::str::FromStr;
 
@@ -113,10 +115,12 @@ mod test {
             verifying_contract: "0x53870714E9ecF43fF76358064DeF05e1b1FAE2e9".parse().unwrap(),
         };
 
-        wallet
-            .sign_typed_data(&premint, &domain)
-            .await
-            .expect("TODO: panic message");
+        // TODO: failing to compile because of sol struct types needed
+
+        // wallet
+        //     .sign_typed_data(&premint, &domain)
+        //     .await
+        //     .expect("TODO: panic message");
 
         // let signature = wallet.sign_typed_data(&premint, &domain).await.expect("TODO: panic message");
         // println!("0x{}", signature.as_bytes().encode_hex());

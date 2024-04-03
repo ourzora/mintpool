@@ -1,3 +1,4 @@
+use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 use alloy::rpc::types::eth::{Filter, Log, Transaction};
 use alloy_primitives::{Address, B256, U256};
 use async_trait::async_trait;
@@ -5,9 +6,8 @@ use libp2p::{gossipsub, Multiaddr, PeerId};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 
-use crate::rules::RulesEngine;
+// use crate::rules::RulesEngine;
 
 #[derive(Debug)]
 pub struct PremintName(pub String);
@@ -39,9 +39,9 @@ pub struct PremintMetadata {
 pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
 
-    async fn validate(&self, engine: RulesEngine<Self>) -> bool {
-        engine.validate(self).await
-    }
+    // async fn validate(&self, engine: RulesEngine<Self>) -> bool {
+    //     engine.validate(self).await
+    // }
 
     fn check_filter(chain_id: u64) -> Option<Filter>;
     fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim>;
@@ -128,7 +128,7 @@ pub struct InclusionClaim {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::premints::zora_premint_v2::types::{PREMINT_FACTORY_ADDR, ZoraPremintConfigV2};
+    use crate::premints::zora_premint_v2::types::{ZoraPremintConfigV2, PREMINT_FACTORY_ADDR};
     use alloy_primitives::Bytes;
     use std::str::FromStr;
 
