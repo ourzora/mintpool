@@ -11,28 +11,28 @@ use crate::types::Premint;
 
 // TODO: is there any rust sugar to make this more concise?
 //       as it stands, it's not defined as an async function, so can't use async stuff
-pub async fn is_authorized_to_create_premint<T: Premint>(premint: &T) -> bool {
+pub async fn is_authorized_to_create_premint<T: Premint>(premint: &T) -> eyre::Result<bool> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
     //   * this logic exists as a function on the premint executor contract
-    true
+    Ok(true)
 }
 
 // * signatureIsValid ( this can be performed entirely offline )
 //   * check if the signature is valid
 //   * check if the signature is equal to the proposed contract admin
 
-async fn is_valid_signature(premint: &ZoraPremintV2) -> bool {
+async fn is_valid_signature(premint: &ZoraPremintV2) -> eyre::Result<bool> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
 
-    let signature = Signature::from_str(premint.signature.as_str()).unwrap();
+    let signature = Signature::from_str(premint.signature.as_str())?;
 
     let domain = premint.eip712_domain();
     let hash = premint.premint.eip712_signing_hash(&domain);
-    let signer = signature.recover_address_from_prehash(&hash).unwrap();
+    let signer = signature.recover_address_from_prehash(&hash)?;
 
-    signer == premint.collection.contractAdmin
+    Ok(signer == premint.collection.contractAdmin)
 }
 
 #[cfg(test)]
@@ -63,7 +63,7 @@ mod test {
     },
     "uid": 2,
     "version": 1,
-    "deleted": false,
+    "deleted": false
   },
   "collectionAddress": "0x42e108d1ed954b0adbd53ea118ba7614622d10d0",
   "chainId": 7777777,
@@ -73,6 +73,6 @@ mod test {
     #[tokio::test]
     async fn test_is_valid_signature() {
         let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
-        assert!(is_valid_signature(&premint).await);
+        assert!(is_valid_signature(&premint).await.expect("failed to check signature"));
     }
 }
