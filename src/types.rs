@@ -39,6 +39,8 @@ pub struct PremintMetadata {
 pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
 
+    fn guid(&self) -> String;
+
     // async fn validate(&self, engine: RulesEngine<Self>) -> bool {
     //     engine.validate(self).await
     // }
@@ -75,6 +77,13 @@ impl PremintTypes {
             PremintTypes::ZoraV2(p) => p.metadata(),
         }
     }
+
+    pub fn guid(&self) -> String {
+        match self {
+            PremintTypes::Simple(p) => p.guid(),
+            PremintTypes::ZoraV2(p) => p.guid(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
@@ -97,6 +106,11 @@ impl Premint for SimplePremint {
             token_id: U256::from(self.token_id),
             uri: self.media.clone(),
         }
+    }
+
+    fn guid(&self) -> String {
+        // TODO: make something slightly more unique
+        format!("{:?}:{:?}:{:?}", self.chain_id, self.sender, self.token_id)
     }
 
     fn check_filter(chain_id: u64) -> Option<Filter> {

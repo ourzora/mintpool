@@ -116,6 +116,10 @@ impl Premint for ZoraPremintV2 {
         }
     }
 
+    fn guid(&self) -> String {
+        format!("{:?}:{:?}:{:?}:{:?}", self.chain_id, self.collection_address, self.premint.uid, self.premint.version)
+    }
+
     fn check_filter(chain_id: u64) -> Option<Filter> {
         let supported_chains = [7777777, 8423]; // TODO: add the rest here and enable testnet mode
         if !supported_chains.contains(&chain_id) {

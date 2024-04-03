@@ -54,12 +54,13 @@ impl PremintStorage {
         let collection_address = format!("{:?}", metadata.collection_address);
         let token_id = metadata.token_id.to_string();
         let chain_id = metadata.chain_id.to::<i64>();
+        let id = premint.guid();
         sqlx::query!(
             r#"
             INSERT INTO premints (id, kind, signer, chain_id, collection_address, token_id, json)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         "#,
-            metadata.id,
+            id,
             metadata.kind.0,
             signer,
             chain_id,
