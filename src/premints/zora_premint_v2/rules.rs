@@ -1,8 +1,8 @@
-use alloy_primitives::Signature;
 use std::future::Future;
 use std::str::FromStr;
 
-use alloy_sol_types::{eip712_domain, SolStruct};
+use alloy_primitives::Signature;
+use alloy_sol_types::SolStruct;
 
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 use crate::types::Premint;
@@ -37,89 +37,42 @@ async fn is_valid_signature(premint: &ZoraPremintV2) -> bool {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::premints::zora_premint_v2::types::{TokenCreationConfig, ZoraPremintConfigV2};
-    use alloy_primitives::U256;
-    use alloy_signer::Signer;
-    use alloy_signer_wallet::LocalWallet;
-    use alloy_sol_types::{eip712_domain, SolStruct};
     use std::str::FromStr;
 
-    fn get_config() -> ZoraPremintConfigV2 {
-        let config = TokenCreationConfig {
-            tokenURI: "ipfs://tokenIpfsId0".to_string(),
-            maxSupply: U256::from(100000000000000000u128),
-            maxTokensPerAddress: 10,
-            pricePerToken: 0,
-            mintStart: 0,
-            mintDuration: 100,
-            royaltyBPS: 8758,
-            payoutRecipient: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-                .parse()
-                .unwrap(),
-            fixedPriceMinter: "0x7e5A9B6F4bB9efC27F83E18F29e4326480668f87"
-                .parse()
-                .unwrap(),
-            createReferral: "0x63779E68424A0746cF04B2bc51f868185a7660dF"
-                .parse()
-                .unwrap(),
-        };
+    use super::*;
 
-        let premint = ZoraPremintConfigV2 {
-            tokenConfig: TokenCreationConfig {
-                tokenURI: "ipfs://tokenIpfsId0".to_string(),
-                maxSupply: U256::from(100000000000000000u128),
-                maxTokensPerAddress: 10,
-                pricePerToken: 0,
-                mintStart: 0,
-                mintDuration: 100,
-                royaltyBPS: 8758,
-                payoutRecipient: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-                    .parse()
-                    .unwrap(),
-                fixedPriceMinter: "0x7e5A9B6F4bB9efC27F83E18F29e4326480668f87"
-                    .parse()
-                    .unwrap(),
-                createReferral: "0x63779E68424A0746cF04B2bc51f868185a7660dF"
-                    .parse()
-                    .unwrap(),
-            },
-            uid: 105,
-            version: 0,
-            deleted: false,
-        };
-
-        ZoraPremintConfigV2 {
-            tokenConfig: config,
-            uid: 105,
-            version: 0,
-            deleted: false,
-        }
-    }
+    const PREMINT_JSON: &str = r#"
+{
+  "collection": {
+    "contractAdmin": "0xa771209423284bace9a24a06d166a11196724b53",
+    "contractURI": "ipfs://bafkreic4fnavhtymee7makmk7wp257nloh5y5ysc2fcwa5rpg6v6f3jhly",
+    "contractName": "Karate sketch"
+  },
+  "premint": {
+    "tokenConfig": {
+      "tokenURI": "ipfs://bafkreier5h4a6btu24fsitbjdvpyak7moi6wkp33wlqmx2kfwgpq2lvx4y",
+      "maxSupply": 18446744073709551615,
+      "maxTokensPerAddress": 0,
+      "pricePerToken": 0,
+      "mintStart": 1702541688,
+      "mintDuration": 2592000,
+      "royaltyBPS": 500,
+      "fixedPriceMinter": "0x04e2516a2c207e84a1839755675dfd8ef6302f0a",
+      "payoutRecipient": "0xa771209423284bace9a24a06d166a11196724b53",
+      "createReferral": "0x0000000000000000000000000000000000000000"
+    },
+    "uid": 2,
+    "version": 1,
+    "deleted": false,
+  },
+  "collectionAddress": "0x42e108d1ed954b0adbd53ea118ba7614622d10d0",
+  "chainId": 7777777,
+  "signature": "0x894405d100900e6823385ca881c91d5ca7137a326f0c7d27edfd2907d9669cea55626bbd807a36cea815eceeac6634f45cfec54d7157c35f496b999e7b9451de1c"
+}"#;
 
     #[tokio::test]
-    async fn test_signing() {
-        let premint = get_config();
-
-        let wallet = LocalWallet::from_str(
-            "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-        )
-        .unwrap();
-        let domain = eip712_domain! {
-            name: "Preminter",
-            version: "2",
-            chain_id: 999999999,
-            verifying_contract: "0x53870714E9ecF43fF76358064DeF05e1b1FAE2e9".parse().unwrap(),
-        };
-
-        // TODO: failing to compile because of sol struct types needed
-
-        // wallet
-        //     .sign_typed_data(&premint, &domain)
-        //     .await
-        //     .expect("TODO: panic message");
-
-        // let signature = wallet.sign_typed_data(&premint, &domain).await.expect("TODO: panic message");
-        // println!("0x{}", signature.as_bytes().encode_hex());
+    async fn test_is_valid_signature() {
+        let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
+        assert!(is_valid_signature(&premint).await);
     }
 }
