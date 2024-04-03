@@ -133,7 +133,7 @@ mod test {
         let premint = PremintTypes::ZoraV2(Default::default());
 
         store.store(premint.clone()).await.unwrap();
-        let retrieved = store.get_for_id(premint.metadata().id).await.unwrap();
+        let retrieved = store.get_for_id(premint.guid()).await.unwrap();
         assert_eq!(premint, retrieved);
     }
 
