@@ -65,7 +65,7 @@ impl RulesEngine {
         self.rules.push(Box::new(rule));
     }
 
-    pub async fn evaluate(&self, item: PremintTypes, context: RuleContext) -> bool {
+    pub async fn evaluate(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
         let results: Vec<_> = self
             .rules
             .iter()
@@ -73,10 +73,22 @@ impl RulesEngine {
             .collect();
         let all_checks = join_all(results).await;
 
-        // TODO: handle errors
-        all_checks
-            .iter()
-            .all(|check| check.is_ok() && check.as_ref().unwrap().clone())
+        // TODO: ideally we'd want to return a list of all errors
+        //       so that a caller could determine which rules failed and why
+        for error in all_checks.into_iter() {
+            match error {
+                Err(e) => {
+                    return Err(e);
+                }
+                Ok(pass) => {
+                    if !pass {
+                        return Ok(false)
+                    }
+                }
+            }
+        }
+
+        Ok(true)
     }
 }
 
@@ -130,7 +142,7 @@ mod test {
             .evaluate(PremintTypes::Simple(Default::default()), context)
             .await;
 
-        assert!(result);
+        assert!(result.unwrap());
     }
 
     #[tokio::test]
@@ -151,6 +163,6 @@ mod test {
             .evaluate(PremintTypes::Simple(Default::default()), context)
             .await;
 
-        assert!(result);
+        assert!(result.unwrap());
     }
 }
