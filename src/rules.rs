@@ -49,13 +49,13 @@ macro_rules! typed_rule {
     };
 }
 
-struct RE {
+struct RulesEngine {
     rules: Vec<Box<dyn Rule>>,
 }
 
-impl RE {
+impl RulesEngine {
     pub fn new() -> Self {
-        RE { rules: vec![] }
+        RulesEngine { rules: vec![] }
     }
     pub fn add_rule(&mut self, rule: impl Rule + 'static) {
         self.rules.push(Box::new(rule));
@@ -110,7 +110,7 @@ mod test {
 
     #[tokio::test]
     async fn test_simple_rules_engine() {
-        let mut re = RE::new();
+        let mut re = RulesEngine::new();
         let context = RuleContext {};
         re.add_rule(rule!(simple_rule));
         re.add_rule(rule!(conditional_rule));
@@ -124,7 +124,7 @@ mod test {
 
     #[tokio::test]
     async fn test_typed_rules_engine() {
-        let mut re = RE::new();
+        let mut re = RulesEngine::new();
         let context = RuleContext {};
 
         let rule = typed_rule!(PremintTypes::Simple, simple_typed_rule);
