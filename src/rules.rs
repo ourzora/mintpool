@@ -38,7 +38,7 @@ macro_rules! typed_rule {
              -> std::pin::Pin<
                 std::boxed::Box<dyn std::future::Future<Output = eyre::Result<bool>> + Send + Sync>,
             > {
-                Box::pin(async {
+                std::boxed::Box::pin(async {
                     match item {
                         $t(premint) => $fn(premint, context).await,
                         _ => Ok(true),
