@@ -16,15 +16,17 @@ struct FnRule<T>(pub &'static str, pub T);
 
 #[async_trait]
 impl<T, Fut> Rule for FnRule<T>
-    where
-        T: Fn(PremintTypes, RuleContext) -> Fut + Send + Sync + 'static,
-        Fut: std::future::Future<Output=eyre::Result<bool>> + Send,
+where
+    T: Fn(PremintTypes, RuleContext) -> Fut + Send + Sync + 'static,
+    Fut: std::future::Future<Output = eyre::Result<bool>> + Send,
 {
     async fn check(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
         self.1(item, context).await
     }
 
-    fn rule_name(&self) -> &'static str { self.0 }
+    fn rule_name(&self) -> &'static str {
+        self.0
+    }
 }
 
 macro_rules! rule {
@@ -38,18 +40,24 @@ macro_rules! typed_rule {
         struct TypedRule;
 
         #[async_trait]
-        impl crate::rules::Rule for TypedRule{
-            async fn check(&self, item: crate::types::PremintTypes, context: crate::rules::RuleContext) -> eyre::Result<bool> {
+        impl crate::rules::Rule for TypedRule {
+            async fn check(
+                &self,
+                item: crate::types::PremintTypes,
+                context: crate::rules::RuleContext,
+            ) -> eyre::Result<bool> {
                 match item {
                     $t(premint) => $fn(premint, context).await,
                     _ => Ok(true),
                 }
             }
 
-            fn rule_name(&self) -> &'static str { concat!(stringify!($t), "::", stringify!($fn)) }
+            fn rule_name(&self) -> &'static str {
+                concat!(stringify!($t), "::", stringify!($fn))
+            }
         }
 
-        TypedRule{}
+        TypedRule {}
     }};
 }
 
@@ -82,7 +90,7 @@ impl RulesEngine {
                 }
                 Ok(pass) => {
                     if !pass {
-                        return Ok(false)
+                        return Ok(false);
                     }
                 }
             }
@@ -116,7 +124,10 @@ mod test {
         Ok(true)
     }
 
-    async fn simple_typed_zora_rule(item: ZoraPremintV2, context: RuleContext) -> eyre::Result<bool> {
+    async fn simple_typed_zora_rule(
+        item: ZoraPremintV2,
+        context: RuleContext,
+    ) -> eyre::Result<bool> {
         Ok(true)
     }
 
@@ -154,7 +165,10 @@ mod test {
         let rule2 = typed_rule!(PremintTypes::ZoraV2, simple_typed_zora_rule);
 
         assert_eq!(rule.rule_name(), "PremintTypes::Simple::simple_typed_rule");
-        assert_eq!(rule2.rule_name(), "PremintTypes::ZoraV2::simple_typed_zora_rule");
+        assert_eq!(
+            rule2.rule_name(),
+            "PremintTypes::ZoraV2::simple_typed_zora_rule"
+        );
 
         re.add_rule(rule);
         re.add_rule(rule2);
