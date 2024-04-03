@@ -1,8 +1,4 @@
 use async_trait::async_trait;
-use std::pin::Pin;
-
-use crate::premints::zora_premint_v2::rules::is_authorized_to_create_premint;
-use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 use futures::future::join_all;
 
 use crate::types::{Premint, PremintTypes};
@@ -37,7 +33,7 @@ macro_rules! rule {
 macro_rules! typed_rule {
     ($t:path, $fn:tt) => {
         FnRule(
-            |item: PremintTypes, context: RuleContext| -> Pin<Box<dyn std::future::Future<Output=eyre::Result<bool>> + Send + Sync>> {
+            |item: PremintTypes, context: RuleContext| -> std::pin::Pin<std::boxed::Box<dyn std::future::Future<Output=eyre::Result<bool>> + Send + Sync>> {
                 Box::pin(async {
                     match item {
                         $t(premint) => {
@@ -75,46 +71,11 @@ impl RE {
     }
 }
 
-// fn init_rules() {
-//     let mut r = RE::new();
-//     r.add_rule(&rule!(simple_rule));
-// }
-//
-// // define a rule as an async function signature
-// // pub type RuleCheck = dyn Fn(PremintTypes) -> Box<dyn Future<Output=bool>>;
-// pub type SpecificRuleCheck<T> = fn(&T) -> (dyn Future<Output = bool> + Send);
-//
-// pub struct RulesEngine<T: Premint> {
-//     rules: Vec<Box<SpecificRuleCheck<T>>>,
-// }
-//
-// impl<T: Premint> RulesEngine<T> {
-//     pub async fn validate(&self, premint: &T) -> bool {
-//         // let results: Vec<_> = self.rules.iter().map(|rule| rule(premint)).collect();
-//         //
-//         // let all_checks = join_all(results).await;
-//         //
-//         // all_checks.iter().all(|&check| check)
-//         todo!("implement")
-//     }
-// }
-//
-// async fn check<T: Premint>(premint: T) {
-//     let premint_v2_rules = RulesEngine {
-//         rules: vec![is_authorized_to_create_premint],
-//     };
-//
-//     // TODO: apply rules based on type
-// }
-
 #[cfg(test)]
 mod test {
-    use std::future::{ready, Ready};
-    use super::*;
     use alloy_primitives::U256;
-    use alloy_signer::k256::sha2::digest::Output;
-    use tracing_subscriber::filter::FilterExt;
-    use crate::premints::zora_premint_v2::rules::is_valid_signature;
+    use crate::types::SimplePremint;
+    use super::*;
 
     async fn simple_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
         Ok(true)
@@ -125,6 +86,10 @@ mod test {
             PremintTypes::Simple(s) => Ok(s.metadata().chain_id == U256::default()),
             _ => Ok(true),
         }
+    }
+
+    async fn simple_typed_rule(item: SimplePremint, context: RuleContext) -> eyre::Result<bool> {
+        Ok(true)
     }
 
     #[tokio::test]
@@ -157,7 +122,7 @@ mod test {
         let mut re = RE::new();
         let context = RuleContext {};
 
-        let rule = typed_rule!(PremintTypes::ZoraV2, is_valid_signature);
+        let rule = typed_rule!(PremintTypes::Simple, simple_typed_rule);
 
         re.add_rule(rule);
 
