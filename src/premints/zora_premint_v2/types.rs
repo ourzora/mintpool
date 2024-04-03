@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use alloy::rpc::types::eth::{Filter, Log, Transaction};
 use alloy::sol_types::private::U256;
-use alloy_primitives::{Address, address};
+use alloy_primitives::{address, Address};
 use alloy_signer::Signer;
 use alloy_signer_wallet::LocalWallet;
 use alloy_sol_macro::sol;
@@ -117,7 +117,10 @@ impl Premint for ZoraPremintV2 {
     }
 
     fn guid(&self) -> String {
-        format!("{:?}:{:?}:{:?}:{:?}", self.chain_id, self.collection_address, self.premint.uid, self.premint.version)
+        format!(
+            "{:?}:{:?}:{:?}:{:?}",
+            self.chain_id, self.collection_address, self.premint.uid, self.premint.version
+        )
     }
 
     fn check_filter(chain_id: u64) -> Option<Filter> {
@@ -172,4 +175,3 @@ impl Premint for ZoraPremintV2 {
         PremintName("zora_premint_v2".to_string())
     }
 }
-

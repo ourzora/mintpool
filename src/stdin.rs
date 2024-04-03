@@ -1,8 +1,8 @@
 use crate::controller::{ControllerCommands, ControllerInterface, DBQuery};
+use crate::types::PremintTypes;
 use colored::Colorize;
 use tokio::io::AsyncBufReadExt;
 use tokio::{io, select};
-use crate::types::PremintTypes;
 
 const PROMPT: &str = r#"🌍 Mintpool node accepting commands 🌍
 Supported commands:

@@ -14,7 +14,7 @@ pub struct ERC1155Metadata {
     pub description: String,
     pub image: String,
     pub decimals: u64,
-    pub properties: Map<String, Value>
+    pub properties: Map<String, Value>,
 }
 
 enum TokenMetadata {
