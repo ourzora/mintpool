@@ -35,7 +35,7 @@ macro_rules! rule {
 }
 
 macro_rules! typed_rule {
-    ($t:expr, $fn:tt) => {
+    ($t:path, $fn:tt) => {
         FnRule(
             |item: PremintTypes, context: RuleContext| -> Pin<Box<dyn std::future::Future<Output=eyre::Result<bool>> + Send + Sync>> {
                 Box::pin(async {
@@ -152,31 +152,12 @@ mod test {
         assert!(result);
     }
 
-    async fn return_true() -> eyre::Result<bool> {
-        Ok(true)
-    }
-
-    pub async fn test_signature(premint: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
-        Ok(true)
-    }
-
     #[tokio::test]
     async fn test_typed_rules_engine() {
         let mut re = RE::new();
         let context = RuleContext {};
 
         let rule = typed_rule!(PremintTypes::ZoraV2, is_valid_signature);
-        let rule = FnRule(
-            |item: PremintTypes, context: RuleContext| -> Pin<Box<dyn std::future::Future<Output=eyre::Result<bool>> + Send + Sync>>   {
-                Box::pin(async {
-                    match item {
-                        PremintTypes::ZoraV2(premint) => {
-                            is_valid_signature(premint, context).await
-                        }
-                        _ => { Ok(true) }
-                    }
-                })
-            });
 
         re.add_rule(rule);
 
