@@ -9,44 +9,48 @@ pub struct RuleContext {}
 #[async_trait]
 trait Rule: Send + Sync {
     async fn check(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<bool>;
+    fn rule_name(&self) -> &'static str;
 }
 
-struct FnRule<T>(pub T);
+struct FnRule<T>(pub &'static str, pub T);
 
 #[async_trait]
 impl<T, Fut> Rule for FnRule<T>
-where
-    T: Fn(PremintTypes, RuleContext) -> Fut + Send + Sync + 'static,
-    Fut: std::future::Future<Output = eyre::Result<bool>> + Send,
+    where
+        T: Fn(PremintTypes, RuleContext) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output=eyre::Result<bool>> + Send,
 {
     async fn check(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
-        self.0(item, context).await
+        self.1(item, context).await
     }
+
+    fn rule_name(&self) -> &'static str { self.0 }
 }
 
 macro_rules! rule {
     ($fn:tt) => {
-        FnRule($fn)
+        FnRule(stringify!($fn), $fn)
     };
 }
 
 macro_rules! typed_rule {
-    ($t:path, $fn:tt) => {
-        crate::rules::FnRule(
-            |item: crate::types::PremintTypes,
-             context: crate::rules::RuleContext|
-             -> std::pin::Pin<
-                std::boxed::Box<dyn std::future::Future<Output = eyre::Result<bool>> + Send + Sync>,
-            > {
-                std::boxed::Box::pin(async {
-                    match item {
-                        $t(premint) => $fn(premint, context).await,
-                        _ => Ok(true),
-                    }
-                })
-            },
-        )
-    };
+    ($t:path, $fn:tt) => {{
+        struct TypedRule;
+
+        #[async_trait]
+        impl crate::rules::Rule for TypedRule{
+            async fn check(&self, item: crate::types::PremintTypes, context: crate::rules::RuleContext) -> eyre::Result<bool> {
+                match item {
+                    $t(premint) => $fn(premint, context).await,
+                    _ => Ok(true),
+                }
+            }
+
+            fn rule_name(&self) -> &'static str { concat!(stringify!($t), "::", stringify!($fn)) }
+        }
+
+        TypedRule{}
+    }};
 }
 
 struct RulesEngine {
@@ -78,9 +82,12 @@ impl RulesEngine {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::types::SimplePremint;
     use alloy_primitives::U256;
+
+    use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+    use crate::types::SimplePremint;
+
+    use super::*;
 
     async fn simple_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
         Ok(true)
@@ -94,6 +101,10 @@ mod test {
     }
 
     async fn simple_typed_rule(item: SimplePremint, context: RuleContext) -> eyre::Result<bool> {
+        Ok(true)
+    }
+
+    async fn simple_typed_zora_rule(item: ZoraPremintV2, context: RuleContext) -> eyre::Result<bool> {
         Ok(true)
     }
 
@@ -128,8 +139,13 @@ mod test {
         let context = RuleContext {};
 
         let rule = typed_rule!(PremintTypes::Simple, simple_typed_rule);
+        let rule2 = typed_rule!(PremintTypes::ZoraV2, simple_typed_zora_rule);
+
+        assert_eq!(rule.rule_name(), "PremintTypes::Simple::simple_typed_rule");
+        assert_eq!(rule2.rule_name(), "PremintTypes::ZoraV2::simple_typed_zora_rule");
 
         re.add_rule(rule);
+        re.add_rule(rule2);
 
         let result = re
             .evaluate(PremintTypes::Simple(Default::default()), context)
