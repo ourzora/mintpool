@@ -15,9 +15,9 @@ struct FnRule<T>(pub T);
 
 #[async_trait]
 impl<T, Fut> Rule for FnRule<T>
-    where
-        T: Fn(PremintTypes, RuleContext) -> Fut + Send + Sync + 'static,
-        Fut: std::future::Future<Output=eyre::Result<bool>> + Send,
+where
+    T: Fn(PremintTypes, RuleContext) -> Fut + Send + Sync + 'static,
+    Fut: std::future::Future<Output = eyre::Result<bool>> + Send,
 {
     async fn check(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
         self.0(item, context).await
@@ -32,17 +32,20 @@ macro_rules! rule {
 
 macro_rules! typed_rule {
     ($t:path, $fn:tt) => {
-        FnRule(
-            |item: PremintTypes, context: RuleContext| -> std::pin::Pin<std::boxed::Box<dyn std::future::Future<Output=eyre::Result<bool>> + Send + Sync>> {
+        crate::rules::FnRule(
+            |item: crate::types::PremintTypes,
+             context: crate::rules::RuleContext|
+             -> std::pin::Pin<
+                std::boxed::Box<dyn std::future::Future<Output = eyre::Result<bool>> + Send + Sync>,
+            > {
                 Box::pin(async {
                     match item {
-                        $t(premint) => {
-                            $fn(premint, context).await
-                        }
-                        _ => { Ok(true) }
+                        $t(premint) => $fn(premint, context).await,
+                        _ => Ok(true),
                     }
                 })
-            })
+            },
+        )
     };
 }
 
@@ -67,15 +70,17 @@ impl RE {
         let all_checks = join_all(results).await;
 
         // TODO: handle errors
-        all_checks.iter().all(|check| check.is_ok() && check.as_ref().unwrap().clone())
+        all_checks
+            .iter()
+            .all(|check| check.is_ok() && check.as_ref().unwrap().clone())
     }
 }
 
 #[cfg(test)]
 mod test {
-    use alloy_primitives::U256;
-    use crate::types::SimplePremint;
     use super::*;
+    use crate::types::SimplePremint;
+    use alloy_primitives::U256;
 
     async fn simple_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
         Ok(true)

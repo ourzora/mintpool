@@ -22,7 +22,10 @@ pub async fn is_authorized_to_create_premint<T: Premint>(premint: &T) -> eyre::R
 //   * check if the signature is valid
 //   * check if the signature is equal to the proposed contract admin
 
-pub async fn is_valid_signature(premint: ZoraPremintV2, context: RuleContext) -> eyre::Result<bool> {
+pub async fn is_valid_signature(
+    premint: ZoraPremintV2,
+    context: RuleContext,
+) -> eyre::Result<bool> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
 
@@ -73,6 +76,8 @@ mod test {
     #[tokio::test]
     async fn test_is_valid_signature() {
         let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
-        assert!(is_valid_signature(premint, RuleContext{}).await.expect("failed to check signature"));
+        assert!(is_valid_signature(premint, RuleContext {})
+            .await
+            .expect("failed to check signature"));
     }
 }
