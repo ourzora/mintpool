@@ -106,10 +106,9 @@ impl RulesEngine {
 mod test {
     use super::*;
 
-    use alloy_primitives::U256;
     use crate::premints::zora_premint_v2::types::ZoraPremintV2;
     use crate::types::SimplePremint;
-
+    use alloy_primitives::U256;
 
     async fn simple_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
         Ok(true)
