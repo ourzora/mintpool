@@ -129,11 +129,12 @@ mod build {
         for i in 0..num_nodes {
             let config = Config {
                 seed: rand_n + i,
-                port: start_port + i,
+                peer_port: start_port + i,
                 connect_external: false,
                 db_url: None,
                 persist_state: false,
                 prune_minted_premints: false,
+                api_port: 0,
                 peer_limit,
                 premint_types: "simple,zora_premint_v2".to_string(),
                 chain_inclusion_mode: ChainInclusionMode::Check,

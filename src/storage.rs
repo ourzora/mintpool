@@ -50,8 +50,8 @@ impl PremintStorage {
     pub async fn store(&self, premint: PremintTypes) -> eyre::Result<()> {
         let metadata = premint.metadata();
         let json = premint.to_json()?;
-        let signer = format!("{:?}", metadata.signer);
-        let collection_address = format!("{:?}", metadata.collection_address);
+        let signer = metadata.signer.to_checksum(None);
+        let collection_address = metadata.collection_address.to_checksum(None);
         let token_id = metadata.token_id.to_string();
         let chain_id = metadata.chain_id.to::<i64>();
         let id = premint.guid();
@@ -75,22 +75,7 @@ impl PremintStorage {
     }
 
     pub async fn list_all(&self) -> eyre::Result<Vec<PremintTypes>> {
-        let rows = sqlx::query(
-            r#"
-            SELECT json FROM premints
-        "#,
-        )
-        .fetch_all(&self.db)
-        .await
-        .map_err(|e| eyre::eyre!("Failed to list all premints: {}", e))?;
-        let premints = rows
-            .iter()
-            .map(|row| {
-                let json: String = row.get(0);
-                PremintTypes::from_json(json).unwrap()
-            })
-            .collect();
-        Ok(premints)
+        list_all(&self.db).await
     }
 
     pub async fn get_for_id(&self, id: String) -> eyre::Result<PremintTypes> {
@@ -106,6 +91,24 @@ impl PremintStorage {
         PremintTypes::from_json(json)
     }
 }
+pub async fn list_all(db: &SqlitePool) -> eyre::Result<Vec<PremintTypes>> {
+    let rows = sqlx::query(
+        r#"
+            SELECT json FROM premints
+        "#,
+    )
+    .fetch_all(db)
+    .await
+    .map_err(|e| eyre::eyre!("Failed to list all premints: {}", e))?;
+    let premints = rows
+        .iter()
+        .map(|row| {
+            let json: String = row.get(0);
+            PremintTypes::from_json(json).unwrap()
+        })
+        .collect();
+    Ok(premints)
+}
 
 #[cfg(test)]
 mod test {
@@ -117,7 +120,7 @@ mod test {
     async fn test_insert_and_get() {
         let config = Config {
             seed: 0,
-            port: 7777,
+            peer_port: 7777,
             connect_external: false,
             db_url: None, // in-memory for testing
             persist_state: false,
@@ -127,6 +130,7 @@ mod test {
             chain_inclusion_mode: ChainInclusionMode::Check,
             supported_chain_ids: "7777777,".to_string(),
             trusted_peers: None,
+            api_port: 0,
         };
 
         let store = PremintStorage::new(&config).await;
@@ -141,11 +145,12 @@ mod test {
     async fn test_list_all() {
         let config = Config {
             seed: 0,
-            port: 7777,
+            peer_port: 7778,
             connect_external: false,
             db_url: None, // in-memory for testing
             persist_state: false,
             prune_minted_premints: false,
+            api_port: 7777,
             peer_limit: 1000,
             premint_types: "simple".to_string(),
             chain_inclusion_mode: ChainInclusionMode::Check,
