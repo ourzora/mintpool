@@ -1,0 +1,66 @@
+name: Application CI/CD
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  push_to_registry:
+    name: Push Image to GCP
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'skip docker') && !contains(github.event.head_commit.message, 'docker skip')"
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: 418
+
+      - name: Auth to GCloud Docker
+        shell: bash
+        run: |
+          gcloud auth configure-docker us-east4-docker.pkg.dev
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: buildx-${{ github.sha }}
+          restore-keys: |
+            buildx-
+
+      - name: Generate build tag
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          echo "BUILD_TAG=${GITHUB_SHA:0:7}-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
+
+      - name: Build Image
+        id: build-image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          tags: |
+            "${{ vars.REGISTRY_HOSTNAME }}development/${{ vars.IMAGE }}:${{ env.BUILD_TAG }}"
+            "${{ vars.REGISTRY_HOSTNAME }}development/${{ vars.IMAGE }}:latest"
+            "${{ vars.REGISTRY_HOSTNAME }}prod/${{ vars.IMAGE }}:${{ env.BUILD_TAG }}"
+            "${{ vars.REGISTRY_HOSTNAME }}prod/${{ vars.IMAGE }}:latest"
+          build-args: |
+            VERSION=${{ env.BUILD_TAG }}
+          push: true
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
