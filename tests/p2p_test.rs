@@ -134,6 +134,7 @@ mod build {
                 db_url: None,
                 persist_state: false,
                 prune_minted_premints: false,
+                api_port: 0,
                 peer_limit,
                 premint_types: "simple,zora_premint_v2".to_string(),
                 chain_inclusion_mode: ChainInclusionMode::Check,

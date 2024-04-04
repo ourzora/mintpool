@@ -133,11 +133,12 @@ mod test {
     fn test_premint_names() {
         let config = super::Config {
             seed: 0,
-            port: 7777,
+            peer_port: 7777,
             connect_external: false,
             db_url: None,
             persist_state: false,
             prune_minted_premints: false,
+            api_port: 0,
             peer_limit: 1000,
             premint_types: "simple,zora_premint_v2".to_string(),
             chain_inclusion_mode: ChainInclusionMode::Check,
@@ -152,11 +153,12 @@ mod test {
 
         let config = super::Config {
             seed: 0,
-            port: 7777,
+            peer_port: 7777,
             connect_external: false,
             db_url: None,
             persist_state: false,
             prune_minted_premints: false,
+            api_port: 0,
             peer_limit: 1000,
             premint_types: "zora_premint_v2".to_string(),
             chain_inclusion_mode: ChainInclusionMode::Check,
