@@ -37,6 +37,30 @@ macro_rules! rule {
 }
 
 #[macro_export]
+macro_rules! metadata_rule {
+    ($fn:tt) => {{
+        struct MetadataRule;
+
+        #[async_trait::async_trait]
+        impl crate::rules::Rule for MetadataRule {
+            async fn check(
+                &self,
+                item: crate::types::PremintTypes,
+                context: crate::rules::RuleContext,
+            ) -> eyre::Result<bool> {
+                $fn(item.metadata(), context).await
+            }
+
+            fn rule_name(&self) -> &'static str {
+                concat!("Metadata::", stringify!($fn))
+            }
+        }
+
+        MetadataRule {}
+    }};
+}
+
+#[macro_export]
 macro_rules! typed_rule {
     ($t:path, $fn:tt) => {{
         struct TypedRule;
@@ -99,6 +123,29 @@ impl RulesEngine {
         }
 
         Ok(true)
+    }
+}
+
+mod general {
+    use crate::rules::{Rule, RuleContext};
+    use crate::types::PremintMetadata;
+
+    pub fn all_rules() -> Vec<Box<dyn Rule>> {
+        vec![Box::new(metadata_rule!(token_uri_length))]
+    }
+
+    pub async fn token_uri_length(
+        meta: PremintMetadata,
+        context: RuleContext,
+    ) -> eyre::Result<bool> {
+        let max_allowed = if meta.uri.starts_with("data:") {
+            // allow some more data for data uris
+            8 * 1024
+        } else {
+            2 * 1024
+        };
+
+        Ok(meta.uri.len() <= max_allowed)
     }
 }
 
