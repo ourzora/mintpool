@@ -4,14 +4,16 @@ use alloy_primitives::Signature;
 use alloy_sol_types::SolStruct;
 
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
-use crate::rules::RuleContext;
-use crate::types::Premint;
+use crate::rules::{Rule, RuleContext};
+use crate::typed_rule;
+use crate::types::{Premint, PremintTypes};
 
 // create premint v2 rule implementations here
 
-// TODO: is there any rust sugar to make this more concise?
-//       as it stands, it's not defined as an async function, so can't use async stuff
-pub async fn is_authorized_to_create_premint<T: Premint>(premint: &T) -> eyre::Result<bool> {
+pub async fn is_authorized_to_create_premint(
+    premint: ZoraPremintV2,
+    context: RuleContext,
+) -> eyre::Result<bool> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
     //   * this logic exists as a function on the premint executor contract
@@ -36,6 +38,16 @@ pub async fn is_valid_signature(
     let signer = signature.recover_address_from_prehash(&hash)?;
 
     Ok(signer == premint.collection.contractAdmin)
+}
+
+pub fn all_rules() -> Vec<Box<dyn Rule>> {
+    vec![
+        Box::new(typed_rule!(
+            PremintTypes::ZoraV2,
+            is_authorized_to_create_premint
+        )),
+        Box::new(typed_rule!(PremintTypes::ZoraV2, is_valid_signature)),
+    ]
 }
 
 #[cfg(test)]
