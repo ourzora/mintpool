@@ -3,12 +3,46 @@ use futures::future::join_all;
 
 use crate::types::{Premint, PremintTypes};
 
+#[derive(Debug)]
+pub enum Evaluation {
+    Accept,
+    Ignore,
+    Reject(String),
+}
+
+#[derive(Debug)]
+pub struct RuleResult {
+    pub rule_name: &'static str,
+    pub result: eyre::Result<Evaluation>,
+}
+
+#[derive(Debug)]
+pub struct Results(Vec<RuleResult>);
+
+impl Results {
+    pub fn is_accept(&self) -> bool {
+        !self.is_reject()
+    }
+
+    pub fn is_reject(&self) -> bool {
+        !self.is_err()
+            && self
+                .0
+                .iter()
+                .any(|r| matches!(r.result, Ok(Evaluation::Reject(_))))
+    }
+
+    pub fn is_err(&self) -> bool {
+        self.0.iter().any(|r| matches!(r.result, Err(_)))
+    }
+}
+
 #[derive(Clone)]
 pub struct RuleContext {}
 
 #[async_trait]
 pub trait Rule: Send + Sync {
-    async fn check(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<bool>;
+    async fn check(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<Evaluation>;
     fn rule_name(&self) -> &'static str;
 }
 
@@ -18,9 +52,9 @@ pub struct FnRule<T>(pub &'static str, pub T);
 impl<T, Fut> Rule for FnRule<T>
 where
     T: Fn(PremintTypes, RuleContext) -> Fut + Send + Sync + 'static,
-    Fut: std::future::Future<Output = eyre::Result<bool>> + Send,
+    Fut: std::future::Future<Output = eyre::Result<Evaluation>> + Send,
 {
-    async fn check(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
+    async fn check(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<Evaluation> {
         self.1(item, context).await
     }
 
@@ -47,7 +81,7 @@ macro_rules! metadata_rule {
                 &self,
                 item: crate::types::PremintTypes,
                 context: crate::rules::RuleContext,
-            ) -> eyre::Result<bool> {
+            ) -> eyre::Result<crate::rules::Evaluation> {
                 $fn(item.metadata(), context).await
             }
 
@@ -71,10 +105,10 @@ macro_rules! typed_rule {
                 &self,
                 item: crate::types::PremintTypes,
                 context: crate::rules::RuleContext,
-            ) -> eyre::Result<bool> {
+            ) -> eyre::Result<crate::rules::Evaluation> {
                 match item {
                     $t(premint) => $fn(premint, context).await,
-                    _ => Ok(true),
+                    _ => Ok(crate::rules::Evaluation::Ignore),
                 }
             }
 
@@ -108,7 +142,7 @@ impl RulesEngine {
         self.rules.push(Box::new(rule));
     }
 
-    pub async fn evaluate(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
+    pub async fn evaluate(&self, item: PremintTypes, context: RuleContext) -> Results {
         let results: Vec<_> = self
             .rules
             .iter()
@@ -116,27 +150,22 @@ impl RulesEngine {
             .collect();
         let all_checks = join_all(results).await;
 
-        // TODO: ideally we'd want to return a list of all errors
-        //       so that a caller could determine which rules failed and why
-        for error in all_checks.into_iter() {
-            match error {
-                Err(e) => {
-                    return Err(e);
-                }
-                Ok(pass) => {
-                    if !pass {
-                        return Ok(false);
-                    }
-                }
-            }
-        }
-
-        Ok(true)
+        Results(
+            all_checks
+                .into_iter()
+                .zip(self.rules.iter())
+                .map(|(result, rule)| RuleResult {
+                    rule_name: rule.rule_name(),
+                    result,
+                })
+                .collect(),
+        )
     }
 }
 
 mod general {
-    use crate::rules::{Rule, RuleContext};
+    use crate::rules::Evaluation::{Accept, Reject};
+    use crate::rules::{Evaluation, Rule, RuleContext};
     use crate::types::PremintMetadata;
 
     pub fn all_rules() -> Vec<Box<dyn Rule>> {
@@ -146,7 +175,7 @@ mod general {
     pub async fn token_uri_length(
         meta: PremintMetadata,
         context: RuleContext,
-    ) -> eyre::Result<bool> {
+    ) -> eyre::Result<Evaluation> {
         let max_allowed = if meta.uri.starts_with("data:") {
             // allow some more data for data uris
             8 * 1024
@@ -154,7 +183,15 @@ mod general {
             2 * 1024
         };
 
-        Ok(meta.uri.len() <= max_allowed)
+        Ok(match meta.uri.len() {
+            0 => Reject("Token URI is empty".to_string()),
+            _ if meta.uri.len() > max_allowed => Reject(format!(
+                "Token URI is too long: {} > {}",
+                meta.uri.len(),
+                max_allowed
+            )),
+            _ => Accept,
+        })
     }
 }
 
@@ -163,30 +200,43 @@ mod test {
     use alloy_primitives::U256;
 
     use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+    use crate::rules::Evaluation::{Accept, Reject};
     use crate::types::SimplePremint;
 
     use super::*;
 
-    async fn simple_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
-        Ok(true)
+    async fn simple_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<Evaluation> {
+        Ok(Accept)
     }
 
-    async fn conditional_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
+    async fn conditional_rule(
+        item: PremintTypes,
+        context: RuleContext,
+    ) -> eyre::Result<Evaluation> {
         match item {
-            PremintTypes::Simple(s) => Ok(s.metadata().chain_id == U256::default()),
-            _ => Ok(true),
+            PremintTypes::Simple(s) => {
+                if s.metadata().chain_id == U256::default() {
+                    Ok(Accept)
+                } else {
+                    Ok(Reject("Chain ID is not default".to_string()))
+                }
+            }
+            _ => Ok(Accept),
         }
     }
 
-    async fn simple_typed_rule(item: SimplePremint, context: RuleContext) -> eyre::Result<bool> {
-        Ok(true)
+    async fn simple_typed_rule(
+        item: SimplePremint,
+        context: RuleContext,
+    ) -> eyre::Result<Evaluation> {
+        Ok(Accept)
     }
 
     async fn simple_typed_zora_rule(
         item: ZoraPremintV2,
         context: RuleContext,
-    ) -> eyre::Result<bool> {
-        Ok(true)
+    ) -> eyre::Result<Evaluation> {
+        Ok(Accept)
     }
 
     #[tokio::test]
@@ -197,7 +247,7 @@ mod test {
             .check(PremintTypes::Simple(Default::default()), context)
             .await
             .unwrap();
-        assert!(result);
+        assert!(matches!(result, Accept));
     }
 
     #[tokio::test]
@@ -211,7 +261,7 @@ mod test {
             .evaluate(PremintTypes::Simple(Default::default()), context)
             .await;
 
-        assert!(result.unwrap());
+        assert!(result.is_accept());
     }
 
     #[tokio::test]
@@ -235,6 +285,6 @@ mod test {
             .evaluate(PremintTypes::Simple(Default::default()), context)
             .await;
 
-        assert!(result.unwrap());
+        assert!(result.is_accept());
     }
 }
