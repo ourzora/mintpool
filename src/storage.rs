@@ -145,11 +145,12 @@ mod test {
     async fn test_list_all() {
         let config = Config {
             seed: 0,
-            peer_port: 7777,
+            peer_port: 7778,
             connect_external: false,
             db_url: None, // in-memory for testing
             persist_state: false,
             prune_minted_premints: false,
+            api_port: 7777,
             peer_limit: 1000,
             premint_types: "simple".to_string(),
             chain_inclusion_mode: ChainInclusionMode::Check,
