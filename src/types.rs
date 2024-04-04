@@ -7,8 +7,6 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-// use crate::rules::RulesEngine;
-
 #[derive(Debug)]
 pub struct PremintName(pub String);
 
@@ -38,13 +36,7 @@ pub struct PremintMetadata {
 #[async_trait]
 pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
-
     fn guid(&self) -> String;
-
-    // async fn validate(&self, engine: RulesEngine<Self>) -> bool {
-    //     engine.validate(self).await
-    // }
-
     fn check_filter(chain_id: u64) -> Option<Filter>;
     fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim>;
     async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool;
