@@ -10,8 +10,6 @@ use crate::types::{Premint, PremintTypes};
 
 // create premint v2 rule implementations here
 
-// TODO: is there any rust sugar to make this more concise?
-//       as it stands, it's not defined as an async function, so can't use async stuff
 pub async fn is_authorized_to_create_premint(
     premint: ZoraPremintV2,
     context: RuleContext,
