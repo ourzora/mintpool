@@ -17,8 +17,8 @@ async fn main() -> eyre::Result<()> {
 
     let ctl = start_services(&config).await?;
 
-    let handler = api::make_router(&config, ctl.clone()).await;
-    api::start_api(&config, handler).await?;
+    let router = api::make_router(&config, ctl.clone()).await;
+    api::start_api(&config, router).await?;
 
     watch_stdin(ctl).await;
 
