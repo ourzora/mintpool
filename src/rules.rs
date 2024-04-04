@@ -91,6 +91,15 @@ pub struct RulesEngine {
     rules: Vec<Box<dyn Rule>>,
 }
 
+fn all_rules() -> Vec<Box<dyn Rule>> {
+    let mut rules: Vec<Box<dyn Rule>> = Vec::new();
+
+    rules.append(&mut general::all_rules());
+    rules.append(&mut crate::premints::zora_premint_v2::rules::all_rules());
+
+    rules
+}
+
 impl RulesEngine {
     pub fn new() -> Self {
         RulesEngine { rules: vec![] }
