@@ -32,7 +32,7 @@ where
 #[macro_export]
 macro_rules! rule {
     ($fn:tt) => {
-        mintpool::rules::FnRule(stringify!($fn), $fn)
+        crate::rules::FnRule(stringify!($fn), $fn)
     };
 }
 
@@ -42,11 +42,11 @@ macro_rules! typed_rule {
         struct TypedRule;
 
         #[async_trait::async_trait]
-        impl mintpool::rules::Rule for TypedRule {
+        impl crate::rules::Rule for TypedRule {
             async fn check(
                 &self,
-                item: mintpool::types::PremintTypes,
-                context: mintpool::rules::RuleContext,
+                item: crate::types::PremintTypes,
+                context: crate::rules::RuleContext,
             ) -> eyre::Result<bool> {
                 match item {
                     $t(premint) => $fn(premint, context).await,
@@ -99,5 +99,86 @@ impl RulesEngine {
         }
 
         Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use alloy_primitives::U256;
+    use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+    use crate::types::SimplePremint;
+
+
+    async fn simple_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
+        Ok(true)
+    }
+
+    async fn conditional_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<bool> {
+        match item {
+            PremintTypes::Simple(s) => Ok(s.metadata().chain_id == U256::default()),
+            _ => Ok(true),
+        }
+    }
+
+    async fn simple_typed_rule(item: SimplePremint, context: RuleContext) -> eyre::Result<bool> {
+        Ok(true)
+    }
+
+    async fn simple_typed_zora_rule(
+        item: ZoraPremintV2,
+        context: RuleContext,
+    ) -> eyre::Result<bool> {
+        Ok(true)
+    }
+
+    #[tokio::test]
+    async fn test_simple_rule() {
+        let context = RuleContext {};
+        let rule = rule!(simple_rule);
+        let result = rule
+            .check(PremintTypes::Simple(Default::default()), context)
+            .await
+            .unwrap();
+        assert!(result);
+    }
+
+    #[tokio::test]
+    async fn test_simple_rules_engine() {
+        let mut re = RulesEngine::new();
+        let context = RuleContext {};
+        re.add_rule(rule!(simple_rule));
+        re.add_rule(rule!(conditional_rule));
+
+        let result = re
+            .evaluate(PremintTypes::Simple(Default::default()), context)
+            .await;
+
+        assert!(result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_typed_rules_engine() {
+        let mut re = RulesEngine::new();
+        let context = RuleContext {};
+
+        let rule = typed_rule!(PremintTypes::Simple, simple_typed_rule);
+        let rule2 = typed_rule!(PremintTypes::ZoraV2, simple_typed_zora_rule);
+
+        assert_eq!(rule.rule_name(), "PremintTypes::Simple::simple_typed_rule");
+        assert_eq!(
+            rule2.rule_name(),
+            "PremintTypes::ZoraV2::simple_typed_zora_rule"
+        );
+
+        re.add_rule(rule);
+        re.add_rule(rule2);
+
+        let result = re
+            .evaluate(PremintTypes::Simple(Default::default()), context)
+            .await;
+
+        assert!(result.unwrap());
     }
 }
