@@ -26,16 +26,17 @@ pub mod mintpool_build {
         let rand_n = rand::random::<u64>();
         Config {
             seed: rand_n,
-            port: port,
             connect_external: false,
             db_url: None,
             persist_state: false,
             prune_minted_premints: false,
+            api_port: 0,
             peer_limit,
-            premint_types: "simple,zora_premint_v2".to_string(),
+            supported_premint_types: "simple,zora_premint_v2".to_string(),
             chain_inclusion_mode: ChainInclusionMode::Check,
             supported_chain_ids: "7777777".to_string(),
             trusted_peers: None,
+            peer_port: port,
         }
     }
 
