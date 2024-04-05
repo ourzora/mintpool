@@ -81,4 +81,4 @@ opt-level = 3
 
 
 [dev-dependencies]
-alloy-node-bindings = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
+alloy-node-bindings = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639" }

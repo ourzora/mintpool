@@ -117,11 +117,23 @@ async fn test_broadcasting_premint() {
     println!("calldata: {:?}", calldata.abi_encode());
 
     // Someone found the premint and brought it onchain
+    // let mut tx_request = TransactionRequest {
+    //     to: Some(PREMINT_FACTORY_ADDR),
+    //     input: TransactionInput::new(Bytes::from(calldata.abi_encode())),
+    //     value: Some(U256::from(0.000777 * (10 ^ 18) as f32)),
+    //     nonce: Some(13),
+    //     max_priority_fee_per_gas: Some(20 * (10 ^ 12)),
+    //     gas_price: Some(gas_price),
+    //     gas: Some(30_000_000),
+    //     max_fee_per_gas: Some(max_fee_per_gas),
+    //     chain_id: Some(7777777),
+    //     ..Default::default()
+    // };
+
     let mut tx_request = TransactionRequest {
         to: Some(PREMINT_FACTORY_ADDR),
-        input: TransactionInput::new(Bytes::from(calldata.abi_encode())),
-        value: Some(U256::from(0.000777 * (10 ^ 18) as f32)),
-        nonce: Some(13),
+        value: Some(U256::from(1)),
+        nonce: Some(14),
         max_priority_fee_per_gas: Some(20 * (10 ^ 12)),
         gas_price: Some(gas_price),
         gas: Some(30_000_000),
