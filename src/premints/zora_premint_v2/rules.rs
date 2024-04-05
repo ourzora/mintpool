@@ -1,13 +1,13 @@
-use alloy::rpc::types::eth::{TransactionInput, TransactionRequest};
 use std::str::FromStr;
 
-use crate::chain_list::CHAINS;
-use alloy_primitives::{Bytes, Signature};
+use alloy_primitives::Signature;
 use alloy_provider::Provider;
 use alloy_sol_macro::sol;
-use alloy_sol_types::{SolCall, SolStruct};
+use alloy_sol_types::{SolCall, SolInterface, SolStruct};
 
-use crate::premints::zora_premint_v2::types::{ZoraPremintV2, PREMINT_FACTORY_ADDR};
+use crate::chain::contract_call;
+use crate::chain_list::CHAINS;
+use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 use crate::rules::Evaluation::{Accept, Reject};
 use crate::rules::{Evaluation, Rule, RuleContext};
 use crate::typed_rule;
@@ -40,45 +40,15 @@ pub async fn is_authorized_to_create_premint(
     match chain {
         Some(chain) => {
             let provider = chain.get_rpc(false).await?;
-            let response = provider
-                .call(
-                    &TransactionRequest {
-                        to: Some(PREMINT_FACTORY_ADDR),
-                        input: TransactionInput {
-                            input: Some(Bytes::from(call.abi_encode())),
-                            data: None,
-                        },
-                        ..Default::default()
-                    },
-                    None,
-                )
-                .await;
+            let result = contract_call(call, &provider).await?;
 
-            match response {
-                Ok(response) => {
-                    let response =
-                        PremintExecutor::isAuthorizedToCreatePremintReturn::from(response.output);
-                    let result = call.abi_decode(&response.output);
-                    if result.is_err() {
-                        return Ok(Reject("Unauthorized to create premint".to_string()));
-                    }
-                    if result.unwrap() {
-                        return Ok(Accept);
-                    }
-                }
-                Err(_) => {
-                    return Ok(Reject("Unauthorized to create premint".to_string()));
-                }
+            match result.isAuthorized {
+                true => Ok(Accept),
+                false => Ok(Reject("Unauthorized to create premint".to_string())),
             }
         }
-        None => {
-            return Ok(Reject("Chain not supported".to_string()));
-        }
+        None => Ok(Reject("Chain not supported".to_string())),
     }
-
-    //   * if contract exists, check if the signer is the contract admin
-    //   * if contract does not exist, check if the signer is the proposed contract admin
-    //   * this logic exists as a function on the premint executor contract
 }
 
 // * signatureIsValid ( this can be performed entirely offline )
@@ -158,6 +128,15 @@ mod test {
         let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
         assert!(matches!(
             is_valid_signature(premint, RuleContext {}).await,
+            Ok(Accept)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_is_authorized_to_create_premint() {
+        let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
+        assert!(matches!(
+            is_authorized_to_create_premint(premint, RuleContext {}).await,
             Ok(Accept)
         ));
     }

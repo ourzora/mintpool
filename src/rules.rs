@@ -54,9 +54,7 @@ impl Results {
 }
 
 #[derive(Clone)]
-pub struct RuleContext {
-    pub store: PremintStorage,
-}
+pub struct RuleContext {}
 
 #[async_trait]
 pub trait Rule: Send + Sync {
