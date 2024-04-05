@@ -146,7 +146,20 @@ mod test {
         let chain = CHAINS.get_chain_by_id(7777777).unwrap();
         let provider = connect(&chain.rpc[0]).await.unwrap();
 
+        // quick integration test here
         let number = provider.get_block_number().await.unwrap();
         assert!(number > 0);
+    }
+
+    #[tokio::test]
+    async fn test_chain_connect_variable() {
+        let url = "https://mainnet.infura.io/v3/${INFURA_API_KEY}".to_string();
+        let provider = connect(&url).await;
+
+        assert!(provider.is_err());
+        match provider {
+            Ok(_) => panic!("Expected error"),
+            Err(e) => assert!(e.to_string().contains("URL contains variables")),
+        }
     }
 }
