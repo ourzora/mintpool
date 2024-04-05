@@ -1,9 +1,8 @@
+use crate::chain_list::Chains;
 use crate::controller::ControllerCommands;
 use crate::types::Premint;
 use alloy::network::Ethereum;
-use alloy::pubsub::PubSubFrontend;
-use alloy_provider::{Provider, RootProvider};
-use alloy_rpc_client::{RpcClient, WsConnect};
+use alloy_provider::Provider;
 use futures_util::StreamExt;
 use tokio::sync::mpsc::Sender;
 
@@ -56,14 +55,14 @@ impl MintChecker {
         }
     }
 
-    async fn make_provider(&self) -> eyre::Result<RootProvider<Ethereum, PubSubFrontend>> {
-        let ws_transport = WsConnect::new(self.rpc_url.clone());
+    async fn make_provider(&self) -> eyre::Result<Box<dyn Provider<Ethereum>>> {
+        let chains = Chains::new();
 
-        // Connect to the WS client.
-        let rpc_client = RpcClient::connect_pubsub(ws_transport).await?;
+        let chain = chains.get_chain_by_id(self.chain_id as i64);
 
-        // Create the provider.
-        let provider = RootProvider::<Ethereum, _>::new(rpc_client);
-        Ok(provider)
+        match chain {
+            Some(c) => c.get_rpc(true).await,
+            None => Err(eyre::eyre!("Chain not found for id {}", self.chain_id)),
+        }
     }
 }
