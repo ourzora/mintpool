@@ -1,5 +1,6 @@
 use alloy::network::Ethereum;
 use alloy_provider::{Provider, ProviderBuilder};
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -7,9 +8,11 @@ const CHAINS_JSON: &str = include_str!("../data/chains.json");
 
 pub struct Chains(Vec<Chain>);
 
+pub static CHAINS: Lazy<Chains> = Lazy::new(|| Chains::new());
+pub static VARIABLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\$\{(.+?)}").unwrap());
+
 impl Chains {
-    pub fn new() -> Self {
-        // TODO: keep a global instance of Chains somewhere
+    fn new() -> Self {
         Chains(serde_json::from_str::<Vec<Chain>>(CHAINS_JSON).unwrap())
     }
 
@@ -48,21 +51,18 @@ pub struct Chain {
     pub parent: Option<Parent>,
 }
 
-impl Chain {
-    async fn connect(&self, url: &String) -> eyre::Result<Box<dyn Provider<Ethereum>>> {
-        // TODO: move this to global scope
-        let variable_regex: Regex = Regex::new(r"\$\{(.+?)}").unwrap();
-
-        if variable_regex.is_match(url) {
-            return Err(eyre::eyre!("URL contains variables"));
-        }
-
-        let builder = ProviderBuilder::<_, Ethereum>::default().with_recommended_layers();
-        let provider = builder.on_builtin(url).await?;
-
-        Ok(Box::new(provider))
+async fn connect(url: &String) -> eyre::Result<Box<dyn Provider<Ethereum>>> {
+    if VARIABLE_REGEX.is_match(url) {
+        return Err(eyre::eyre!("URL contains variables"));
     }
 
+    let builder = ProviderBuilder::<_, Ethereum>::default().with_recommended_layers();
+    let provider = builder.on_builtin(url).await?;
+
+    Ok(Box::new(provider))
+}
+
+impl Chain {
     pub async fn get_rpc(&self, need_pub_sub: bool) -> eyre::Result<Box<dyn Provider<Ethereum>>> {
         for rpc in self.rpc.iter() {
             if need_pub_sub && !rpc.starts_with("ws") {
@@ -70,7 +70,7 @@ impl Chain {
             }
 
             tracing::info!("Trying to connect to {}", rpc);
-            let provider = self.connect(rpc).await;
+            let provider = connect(rpc).await;
             if provider.is_ok() {
                 return provider;
             }
@@ -136,17 +136,15 @@ mod test {
 
     #[test]
     fn test_get_chain_by_id() {
-        let chains = Chains::new();
-        let chain = chains.get_chain_by_id(7777777);
+        let chain = CHAINS.get_chain_by_id(7777777);
         assert!(chain.is_some());
         assert_eq!(chain.unwrap().name, "Zora".to_string());
     }
 
     #[tokio::test]
     async fn test_chain_connect() {
-        let chains = Chains::new();
-        let chain = chains.get_chain_by_id(7777777).unwrap();
-        let provider = chain.connect(&chain.rpc[0]).await.unwrap();
+        let chain = CHAINS.get_chain_by_id(7777777).unwrap();
+        let provider = connect(&chain.rpc[0]).await.unwrap();
 
         let number = provider.get_block_number().await.unwrap();
         assert!(number > 0);

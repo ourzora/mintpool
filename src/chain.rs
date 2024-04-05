@@ -1,4 +1,4 @@
-use crate::chain_list::Chains;
+use crate::chain_list::{Chains, CHAINS};
 use crate::controller::ControllerCommands;
 use crate::types::Premint;
 use alloy::network::Ethereum;
@@ -56,9 +56,7 @@ impl MintChecker {
     }
 
     async fn make_provider(&self) -> eyre::Result<Box<dyn Provider<Ethereum>>> {
-        let chains = Chains::new();
-
-        let chain = chains.get_chain_by_id(self.chain_id as i64);
+        let chain = CHAINS.get_chain_by_id(self.chain_id as i64);
 
         match chain {
             Some(c) => c.get_rpc(true).await,
