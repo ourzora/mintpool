@@ -159,8 +159,8 @@ impl RulesEngine {
     pub fn add_rule(&mut self, rule: impl Rule + 'static) {
         self.rules.push(Box::new(rule));
     }
-    pub fn add_rules<I: IntoIterator<Item = Box<dyn Rule>>>(&mut self, iter: I) {
-        self.rules.extend(iter);
+    pub fn add_default_rules(&mut self) {
+        self.rules.extend(all_rules());
     }
     pub async fn evaluate(&self, item: PremintTypes, context: RuleContext) -> Results {
         let results: Vec<_> = self
