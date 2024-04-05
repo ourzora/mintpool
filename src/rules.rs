@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use futures::future::join_all;
 
+use crate::storage::PremintStorage;
 use crate::types::{Premint, PremintTypes};
 
 #[derive(Debug)]
@@ -35,10 +36,27 @@ impl Results {
     pub fn is_err(&self) -> bool {
         self.0.iter().any(|r| matches!(r.result, Err(_)))
     }
+
+    pub fn summary(&self) -> String {
+        self.0
+            .iter()
+            .map(|r| match r.result {
+                Ok(Evaluation::Accept) => format!("{}: Accept", r.rule_name),
+                Ok(Evaluation::Ignore) => format!("{}: Ignore", r.rule_name),
+                Ok(Evaluation::Reject(ref reason)) => {
+                    format!("{}: Reject ({})", r.rule_name, reason)
+                }
+                Err(ref e) => format!("{}: Error ({})", r.rule_name, e),
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 }
 
 #[derive(Clone)]
-pub struct RuleContext {}
+pub struct RuleContext {
+    pub store: PremintStorage,
+}
 
 #[async_trait]
 pub trait Rule: Send + Sync {
@@ -125,7 +143,7 @@ pub struct RulesEngine {
     rules: Vec<Box<dyn Rule>>,
 }
 
-fn all_rules() -> Vec<Box<dyn Rule>> {
+pub fn all_rules() -> Vec<Box<dyn Rule>> {
     let mut rules: Vec<Box<dyn Rule>> = Vec::new();
 
     rules.append(&mut general::all_rules());
@@ -141,7 +159,9 @@ impl RulesEngine {
     pub fn add_rule(&mut self, rule: impl Rule + 'static) {
         self.rules.push(Box::new(rule));
     }
-
+    pub fn add_rules<I: IntoIterator<Item = Box<dyn Rule>>>(&mut self, iter: I) {
+        self.rules.extend(iter);
+    }
     pub async fn evaluate(&self, item: PremintTypes, context: RuleContext) -> Results {
         let results: Vec<_> = self
             .rules

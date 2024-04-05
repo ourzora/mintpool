@@ -23,6 +23,17 @@ pub struct PremintStorage {
     prune_minted_premints: bool,
 }
 
+impl Clone for PremintStorage {
+    fn clone(&self) -> Self {
+        Self {
+            db: self.db.clone(),
+            // we want at most one instance to prune premints,
+            // so we'll always set it to false when cloning
+            prune_minted_premints: false,
+        }
+    }
+}
+
 impl PremintStorage {
     pub async fn new(config: &Config) -> Self {
         let db = init_db(config).await;

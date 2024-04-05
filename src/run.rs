@@ -1,6 +1,7 @@
 use crate::config::{ChainInclusionMode, Config};
 use crate::controller::{Controller, ControllerInterface};
 use crate::p2p::SwarmController;
+use crate::rules::{all_rules, RulesEngine};
 use crate::storage::PremintStorage;
 use libp2p::identity;
 
@@ -19,8 +20,13 @@ pub async fn start_services(config: &Config) -> eyre::Result<ControllerInterface
 
     let store = PremintStorage::new(config).await;
 
+    // configure rules
+    // TODO: read configuration to determine which rules to load
+    let mut rules = RulesEngine::new();
+    rules.add_rules(all_rules());
+
     let mut swarm_controller = SwarmController::new(id_keys, config, swrm_recv, event_send);
-    let mut controller = Controller::new(swrm_cmd_send, event_recv, ext_cmd_recv, store);
+    let mut controller = Controller::new(swrm_cmd_send, event_recv, ext_cmd_recv, store, rules);
     let controller_interface = ControllerInterface::new(ext_cmd_send);
 
     let port = config.peer_port;
