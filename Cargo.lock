@@ -3192,6 +3192,7 @@ dependencies = [
  "alloy",
  "alloy-contract",
  "alloy-core 0.7.0 (git+https://github.com/alloy-rs/core?rev=7574bfc)",
+ "alloy-json-rpc",
  "alloy-node-bindings",
  "alloy-primitives 0.7.0",
  "alloy-provider",

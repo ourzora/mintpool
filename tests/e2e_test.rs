@@ -3,20 +3,24 @@ mod common;
 use crate::common::mintpool_build;
 use alloy::network::EthereumSigner;
 use alloy::rpc::types::eth::{TransactionInput, TransactionRequest};
+use alloy_json_rpc::RpcError;
 use alloy_node_bindings::Anvil;
 use alloy_primitives::{Bytes, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_rpc_client::RpcClient;
 use alloy_signer::Signer;
 use alloy_signer_wallet::LocalWallet;
-use alloy_sol_types::SolCall;
+use alloy_sol_types::{SolCall, SolValue};
 use mintpool::config::{ChainInclusionMode, Config};
 use mintpool::controller::{ControllerCommands, DBQuery};
 use mintpool::premints::zora_premint_v2::broadcast::premint_to_call;
 use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
-use mintpool::premints::zora_premint_v2::types::{ZoraPremintV2, PREMINT_FACTORY_ADDR};
+use mintpool::premints::zora_premint_v2::types::{
+    IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
+};
 use mintpool::run;
 use mintpool::types::PremintTypes;
+use serde::Deserialize;
 use std::env;
 use std::str::FromStr;
 use std::time::Duration;
@@ -30,6 +34,7 @@ use std::time::Duration;
 async fn test_broadcasting_premint() {
     let anvil = Anvil::new()
         .chain_id(7777777)
+        .fork_block_number(12665000)
         .fork("https://rpc.zora.energy")
         .spawn();
 
@@ -122,8 +127,42 @@ async fn test_broadcasting_premint() {
         ..Default::default()
     };
 
-    let tx = provider.send_transaction(tx_request).await.unwrap();
-    tx.get_receipt().await.unwrap();
+    let tx = provider.send_transaction(tx_request).await;
+    let tx = match tx {
+        Ok(tx) => tx,
+        Err(e) => match e {
+            RpcError::ErrorResp(err) => {
+                let b = err.data.unwrap();
+
+                let msg =
+                    IZoraPremintV2::premintV2Call::abi_decode_returns(&b.get().abi_encode(), false)
+                        .unwrap();
+                panic!("unexpected error: {:?}", msg)
+            }
+            _ => {
+                panic!("unexpected error: {:?}", e);
+            }
+        },
+    };
+
+    match tx.get_receipt().await {
+        Ok(receipt) => {
+            println!("receipt: {:?}", receipt);
+        }
+        Err(e) => match e {
+            RpcError::ErrorResp(err) => {
+                let b = err.data.unwrap();
+
+                let msg =
+                    IZoraPremintV2::premintV2Call::abi_decode_returns(&b.get().abi_encode(), false)
+                        .unwrap();
+                panic!("unexpected error: {:?}", msg)
+            }
+            _ => {
+                panic!("unexpected error: {:?}", e);
+            }
+        },
+    }
     // NOTE: this currently revents I suspect because this premint is already onchain, we should grab a different one
 
     println!("tx processed");

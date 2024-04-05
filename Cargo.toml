@@ -63,6 +63,7 @@ alloy-provider = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", f
 alloy-signer = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", features = [
     "eip712",
 ] }
+alloy-json-rpc = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
 alloy-signer-wallet = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
 alloy-contract = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
 alloy-core = { git = "https://github.com/alloy-rs/core", rev = "7574bfc" }
