@@ -24,6 +24,7 @@ impl Chains {
     }
 }
 
+// types created by https://transform.tools/json-to-rust-serde
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Chain {
