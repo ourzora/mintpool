@@ -9,7 +9,7 @@ const CHAINS_JSON: &str = include_str!("../data/chains.json");
 pub struct Chains(Vec<Chain>);
 
 pub static CHAINS: Lazy<Chains> = Lazy::new(|| Chains::new());
-pub static VARIABLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\$\{(.+?)}").unwrap());
+static VARIABLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\$\{(.+?)}").unwrap());
 
 impl Chains {
     fn new() -> Self {
