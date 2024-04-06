@@ -1,4 +1,5 @@
 use crate::p2p::NetworkState;
+use crate::rules::{RuleContext, RulesEngine};
 use crate::storage::PremintStorage;
 use crate::types::{InclusionClaim, MintpoolNodeInfo, PremintTypes};
 use sqlx::SqlitePool;
@@ -55,6 +56,7 @@ pub struct Controller {
     swarm_event_receiver: mpsc::Receiver<P2PEvent>,
     external_commands: mpsc::Receiver<ControllerCommands>,
     store: PremintStorage,
+    rules: RulesEngine,
 }
 
 impl Controller {
@@ -63,12 +65,14 @@ impl Controller {
         swarm_event_receiver: mpsc::Receiver<P2PEvent>,
         external_commands: mpsc::Receiver<ControllerCommands>,
         store: PremintStorage,
+        rules: RulesEngine,
     ) -> Self {
         Self {
             swarm_command_sender,
             swarm_event_receiver,
             external_commands,
             store,
+            rules,
         }
     }
 
@@ -95,6 +99,7 @@ impl Controller {
             P2PEvent::PremintReceived(premint) => {
                 tracing::debug!(premint = premint.to_json().ok(), "Received premint");
 
+                // TODO: handle error? respond with error summary?
                 let _ = self.validate_and_insert(premint).await;
             }
         }
@@ -155,9 +160,26 @@ impl Controller {
     }
 
     async fn validate_and_insert(&self, premint: PremintTypes) -> eyre::Result<()> {
-        // TODO: insert rules check here
+        let evaluation = self
+            .rules
+            .evaluate(
+                premint.clone(),
+                RuleContext {
+                    store: self.store.clone(),
+                },
+            )
+            .await;
 
-        self.store.store(premint).await
+        if evaluation.is_accept() {
+            self.store.store(premint).await
+        } else {
+            tracing::warn!(
+                "Premint failed validation: {:?}, evaluation: {:?}",
+                premint,
+                evaluation
+            );
+            Err(eyre::eyre!(evaluation.summary()))
+        }
     }
 }
 
