@@ -4,7 +4,8 @@ use alloy_primitives::Signature;
 use alloy_sol_types::SolStruct;
 
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
-use crate::rules::{Rule, RuleContext};
+use crate::rules::Evaluation::{Accept, Reject};
+use crate::rules::{Evaluation, Rule, RuleContext};
 use crate::typed_rule;
 use crate::types::{Premint, PremintTypes};
 
@@ -13,11 +14,11 @@ use crate::types::{Premint, PremintTypes};
 pub async fn is_authorized_to_create_premint(
     premint: ZoraPremintV2,
     context: RuleContext,
-) -> eyre::Result<bool> {
+) -> eyre::Result<Evaluation> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
     //   * this logic exists as a function on the premint executor contract
-    Ok(true)
+    Ok(Accept)
 }
 
 // * signatureIsValid ( this can be performed entirely offline )
@@ -27,7 +28,7 @@ pub async fn is_authorized_to_create_premint(
 pub async fn is_valid_signature(
     premint: ZoraPremintV2,
     context: RuleContext,
-) -> eyre::Result<bool> {
+) -> eyre::Result<Evaluation> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
 
@@ -37,7 +38,14 @@ pub async fn is_valid_signature(
     let hash = premint.premint.eip712_signing_hash(&domain);
     let signer = signature.recover_address_from_prehash(&hash)?;
 
-    Ok(signer == premint.collection.contractAdmin)
+    if signer != premint.collection.contractAdmin {
+        return Ok(Reject(format!(
+            "Invalid signature for contract admin {}",
+            premint.collection.contractAdmin
+        )));
+    }
+
+    Ok(Accept)
 }
 
 pub fn all_rules() -> Vec<Box<dyn Rule>> {
@@ -88,8 +96,9 @@ mod test {
     #[tokio::test]
     async fn test_is_valid_signature() {
         let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
-        assert!(is_valid_signature(premint, RuleContext {})
-            .await
-            .expect("failed to check signature"));
+        assert!(matches!(
+            is_valid_signature(premint, RuleContext {}).await,
+            Ok(Accept)
+        ));
     }
 }
