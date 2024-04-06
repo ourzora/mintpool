@@ -20,6 +20,7 @@ libp2p = { version = "0.53.2", features = [
 ] }
 tokio = { version = "1.36.0", features = ["full"] }
 eyre = "0.6.12"
+regex = "1.10.4"
 async-trait = "0.1.77"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
@@ -45,7 +46,7 @@ alloy = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b
     "pubsub",
 ] }
 
-
+alloy-transport = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639" }
 alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639", features = [
     "pubsub",
     "ws",
