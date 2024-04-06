@@ -1,5 +1,9 @@
-use alloy::network::Ethereum;
-use alloy_provider::{Provider, ProviderBuilder};
+use std::marker::PhantomData;
+
+use alloy::network::{Ethereum, Network};
+use alloy_provider::layers::{GasEstimatorProvider, ManagedNonceProvider};
+use alloy_provider::{Provider, ProviderBuilder, RootProvider};
+use alloy_transport::BoxTransport;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -52,19 +56,31 @@ pub struct Chain {
     pub parent: Option<Parent>,
 }
 
-async fn connect(url: &String) -> eyre::Result<Box<dyn Provider<Ethereum>>> {
+pub type ChainListProvider<N = Ethereum> = GasEstimatorProvider<
+    N,
+    BoxTransport,
+    ManagedNonceProvider<N, BoxTransport, RootProvider<N, BoxTransport>>,
+>;
+
+async fn connect<N>(url: &String) -> eyre::Result<ChainListProvider<N>>
+where
+    N: Network,
+{
     if VARIABLE_REGEX.is_match(url) {
         return Err(eyre::eyre!("URL contains variables"));
     }
 
-    let builder = ProviderBuilder::<_, Ethereum>::default().with_recommended_layers();
+    let builder = ProviderBuilder::<_, N>::default().with_recommended_layers();
     let provider = builder.on_builtin(url).await?;
 
-    Ok(Box::new(provider))
+    Ok(provider)
 }
 
 impl Chain {
-    pub async fn get_rpc(&self, need_pub_sub: bool) -> eyre::Result<Box<dyn Provider<Ethereum>>> {
+    pub async fn get_rpc<N>(&self, need_pub_sub: bool) -> eyre::Result<ChainListProvider<N>>
+    where
+        N: Network,
+    {
         for rpc in self.rpc.iter() {
             if need_pub_sub && !rpc.starts_with("ws") {
                 continue;
@@ -128,6 +144,8 @@ pub struct Bridge {
 
 #[cfg(test)]
 mod test {
+    use alloy::network::Ethereum;
+
     use super::*;
 
     #[test]
@@ -145,7 +163,7 @@ mod test {
     #[tokio::test]
     async fn test_chain_connect() {
         let chain = CHAINS.get_chain_by_id(7777777).unwrap();
-        let provider = connect(&chain.rpc[0]).await.unwrap();
+        let provider = connect::<Ethereum>(&chain.rpc[0]).await.unwrap();
 
         // quick integration test here
         let number = provider.get_block_number().await.unwrap();
@@ -155,7 +173,7 @@ mod test {
     #[tokio::test]
     async fn test_chain_connect_variable() {
         let url = "https://mainnet.infura.io/v3/${INFURA_API_KEY}".to_string();
-        let provider = connect(&url).await;
+        let provider = connect::<Ethereum>(&url).await;
 
         assert!(provider.is_err());
         match provider {
