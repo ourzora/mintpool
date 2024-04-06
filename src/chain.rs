@@ -1,10 +1,37 @@
-use crate::chain_list::{Chains, CHAINS};
-use crate::controller::ControllerCommands;
-use crate::types::Premint;
 use alloy::network::Ethereum;
+use alloy::rpc::types::eth::{TransactionInput, TransactionRequest};
+use alloy_primitives::Bytes;
 use alloy_provider::Provider;
+use alloy_sol_types::SolCall;
 use futures_util::StreamExt;
 use tokio::sync::mpsc::Sender;
+
+use crate::chain_list::{ChainListProvider, CHAINS};
+use crate::controller::ControllerCommands;
+use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
+use crate::types::Premint;
+
+pub async fn contract_call<T, P>(call: T, provider: P) -> eyre::Result<T::Return>
+where
+    T: SolCall,
+    P: Provider<Ethereum>,
+{
+    provider
+        .call(
+            &TransactionRequest {
+                to: Some(PREMINT_FACTORY_ADDR),
+                input: TransactionInput::new(Bytes::from(call.abi_encode())),
+                ..Default::default()
+            },
+            None,
+        )
+        .await
+        .map_err(|err| eyre::eyre!("Error calling contract: {:?}", err))
+        .and_then(|response| {
+            T::abi_decode_returns(&**response, false)
+                .map_err(|err| eyre::eyre!("Error decoding contract response: {:?}", err))
+        })
+}
 
 /// Checks for new premints being brought onchain then sends to controller to handle
 struct MintChecker {
@@ -55,7 +82,7 @@ impl MintChecker {
         }
     }
 
-    async fn make_provider(&self) -> eyre::Result<Box<dyn Provider<Ethereum>>> {
+    async fn make_provider(&self) -> eyre::Result<ChainListProvider> {
         let chain = CHAINS.get_chain_by_id(self.chain_id as i64);
 
         match chain {

@@ -160,15 +160,7 @@ impl Controller {
     }
 
     async fn validate_and_insert(&self, premint: PremintTypes) -> eyre::Result<()> {
-        let evaluation = self
-            .rules
-            .evaluate(
-                premint.clone(),
-                RuleContext {
-                    store: self.store.clone(),
-                },
-            )
-            .await;
+        let evaluation = self.rules.evaluate(premint.clone(), RuleContext {}).await;
 
         if evaluation.is_accept() {
             self.store.store(premint).await
