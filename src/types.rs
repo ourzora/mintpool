@@ -86,6 +86,17 @@ pub struct SimplePremint {
     media: String,
 }
 
+impl SimplePremint {
+    pub fn new(chain_id: U256, sender: Address, token_id: u64, media: String) -> Self {
+        Self {
+            chain_id,
+            sender,
+            token_id,
+            media,
+        }
+    }
+}
+
 #[async_trait]
 impl Premint for SimplePremint {
     fn metadata(&self) -> PremintMetadata {

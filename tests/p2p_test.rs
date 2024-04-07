@@ -1,9 +1,13 @@
+mod common;
+
+use common::factories::Factory;
 use mintpool::controller::ControllerCommands;
 use mintpool::controller::ControllerCommands::Broadcast;
-use mintpool::types::PremintTypes;
+use mintpool::types::{PremintTypes, SimplePremint};
 use tokio::time;
+use tracing_subscriber::EnvFilter;
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 // test to make sure that nodes can connect to a specified host
 async fn test_connecting_to_other_nodes() {
     let num_nodes = 10;
@@ -21,7 +25,7 @@ async fn test_connecting_to_other_nodes() {
     }
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 // test announcing self to the network
 async fn test_announcing_to_network() {
     let num_nodes = 3;
@@ -43,7 +47,7 @@ async fn test_announcing_to_network() {
     }
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 // After a premint is announced, all connected nodes should be able to list it
 async fn test_list_all_premints() {
     let num_nodes = 3;
@@ -60,7 +64,7 @@ async fn test_list_all_premints() {
 
     first
         .send_command(Broadcast {
-            message: PremintTypes::Simple(Default::default()),
+            message: PremintTypes::Simple(SimplePremint::build_default()),
         })
         .await
         .unwrap();
@@ -79,7 +83,7 @@ async fn test_list_all_premints() {
     }
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 // Connections should not be able to exceed max_connections config
 async fn test_max_connections() {
     let num_nodes = 5;
@@ -98,6 +102,7 @@ async fn test_max_connections() {
 mod build {
     use mintpool::config::{ChainInclusionMode, Config};
     use mintpool::controller::{ControllerCommands, ControllerInterface};
+    use mintpool::types::Premint;
     use tokio::time;
 
     pub async fn announce_all(nodes: Vec<ControllerInterface>) {
@@ -140,6 +145,7 @@ mod build {
                 chain_inclusion_mode: ChainInclusionMode::Check,
                 supported_chain_ids: "7777777".to_string(),
                 trusted_peers: None,
+                node_id: Some(i),
             };
 
             let ctl = mintpool::run::start_services(&config).await.unwrap();
@@ -152,6 +158,7 @@ mod build {
         start_port: u64,
         num_nodes: u64,
     ) -> Vec<ControllerInterface> {
+        tracing::info!("Generating swarm of {} nodes", num_nodes);
         let nodes = make_nodes(start_port, num_nodes, 1000).await;
         connect_all_to_first(nodes.clone()).await;
         time::sleep(time::Duration::from_secs(1)).await;
