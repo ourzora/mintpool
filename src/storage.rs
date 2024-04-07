@@ -142,6 +142,7 @@ mod test {
             supported_chain_ids: "7777777,".to_string(),
             trusted_peers: None,
             api_port: 0,
+            node_id: None,
         };
 
         let store = PremintStorage::new(&config).await;
@@ -167,6 +168,7 @@ mod test {
             chain_inclusion_mode: ChainInclusionMode::Check,
             supported_chain_ids: "7777777,".to_string(),
             trusted_peers: None,
+            node_id: None,
         };
 
         let store = PremintStorage::new(&config).await;
