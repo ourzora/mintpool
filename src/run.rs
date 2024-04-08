@@ -1,4 +1,5 @@
 use libp2p::identity;
+use tracing::{info_span, Instrument};
 
 use crate::config::{ChainInclusionMode, Config};
 use crate::controller::{Controller, ControllerInterface};
@@ -29,17 +30,34 @@ pub async fn start_services(config: &Config) -> eyre::Result<ControllerInterface
     let mut controller = Controller::new(swrm_cmd_send, event_recv, ext_cmd_recv, store, rules);
     let controller_interface = ControllerInterface::new(ext_cmd_send);
 
+    let node_info = swarm_controller.node_info();
+    tracing::info!(
+        "Starting mintpool node with id: {:?}",
+        node_info.peer_id.to_string()
+    );
+
     let port = config.peer_port;
     let network_ip = config.initial_network_ip();
-    tokio::spawn(async move {
-        swarm_controller
-            .run(port, network_ip)
-            .await
-            .expect("Swarm controller failed");
-    });
+    let node_id = config.node_id.clone();
 
     tokio::spawn(async move {
-        controller.run_loop().await;
+        let future = swarm_controller.run(port, network_ip);
+
+        match node_id {
+            Some(node_id) => future.instrument(info_span!("", "node_id" = node_id)).await,
+            None => future.await,
+        }
+        .expect("Swarm controller failed");
+    });
+
+    let node_id = config.node_id.clone();
+    tokio::spawn(async move {
+        let future = controller.run_loop();
+
+        match node_id {
+            Some(node_id) => future.instrument(info_span!("", "node_id" = node_id)).await,
+            None => future.await,
+        }
     });
 
     if config.chain_inclusion_mode == ChainInclusionMode::Check {

@@ -8,7 +8,8 @@ edition = "2021"
 [dependencies]
 const-hex = "1.11.3"
 tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
+test-log = { version = "0.2.15", features = ["trace"] }
 libp2p = { version = "0.53.2", features = [
     "tokio",
     "tcp",

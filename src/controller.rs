@@ -168,7 +168,7 @@ impl Controller {
             tracing::warn!(
                 "Premint failed validation: {:?}, evaluation: {:?}",
                 premint,
-                evaluation
+                evaluation.summary()
             );
             Err(eyre::eyre!(evaluation.summary()))
         }

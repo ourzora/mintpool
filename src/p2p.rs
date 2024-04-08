@@ -48,6 +48,12 @@ impl SwarmController {
         }
     }
 
+    pub fn node_info(&self) -> MintpoolNodeInfo {
+        let peer_id = *self.swarm.local_peer_id();
+        let addr: Vec<Multiaddr> = self.swarm.listeners().cloned().collect();
+        MintpoolNodeInfo { peer_id, addr }
+    }
+
     fn make_swarm_controller(id_keys: Keypair) -> eyre::Result<libp2p::Swarm<MintpoolBehaviour>> {
         let peer_id = id_keys.public().to_peer_id();
         let swarm = libp2p::SwarmBuilder::with_existing_identity(id_keys)
@@ -149,9 +155,7 @@ impl SwarmController {
                 }
             }
             SwarmCommand::ReturnNodeInfo { channel } => {
-                let peer_id = *self.swarm.local_peer_id();
-                let addr: Vec<Multiaddr> = self.swarm.listeners().cloned().collect();
-                if channel.send(MintpoolNodeInfo { peer_id, addr }).is_err() {
+                if channel.send(self.node_info()).is_err() {
                     tracing::error!("Error sending node info from swarm",);
                 }
             }

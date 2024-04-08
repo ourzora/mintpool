@@ -44,6 +44,10 @@ pub struct Config {
     // If not provided in the environment, the default is to use the public node
     #[envconfig(from = "TRUSTED_PEERS")]
     pub trusted_peers: Option<String>,
+
+    // node_id will only be used for logging purposes, if set
+    #[envconfig(from = "NODE_ID")]
+    pub node_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -144,6 +148,7 @@ mod test {
             chain_inclusion_mode: ChainInclusionMode::Check,
             supported_chain_ids: "7777777".to_string(),
             trusted_peers: None,
+            node_id: None,
         };
 
         let names = config.premint_names();
@@ -164,6 +169,7 @@ mod test {
             chain_inclusion_mode: ChainInclusionMode::Check,
             supported_chain_ids: "7777777".to_string(),
             trusted_peers: None,
+            node_id: None,
         };
 
         let names = config.premint_names();
