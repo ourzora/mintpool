@@ -1,3 +1,4 @@
+use crate::chain_list::CHAINS;
 use crate::types::PremintName;
 use envconfig::Envconfig;
 use std::collections::HashMap;
@@ -38,7 +39,7 @@ pub struct Config {
     #[envconfig(from = "CHAIN_INCLUSION_MODE", default = "verify")]
     pub chain_inclusion_mode: ChainInclusionMode,
 
-    #[envconfig(from = "SUPPORTED_CHAIN_IDS", default = "777777,8423")]
+    #[envconfig(from = "SUPPORTED_CHAIN_IDS", default = "7777777,8453")]
     pub supported_chain_ids: String,
     // Dynamic configuration: RPC urls take the form of CHAIN_<chain_id>_RPC_WSS
     // If not provided in the environment, the default is to use the public node
@@ -117,7 +118,9 @@ impl Config {
 
     pub fn validate(self) -> Self {
         for chain_id in self.supported_chains() {
-            self.rpc_url(chain_id).expect(format!("Failed to get RPC URL for configured chain_id {chain_id}. Set environment variable CHAIN_{chain_id}_RPC_WSS").as_str());
+            CHAINS
+                .get_chain_by_id(chain_id as i64)
+                .expect(format!("Chain ID {} is not supported", chain_id).as_str());
         }
         self
     }
