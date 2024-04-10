@@ -18,6 +18,7 @@ use tokio::select;
 pub struct MintpoolBehaviour {
     gossipsub: gossipsub::Behaviour,
     kad: kad::Behaviour<MemoryStore>,
+    identify: libp2p::identify::Behaviour,
 }
 
 pub struct SwarmController {
@@ -56,6 +57,7 @@ impl SwarmController {
 
     fn make_swarm_controller(id_keys: Keypair) -> eyre::Result<libp2p::Swarm<MintpoolBehaviour>> {
         let peer_id = id_keys.public().to_peer_id();
+        let public_key = id_keys.public();
         let swarm = libp2p::SwarmBuilder::with_existing_identity(id_keys)
             .with_tokio()
             .with_tcp(
@@ -89,6 +91,10 @@ impl SwarmController {
                 MintpoolBehaviour {
                     gossipsub: gs,
                     kad: b,
+                    identify: libp2p::identify::Behaviour::new(libp2p::identify::Config::new(
+                        "mintpool/0.1.0".to_string(),
+                        public_key,
+                    )),
                 }
             })?
             .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
