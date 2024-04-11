@@ -1,10 +1,12 @@
-use crate::chain_list::CHAINS;
-use crate::types::PremintName;
-use envconfig::Envconfig;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::str::FromStr;
+
+use envconfig::Envconfig;
+
+use crate::chain_list::CHAINS;
+use crate::types::PremintName;
 
 #[derive(Envconfig, Debug)]
 pub struct Config {
@@ -52,6 +54,9 @@ pub struct Config {
 
     #[envconfig(from = "EXTERNAL_ADDRESS")]
     pub external_address: Option<String>,
+
+    #[envconfig(from = "INTERACTIVE", default = "false")]
+    pub interactive: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -156,6 +161,7 @@ mod test {
             trusted_peers: None,
             node_id: None,
             external_address: None,
+            interactive: false,
         };
 
         let names = config.premint_names();
@@ -178,6 +184,7 @@ mod test {
             trusted_peers: None,
             node_id: None,
             external_address: None,
+            interactive: false,
         };
 
         let names = config.premint_names();
