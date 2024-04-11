@@ -47,10 +47,14 @@ async fn list_all(
 ) -> Result<Json<Vec<PremintTypes>>, (StatusCode, String)> {
     match storage::list_all(&state.db).await {
         Ok(premints) => Ok(Json(premints)),
-        Err(_e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Failed to list all premints".to_string(),
-        )),
+        Err(_e) => {
+            tracing::warn!("Failed to list all premints: {:?}", _e);
+
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to list all premints".to_string(),
+            ))
+        }
     }
 }
 

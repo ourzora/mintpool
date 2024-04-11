@@ -83,6 +83,7 @@ impl SwarmController {
                 noise::Config::new,
                 yamux::Config::default,
             )?
+            .with_dns()?
             .with_behaviour(|key| {
                 let message_id_fn = |message: &gossipsub::Message| {
                     let mut s = DefaultHasher::new();
