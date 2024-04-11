@@ -129,8 +129,8 @@ impl Controller {
                             .send(SwarmCommand::Broadcast { message })
                             .await?;
                     }
-                    Err(_) => {
-                        tracing::warn!("Invalid premint, not broadcasting");
+                    Err(err) => {
+                        tracing::warn!("Invalid premint, not broadcasting: {:?}", err);
                     }
                 }
             }
