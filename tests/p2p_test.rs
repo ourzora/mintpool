@@ -146,6 +146,8 @@ mod build {
                 supported_chain_ids: "7777777".to_string(),
                 trusted_peers: None,
                 node_id: Some(i),
+                external_address: None,
+                interactive: false,
             };
 
             let ctl = mintpool::run::start_services(&config).await.unwrap();
