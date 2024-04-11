@@ -4,10 +4,11 @@ use crate::types::{MintpoolNodeInfo, Premint, PremintName, PremintTypes};
 use eyre::WrapErr;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
+use libp2p::gossipsub::Version;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Addresses;
-use libp2p::multiaddr::Protocol;
+use libp2p::multiaddr::{Error, Protocol};
 use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
 use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr, PeerId};
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -18,6 +19,7 @@ use tokio::select;
 pub struct MintpoolBehaviour {
     gossipsub: gossipsub::Behaviour,
     kad: kad::Behaviour<MemoryStore>,
+    identify: libp2p::identify::Behaviour,
 }
 
 pub struct SwarmController {
@@ -36,7 +38,24 @@ impl SwarmController {
         command_receiver: tokio::sync::mpsc::Receiver<SwarmCommand>,
         event_sender: tokio::sync::mpsc::Sender<P2PEvent>,
     ) -> Self {
-        let swarm = Self::make_swarm_controller(id_keys).expect("Invalid config for swarm");
+        let mut swarm = Self::make_swarm_controller(id_keys).expect("Invalid config for swarm");
+
+        // add external address if configured
+        config
+            .external_address
+            .clone()
+            .map(|addr| addr.parse::<Multiaddr>())
+            .and_then(|addr| match addr {
+                Ok(addr) => {
+                    swarm.add_external_address(addr.clone());
+                    tracing::info!("Added external address: {:?}", addr);
+                    Some(addr)
+                }
+                Err(err) => {
+                    tracing::warn!("Error parsing external address: {:?}", err);
+                    None
+                }
+            });
 
         Self {
             swarm,
@@ -56,6 +75,7 @@ impl SwarmController {
 
     fn make_swarm_controller(id_keys: Keypair) -> eyre::Result<libp2p::Swarm<MintpoolBehaviour>> {
         let peer_id = id_keys.public().to_peer_id();
+        let public_key = id_keys.public();
         let swarm = libp2p::SwarmBuilder::with_existing_identity(id_keys)
             .with_tokio()
             .with_tcp(
@@ -63,6 +83,7 @@ impl SwarmController {
                 noise::Config::new,
                 yamux::Config::default,
             )?
+            .with_dns()?
             .with_behaviour(|key| {
                 let message_id_fn = |message: &gossipsub::Message| {
                     let mut s = DefaultHasher::new();
@@ -76,6 +97,7 @@ impl SwarmController {
                 let gossipsub_config = gossipsub::ConfigBuilder::default()
                     .heartbeat_interval(Duration::from_secs(10))
                     .validation_mode(gossipsub::ValidationMode::Strict)
+                    .protocol_id("/mintpool/0.1.0", Version::V1_1)
                     .message_id_fn(message_id_fn)
                     .build()
                     .expect("valid config");
@@ -89,6 +111,10 @@ impl SwarmController {
                 MintpoolBehaviour {
                     gossipsub: gs,
                     kad: b,
+                    identify: libp2p::identify::Behaviour::new(libp2p::identify::Config::new(
+                        "mintpool/0.1.0".to_string(),
+                        public_key,
+                    )),
                 }
             })?
             .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))

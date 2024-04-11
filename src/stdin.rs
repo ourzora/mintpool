@@ -35,7 +35,19 @@ async fn process_stdin_line(ctl: ControllerInterface, line: String) {
     if line.is_empty() {
         return;
     }
-    if line.starts_with("/ip4") {
+    if line.starts_with("/connect ") {
+        if let Err(err) = ctl
+            .send_command(ControllerCommands::ConnectToPeer {
+                address: (&line[9..]).parse().unwrap(),
+            })
+            .await
+        {
+            tracing::error!(
+                error = err.to_string(),
+                "Error sending connect to peer command"
+            );
+        };
+    } else if line.starts_with("/ip4") {
         if let Err(err) = ctl
             .send_command(ControllerCommands::ConnectToPeer { address: line })
             .await

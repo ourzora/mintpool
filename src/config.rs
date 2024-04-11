@@ -1,10 +1,12 @@
-use crate::chain_list::CHAINS;
-use crate::types::PremintName;
-use envconfig::Envconfig;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::str::FromStr;
+
+use envconfig::Envconfig;
+
+use crate::chain_list::CHAINS;
+use crate::types::PremintName;
 
 #[derive(Envconfig, Debug)]
 pub struct Config {
@@ -49,6 +51,12 @@ pub struct Config {
     // node_id will only be used for logging purposes, if set
     #[envconfig(from = "NODE_ID")]
     pub node_id: Option<u64>,
+
+    #[envconfig(from = "EXTERNAL_ADDRESS")]
+    pub external_address: Option<String>,
+
+    #[envconfig(from = "INTERACTIVE", default = "false")]
+    pub interactive: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -152,6 +160,8 @@ mod test {
             supported_chain_ids: "7777777".to_string(),
             trusted_peers: None,
             node_id: None,
+            external_address: None,
+            interactive: false,
         };
 
         let names = config.premint_names();
@@ -173,6 +183,8 @@ mod test {
             supported_chain_ids: "7777777".to_string(),
             trusted_peers: None,
             node_id: None,
+            external_address: None,
+            interactive: false,
         };
 
         let names = config.premint_names();
