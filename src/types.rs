@@ -25,6 +25,7 @@ pub struct MintpoolNodeInfo {
 #[derive(Debug)]
 pub struct PremintMetadata {
     pub id: String,
+    pub version: u64,
     pub kind: PremintName,
     pub signer: Address,
     pub chain_id: U256,
@@ -36,11 +37,9 @@ pub struct PremintMetadata {
 #[async_trait]
 pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
-    fn guid(&self) -> String;
     fn check_filter(chain_id: u64) -> Option<Filter>;
     fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim>;
     async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool;
-    fn kind_id() -> PremintName;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -69,17 +68,11 @@ impl PremintTypes {
             PremintTypes::ZoraV2(p) => p.metadata(),
         }
     }
-
-    pub fn guid(&self) -> String {
-        match self {
-            PremintTypes::Simple(p) => p.guid(),
-            PremintTypes::ZoraV2(p) => p.guid(),
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct SimplePremint {
+    version: u64,
     chain_id: U256,
     sender: Address,
     token_id: u64,
@@ -87,8 +80,15 @@ pub struct SimplePremint {
 }
 
 impl SimplePremint {
-    pub fn new(chain_id: U256, sender: Address, token_id: u64, media: String) -> Self {
+    pub fn new(
+        version: u64,
+        chain_id: U256,
+        sender: Address,
+        token_id: u64,
+        media: String,
+    ) -> Self {
         Self {
+            version,
             chain_id,
             sender,
             token_id,
@@ -102,18 +102,14 @@ impl Premint for SimplePremint {
     fn metadata(&self) -> PremintMetadata {
         PremintMetadata {
             id: format!("{:?}:{:?}:{:?}", self.chain_id, self.sender, self.token_id),
-            kind: Self::kind_id(),
+            version: self.version,
+            kind: PremintName("simple".to_string()),
             signer: self.sender,
             chain_id: self.chain_id,
             collection_address: Address::default(),
             token_id: U256::from(self.token_id),
             uri: self.media.clone(),
         }
-    }
-
-    fn guid(&self) -> String {
-        // TODO: make something slightly more unique
-        format!("{:?}:{:?}:{:?}", self.chain_id, self.sender, self.token_id)
     }
 
     fn check_filter(chain_id: u64) -> Option<Filter> {
@@ -126,10 +122,6 @@ impl Premint for SimplePremint {
 
     async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool {
         todo!()
-    }
-
-    fn kind_id() -> PremintName {
-        PremintName("simple".to_string())
     }
 }
 
@@ -152,6 +144,7 @@ mod test {
     #[test]
     fn test_premint_serde() {
         let premint = PremintTypes::Simple(SimplePremint {
+            version: 1,
             chain_id: U256::from(1),
             sender: "0x66f9664f97F2b50F62D13eA064982f936dE76657"
                 .parse()
