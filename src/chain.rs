@@ -1,17 +1,17 @@
-use alloy::network::Ethereum;
+use std::sync::Arc;
+
 use alloy::rpc::types::eth::{TransactionInput, TransactionRequest};
 use alloy_primitives::Bytes;
 use alloy_provider::Provider;
 use alloy_sol_types::SolCall;
 use futures_util::StreamExt;
-use tokio::sync::mpsc::Sender;
 
 use crate::chain_list::{ChainListProvider, CHAINS};
 use crate::controller::{ControllerCommands, ControllerInterface};
 use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
 use crate::types::Premint;
 
-pub async fn contract_call<T>(call: T, provider: ChainListProvider) -> eyre::Result<T::Return>
+pub async fn contract_call<T>(call: T, provider: Arc<ChainListProvider>) -> eyre::Result<T::Return>
 where
     T: SolCall,
 {
@@ -89,12 +89,7 @@ impl MintChecker {
         }
     }
 
-    async fn make_provider(&self) -> eyre::Result<ChainListProvider> {
-        let chain = CHAINS.get_chain_by_id(self.chain_id as i64);
-
-        match chain {
-            Some(c) => c.get_rpc(true).await,
-            None => Err(eyre::eyre!("Chain not found for id {}", self.chain_id)),
-        }
+    async fn make_provider(&self) -> eyre::Result<Arc<ChainListProvider>> {
+        CHAINS.get_rpc(self.chain_id as i64).await
     }
 }

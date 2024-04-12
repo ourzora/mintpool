@@ -35,19 +35,12 @@ pub async fn is_authorized_to_create_premint(
         premintContractConfigContractAdmin: premint.collection.contractAdmin,
     };
 
-    let chain = CHAINS.get_chain_by_id(premint.chain_id.to());
+    let provider = CHAINS.get_rpc(premint.chain_id.to()).await?;
+    let result = contract_call(call, provider).await?;
 
-    match chain {
-        Some(chain) => {
-            let provider = chain.get_rpc(false).await?;
-            let result = contract_call(call, provider).await?;
-
-            match result.isAuthorized {
-                true => Ok(Accept),
-                false => Ok(Reject("Unauthorized to create premint".to_string())),
-            }
-        }
-        None => Ok(Reject("Chain not supported".to_string())),
+    match result.isAuthorized {
+        true => Ok(Accept),
+        false => Ok(Reject("Unauthorized to create premint".to_string())),
     }
 }
 
