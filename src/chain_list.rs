@@ -25,7 +25,7 @@ pub struct Chains<N>(Vec<Chain>, Cache<String, Arc<ChainListProvider<N>>>)
 where
     N: Network;
 
-pub static CHAINS: Lazy<Chains<Ethereum>> = Lazy::new(|| Chains::new());
+pub static CHAINS: Lazy<Chains<Ethereum>> = Lazy::new(Chains::new);
 static VARIABLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\$\{(.+?)}").unwrap());
 
 impl<N: Network> Chains<N>

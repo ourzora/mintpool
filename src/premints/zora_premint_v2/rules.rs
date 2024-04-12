@@ -1,9 +1,8 @@
 use std::str::FromStr;
 
 use alloy_primitives::Signature;
-use alloy_provider::Provider;
 use alloy_sol_macro::sol;
-use alloy_sol_types::{SolCall, SolInterface, SolStruct};
+use alloy_sol_types::SolStruct;
 
 use crate::chain::contract_call;
 use crate::chain_list::CHAINS;
@@ -27,7 +26,7 @@ sol! {
 
 pub async fn is_authorized_to_create_premint(
     premint: ZoraPremintV2,
-    context: RuleContext,
+    _context: RuleContext,
 ) -> eyre::Result<Evaluation> {
     let call = PremintExecutor::isAuthorizedToCreatePremintCall {
         contractAddress: premint.collection_address,
@@ -50,7 +49,7 @@ pub async fn is_authorized_to_create_premint(
 
 pub async fn is_valid_signature(
     premint: ZoraPremintV2,
-    context: RuleContext,
+    _context: RuleContext,
 ) -> eyre::Result<Evaluation> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
@@ -94,7 +93,6 @@ pub fn all_rules() -> Vec<Box<dyn Rule>> {
 
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
 
     use super::*;
 

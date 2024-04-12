@@ -27,7 +27,7 @@ where
         .await
         .map_err(|err| eyre::eyre!("Error calling contract: {:?}", err))
         .and_then(|response| {
-            T::abi_decode_returns(&**response, false)
+            T::abi_decode_returns(&response, false)
                 .map_err(|err| eyre::eyre!("Error decoding contract response: {:?}", err))
         })
 }
@@ -35,15 +35,13 @@ where
 /// Checks for new premints being brought onchain then sends to controller to handle
 pub struct MintChecker {
     chain_id: u64,
-    rpc_url: String,
     controller: ControllerInterface,
 }
 
 impl MintChecker {
-    pub fn new(chain_id: u64, rpc_url: String, controller: ControllerInterface) -> Self {
+    pub fn new(chain_id: u64, controller: ControllerInterface) -> Self {
         Self {
             chain_id,
-            rpc_url,
             controller,
         }
     }

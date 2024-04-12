@@ -38,7 +38,7 @@ async fn process_stdin_line(ctl: ControllerInterface, line: String) {
     if line.starts_with("/connect ") {
         if let Err(err) = ctl
             .send_command(ControllerCommands::ConnectToPeer {
-                address: (&line[9..]).parse().unwrap(),
+                address: line[9..].parse().unwrap(),
             })
             .await
         {

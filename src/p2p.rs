@@ -8,7 +8,7 @@ use libp2p::gossipsub::Version;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Addresses;
-use libp2p::multiaddr::{Error, Protocol};
+use libp2p::multiaddr::Protocol;
 use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
 use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr, PeerId};
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -192,7 +192,7 @@ impl SwarmController {
         match event {
             SwarmEvent::NewListenAddr { address, .. } => {
                 let pid = self.swarm.local_peer_id();
-                let local_address = address.with(Protocol::P2p(pid.clone())).to_string();
+                let local_address = address.with(Protocol::P2p(*pid)).to_string();
                 tracing::info!(local_address = local_address, "Started listening");
             }
 
@@ -285,7 +285,7 @@ impl SwarmController {
         let listening_on = self.swarm.listeners().collect::<Vec<_>>();
         tracing::info!("announcing, listening on: {:?}", listening_on);
         let value = if let Some(addr) = self.swarm.listeners().collect::<Vec<_>>().first() {
-            let m = (*addr).clone().with(Protocol::P2p(peer_id.clone()));
+            let m = (*addr).clone().with(Protocol::P2p(peer_id));
             tracing::info!("sending full address: {:?}", m.to_string());
             m.to_string()
         } else {

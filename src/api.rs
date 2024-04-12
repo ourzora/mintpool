@@ -3,7 +3,6 @@ use crate::controller::{ControllerCommands, ControllerInterface, DBQuery};
 use crate::storage;
 use crate::types::PremintTypes;
 use axum::extract::State;
-use axum::handler::Handler;
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -15,7 +14,7 @@ pub struct AppState {
     pub db: SqlitePool,
     pub controller: ControllerInterface,
 }
-pub async fn make_router(config: &Config, controller: ControllerInterface) -> Router {
+pub async fn make_router(_config: &Config, controller: ControllerInterface) -> Router {
     let (snd, recv) = tokio::sync::oneshot::channel();
     controller
         .send_command(ControllerCommands::Query(DBQuery::Direct(snd)))
