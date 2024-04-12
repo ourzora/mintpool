@@ -6,7 +6,6 @@ use alloy_primitives::Bytes;
 use alloy_provider::Provider;
 use alloy_sol_types::SolCall;
 use futures_util::StreamExt;
-use tokio::sync::mpsc::Sender;
 
 use crate::chain_list::{ChainListProvider, CHAINS};
 use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
@@ -84,12 +83,12 @@ impl MintChecker {
                     }
                 }
                 if let Some(block_number) = log.block_number {
-                    highest_block = Some(block_number.to());
+                    highest_block = Some(block_number);
                 }
             }
         }
     }
-
+    
     async fn make_provider(&self) -> eyre::Result<ChainListProvider> {
         let chain = CHAINS.get_chain_by_id(self.chain_id as i64);
 

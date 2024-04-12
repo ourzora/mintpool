@@ -2,27 +2,37 @@ mod common;
 
 use crate::common::mintpool_build;
 use alloy::network::EthereumSigner;
-use alloy::rpc::types::eth::TransactionRequest;
-use alloy_node_bindings::Anvil;
-use alloy_primitives::U256;
+use alloy::rpc::types::eth::{TransactionInput, TransactionRequest};
+use alloy_node_bindings::{Anvil, WEI_IN_ETHER};
+use alloy_primitives::{hex, Bytes, U256};
 use alloy_provider::{Provider, ProviderBuilder};
+use alloy_rpc_client::BuiltInConnectionString::Http;
 use alloy_rpc_client::{RpcClient, WsConnect};
+use alloy_signer::k256::ecdsa::SigningKey;
 use alloy_signer_wallet::LocalWallet;
+use alloy_sol_types::SolCall;
 use mintpool::config::{ChainInclusionMode, Config};
 use mintpool::controller::{ControllerCommands, DBQuery};
-use mintpool::premints::zora_premint_v2::types::{ZoraPremintV2, PREMINT_FACTORY_ADDR};
+use mintpool::premints::zora_premint_v2::broadcast::premint_to_call;
+use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
+use mintpool::premints::zora_premint_v2::types::{
+    IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
+};
 use mintpool::run;
 use mintpool::types::PremintTypes;
 use std::env;
+use std::str::FromStr;
+use std::time::Duration;
 
 #[tokio::test]
 #[ignore] // remove once signing logic is complete
 async fn test_broadcasting_premint() {
-    let anvil = Anvil::new()
-        .chain_id(7777777)
-        .fork("https://rpc.zora.energy")
-        .fork_block_number(12665000)
-        .spawn();
+    // let anvil = Anvil::new()
+    //     .chain_id(7777777)
+    //     .fork("https://rpc.zora.energy")
+    //     .fork_block_number(12665000)
+    //     .block_time(1)
+    //     .spawn();
 
     let mut config = Config {
         seed: 0,
@@ -39,12 +49,14 @@ async fn test_broadcasting_premint() {
         trusted_peers: None,
     };
 
-    env::set_var("CHAIN_7777777_RPC_WSS", anvil.ws_endpoint());
+    env::set_var("CHAIN_7777777_RPC_WSS", "ws://localhost:8545");
 
     let ctl = mintpool_build::make_nodes(config.peer_port, 1, config.peer_limit).await;
     let ctl = ctl.first().unwrap();
     // in real
     run::start_watch_chain::<ZoraPremintV2>(&config, ctl.clone()).await;
+
+    // end creation of services
 
     // Push a message to the mintpool
     let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
@@ -63,30 +75,74 @@ async fn test_broadcasting_premint() {
     let all_premints = recv.await.unwrap().unwrap();
 
     assert_eq!(all_premints.len(), 1);
+
+    // query for message from mintpool
+
     let found = all_premints.first().unwrap();
 
     // ============================================================================================
 
-    let signer: LocalWallet = anvil.keys()[0].clone().into();
+    let signer: LocalWallet =
+        LocalWallet::from_str("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+            .unwrap();
     let provider = ProviderBuilder::new()
-        .signer(EthereumSigner::from(signer))
-        .on_client(
-            RpcClient::connect_pubsub(WsConnect::new(anvil.ws_endpoint()))
-                .await
-                .unwrap(),
-        );
+        // .with_recommended_layers()
+        .signer(EthereumSigner::from(signer.clone()))
+        .on_client(RpcClient::new_http(
+            reqwest::Url::from_str("http://localhost:8545").unwrap(),
+        ));
 
-    IZoraPremintV2
-    
+    let premint = match found {
+        PremintTypes::ZoraV2(premint) => premint,
+        _ => panic!("unexpected premint type"),
+    };
+
+    let calldata = premint_to_call(
+        premint.clone(),
+        U256::from(1),
+        MintArguments {
+            mintRecipient: signer.address(),
+            mintComment: "".to_string(),
+            mintRewardsRecipients: vec![],
+        },
+    );
+
+    // IZoraPremintV2::
+    println!("fetching gas");
+    let gas_price = provider.get_gas_price().await.unwrap();
+    println!("gas_price: {:?}", gas_price);
+    let max_fee_per_gas = provider.get_max_priority_fee_per_gas().await.unwrap();
+    println!("max_fee_per_gas: {:?}", max_fee_per_gas);
+
+    println!("calldata: {:?}", calldata.abi_encode());
+
     // Someone found the premint and brought it onchain
-    let tx_request = TransactionRequest {
+    let mut tx_request = TransactionRequest {
         to: Some(PREMINT_FACTORY_ADDR),
-        // data:
-        nonce: Some(0),
-        gas_price: Some(U256::from(20e9)),
-        gas: Some(U256::from(21000)),
+        input: TransactionInput::new(Bytes::from(calldata.abi_encode())),
+        value: Some(U256::from(0.000777 * (10 ^ 18) as f32)),
+        nonce: Some(13),
+        max_priority_fee_per_gas: Some(20 * (10 ^ 12)),
+        gas_price: Some(gas_price),
+        gas: Some(30_000_000),
+        max_fee_per_gas: Some(max_fee_per_gas),
+        chain_id: Some(7777777),
         ..Default::default()
     };
+
+    // let gas = provider.estimate_gas(&tx_request, None).await.unwrap();
+    // tx_request.gas = Some(gas);
+
+    println!("tx_request: {:?}", tx_request);
+    let mut tx = provider.send_transaction(tx_request).await.unwrap();
+    // tx.set_required_confirmations(1);
+    // tx.set_timeout(Some(Duration::from_secs(2)));
+    println!("tx: {:?}", tx);
+    tx.get_receipt().await.unwrap();
+
+    println!("tx processed");
+
+    // Check that premint has been removed from mintpool
 }
 
 const PREMINT_JSON: &str = r#"
