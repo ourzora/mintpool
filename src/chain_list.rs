@@ -1,23 +1,44 @@
+use std::sync::Arc;
+use std::time::Duration;
+
 use alloy::network::{Ethereum, Network};
 use alloy::pubsub::PubSubFrontend;
 use alloy_provider::layers::{GasEstimatorProvider, ManagedNonceProvider};
-use alloy_provider::{Provider, ProviderBuilder, RootProvider};
+use alloy_provider::{Identity, ProviderBuilder, RootProvider};
 use alloy_rpc_client::WsConnect;
 use alloy_transport::BoxTransport;
+use eyre::ContextCompat;
+use mini_moka::sync::Cache;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 const CHAINS_JSON: &str = include_str!("../data/chains.json");
 
-pub struct Chains(Vec<Chain>);
+pub type ChainListProvider<N = Ethereum> = GasEstimatorProvider<
+    PubSubFrontend,
+    ManagedNonceProvider<PubSubFrontend, RootProvider<PubSubFrontend, N>, N>,
+    N,
+>;
 
-pub static CHAINS: Lazy<Chains> = Lazy::new(|| Chains::new());
+pub struct Chains<N>(Vec<Chain>, Cache<String, Arc<ChainListProvider<N>>>)
+where
+    N: Network;
+
+pub static CHAINS: Lazy<Chains<Ethereum>> = Lazy::new(|| Chains::new());
 static VARIABLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\$\{(.+?)}").unwrap());
 
-impl Chains {
+impl<N: Network> Chains<N>
+where
+    N: Network,
+{
     fn new() -> Self {
-        Chains(serde_json::from_str::<Vec<Chain>>(CHAINS_JSON).unwrap())
+        Chains(
+            serde_json::from_str::<Vec<Chain>>(CHAINS_JSON).unwrap(),
+            Cache::builder()
+                .time_to_idle(Duration::from_secs(5 * 60))
+                .build(),
+        )
     }
 
     pub fn get_chain_by_id(&self, chain_id: i64) -> Option<Chain> {
@@ -25,6 +46,51 @@ impl Chains {
             .iter()
             .find(|chain| chain.chain_id == chain_id)
             .cloned()
+    }
+
+    pub async fn get_rpc(&self, chain_id: i64) -> eyre::Result<Arc<ChainListProvider<N>>> {
+        let chain = self
+            .get_chain_by_id(chain_id)
+            .wrap_err(format!("Chain id {} not found", chain_id))?;
+
+        for rpc in chain.rpc.iter() {
+            if !rpc.starts_with("ws") {
+                continue;
+            }
+
+            tracing::info!("Trying to connect to {}", rpc);
+            let provider = self.connect(rpc).await;
+            if provider.is_ok() {
+                return provider;
+            }
+        }
+
+        Err(eyre::eyre!("No suitable RPC URL found for chain"))
+    }
+
+    async fn connect(&self, url: &String) -> eyre::Result<Arc<ChainListProvider<N>>> {
+        if VARIABLE_REGEX.is_match(url) {
+            return Err(eyre::eyre!("URL contains variables"));
+        }
+
+        let cached = self.1.get(url);
+        match cached {
+            Some(provider) => Ok(provider),
+            None => {
+                let conn = WsConnect::new(url);
+                let provider: ChainListProvider<N> = ProviderBuilder::<Identity, N>::default()
+                    .with_recommended_layers()
+                    .on_ws(conn)
+                    .await?;
+
+                let arc = Arc::new(provider);
+
+                // keep a copy in the cache
+                self.1.insert(url.clone(), arc.clone());
+
+                Ok(arc)
+            }
+        }
     }
 }
 
@@ -39,47 +105,14 @@ pub struct Chain {
     pub network_id: i64,
 }
 
-pub type ChainListProvider = RootProvider<PubSubFrontend, Ethereum>;
-
-// Note: this ideally should just return <P: Provider> but alloy is doing something weird where it
-// doesn't recognize RootProvider as impl Provider
-async fn connect(url: &String) -> eyre::Result<ChainListProvider> {
-    if VARIABLE_REGEX.is_match(url) {
-        return Err(eyre::eyre!("URL contains variables"));
-    }
-
-    let conn = WsConnect::new(url);
-    let x = ProviderBuilder::new().on_ws(conn).await?;
-    Ok(x)
-}
-
-impl Chain {
-    pub async fn get_rpc(&self, need_pub_sub: bool) -> eyre::Result<ChainListProvider> {
-        for rpc in self.rpc.iter() {
-            if need_pub_sub && !rpc.starts_with("ws") {
-                continue;
-            }
-
-            tracing::info!("Trying to connect to {}", rpc);
-            let provider = connect(rpc).await;
-            if provider.is_ok() {
-                return provider;
-            }
-        }
-
-        Err(eyre::eyre!("No suitable RPC URL found for chain"))
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use alloy::network::Ethereum;
-
     use super::*;
+    use alloy_provider::Provider;
 
     #[test]
     fn test_chains_new() {
-        let _chains = Chains::new();
+        let _chains = Chains::<Ethereum>::new();
     }
 
     #[test]
@@ -91,8 +124,10 @@ mod test {
 
     #[tokio::test]
     async fn test_chain_connect() {
-        let chain = CHAINS.get_chain_by_id(7777777).unwrap();
-        let provider = connect(&chain.rpc[1]).await.unwrap();
+        let provider = CHAINS
+            .get_rpc(7777777)
+            .await
+            .expect("Zora Chain should exist");
 
         // quick integration test here
         let number = provider.get_block_number().await.unwrap();
@@ -102,7 +137,7 @@ mod test {
     #[tokio::test]
     async fn test_chain_connect_variable() {
         let url = "https://mainnet.infura.io/v3/${INFURA_API_KEY}".to_string();
-        let provider = connect(&url).await;
+        let provider = CHAINS.connect(&url).await;
 
         assert!(provider.is_err());
         match provider {
