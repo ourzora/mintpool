@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use alloy::network::{Ethereum, Network};
 use alloy::pubsub::PubSubFrontend;
 use alloy_provider::layers::{GasEstimatorProvider, ManagedNonceProvider};
@@ -36,26 +34,9 @@ impl Chains {
 pub struct Chain {
     pub name: String,
     pub chain: String,
-    pub icon: Option<String>,
     pub rpc: Vec<String>,
-    #[serde(default)]
-    pub features: Vec<Feature>,
-    pub faucets: Vec<String>,
-    pub native_currency: NativeCurrency,
-    #[serde(rename = "infoURL")]
-    pub info_url: String,
-    pub short_name: String,
     pub chain_id: i64,
     pub network_id: i64,
-    pub slip44: Option<i64>,
-    pub ens: Option<Ens>,
-    #[serde(default)]
-    pub explorers: Vec<Explorer>,
-    pub title: Option<String>,
-    pub status: Option<String>,
-    #[serde(default)]
-    pub red_flags: Vec<String>,
-    pub parent: Option<Parent>,
 }
 
 pub type ChainListProvider = RootProvider<PubSubFrontend, Ethereum>;
@@ -88,51 +69,6 @@ impl Chain {
 
         Err(eyre::eyre!("No suitable RPC URL found for chain"))
     }
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Feature {
-    pub name: String,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NativeCurrency {
-    pub name: String,
-    pub symbol: String,
-    pub decimals: i64,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Ens {
-    pub registry: String,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Explorer {
-    pub name: String,
-    pub url: String,
-    pub standard: String,
-    pub icon: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Parent {
-    #[serde(rename = "type")]
-    pub type_field: String,
-    pub chain: String,
-    #[serde(default)]
-    pub bridges: Vec<Bridge>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Bridge {
-    pub url: String,
 }
 
 #[cfg(test)]
