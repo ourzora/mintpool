@@ -42,36 +42,44 @@ rand = "0.8.5"
 runit = "0.1.0"
 futures-util = "0.3"
 axum = "0.7.5"
-alloy = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639", features = [
+reqwest = "0.12.3"
+alloy = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", features = [
     "sol-types",
     "network",
     "rpc-types-eth",
     "pubsub",
 ] }
 
-alloy-transport = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639" }
-alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639", features = [
+alloy-transport = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
+alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", features = [
     "pubsub",
     "ws",
+    "reqwest"
 ] }
-alloy-provider = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639", features = [
+alloy-provider = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", features = [
     "pubsub",
+    "ws"
 ] }
-alloy-signer = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639", features = [
+alloy-signer = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", features = [
     "eip712",
 ] }
-alloy-signer-wallet = { git = "https://github.com/alloy-rs/alloy", rev = "7e39c85f9f51e6449a8b661f54df0ac213f18639" }
-
-alloy-core = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
-alloy-sol-types = { git = "https://github.com/alloy-rs/core", rev = "525a233", features = ["eip712-serde"] }
-alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "525a233", features = ["serde"] }
-alloy-sol-macro = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
+alloy-json-rpc = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
+alloy-signer-wallet = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
+alloy-contract = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
+alloy-core = { git = "https://github.com/alloy-rs/core", rev = "7574bfc" }
+alloy-sol-types = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["eip712-serde"] }
+alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["serde"] }
+alloy-sol-macro = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["json"] }
+url = "2.5.0"
 futures = "0.3.30"
 
 
 [patch.crates-io]
-alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "525a233" }
+alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "7574bfc" }
 
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
+
+[dev-dependencies]
+alloy-node-bindings = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }

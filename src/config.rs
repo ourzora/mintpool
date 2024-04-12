@@ -36,7 +36,7 @@ pub struct Config {
 
     // Comma separated list of default premint types to process
     #[envconfig(from = "PREMINT_TYPES", default = "zora_premint_v2")]
-    pub premint_types: String,
+    pub supported_premint_types: String,
 
     #[envconfig(from = "CHAIN_INCLUSION_MODE", default = "verify")]
     pub chain_inclusion_mode: ChainInclusionMode,
@@ -89,7 +89,7 @@ impl Config {
     }
 
     pub fn premint_names(&self) -> Vec<PremintName> {
-        self.premint_types
+        self.supported_premint_types
             .split(',')
             .map(|s| PremintName(s.to_string()))
             .collect()
@@ -155,7 +155,7 @@ mod test {
             prune_minted_premints: false,
             api_port: 0,
             peer_limit: 1000,
-            premint_types: "simple,zora_premint_v2".to_string(),
+            supported_premint_types: "simple,zora_premint_v2".to_string(),
             chain_inclusion_mode: ChainInclusionMode::Check,
             supported_chain_ids: "7777777".to_string(),
             trusted_peers: None,
@@ -178,7 +178,7 @@ mod test {
             prune_minted_premints: false,
             api_port: 0,
             peer_limit: 1000,
-            premint_types: "zora_premint_v2".to_string(),
+            supported_premint_types: "zora_premint_v2".to_string(),
             chain_inclusion_mode: ChainInclusionMode::Check,
             supported_chain_ids: "7777777".to_string(),
             trusted_peers: None,

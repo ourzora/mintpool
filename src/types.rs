@@ -137,8 +137,8 @@ pub struct InclusionClaim {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::premints::zora_premint_v2::types::{ZoraPremintConfigV2, PREMINT_FACTORY_ADDR};
-    use alloy_primitives::Bytes;
+    use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
+    use alloy_primitives::{Bytes, LogData};
     use std::str::FromStr;
 
     #[test]
@@ -168,26 +168,28 @@ mod test {
     #[test]
     fn test_map_premintv2_claim() {
         let log = Log {
+            inner: alloy_primitives::Log {
             address: PREMINT_FACTORY_ADDR.clone(),
-            topics: vec![B256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
-                         B256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
-                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-            ],
-            data: Bytes::from_str("0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000edb81afaecc2379635b25a752b787f821a46644c0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-            block_hash:  Some(
+            data: LogData::new(vec![B256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
+                             B256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
+                             B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+                             B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+
+                ],
+                Bytes::from_str("0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000edb81afaecc2379635b25a752b787f821a46644c0000000000000000000000000000000000000000000000000000000000000001").unwrap()
+            ).unwrap()
+            },
+            block_hash: None,
+            block_number: None,
+            transaction_hash: Some(
                 B256::from_str(
-                    "0x0e918f6a5cfda90ce33ac5117880f6db97849a095379acdc162d038aaee56757",
+                    "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
                 )
                 .unwrap(),
             ),
-            block_number: Some(U256::from(12387768)),
-            transaction_hash: Some(B256::from_str(
-                "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
-            ).unwrap()),
-            transaction_index: Some(U256::from(4)),
-            log_index: Some(U256::from(28)),
-            removed: false,
+            transaction_index: Some(4),
+            log_index: Some(28),
+            ..Default::default()
         };
 
         let claim = ZoraPremintV2::map_claim(7777777, log.clone()).unwrap();
@@ -216,8 +218,8 @@ mod test {
                 )
                 .unwrap(),
             ),
-            block_number: Some(U256::from(12387768)),
-            transaction_index: Some(U256::from(4)),
+            block_number: Some(12387768),
+            transaction_index: Some(4),
             from: Address::from_str("0xeDB81aFaecC2379635B25A752b787f821a46644c").unwrap(),
             to: Some(PREMINT_FACTORY_ADDR.clone()),
             value: U256::from(777_000_000_000_000_i64),
@@ -225,21 +227,26 @@ mod test {
         };
 
         let log = Log {
+            inner: alloy_primitives::Log {
             address: PREMINT_FACTORY_ADDR.clone(),
-            topics: vec![B256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
-                         B256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
-                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-                         B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-            ],
-            data: Bytes::from_str("0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000edb81afaecc2379635b25a752b787f821a46644c0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+            data: LogData::new(vec![B256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
+                             B256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
+                             B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+                             B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+                ],
+                Bytes::from_str("0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000edb81afaecc2379635b25a752b787f821a46644c0000000000000000000000000000000000000000000000000000000000000001").unwrap()
+            ).unwrap()
+            },
             block_hash: None,
             block_number: None,
-            transaction_hash: Some( B256::from_str(
-                "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
-            )
-            .unwrap()),
-            transaction_index: Some(U256::from(4)),
-            log_index: Some(U256::from(28)),
+            transaction_hash: Some(
+                B256::from_str(
+                    "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
+                )
+                .unwrap(),
+            ),
+            transaction_index: Some(4),
+            log_index: Some(28),
             ..Default::default()
         };
 

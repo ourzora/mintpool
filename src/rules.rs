@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use futures::future::join_all;
 
-use crate::storage::PremintStorage;
 use crate::types::{Premint, PremintTypes};
 
 #[derive(Debug)]
