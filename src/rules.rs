@@ -81,7 +81,7 @@ where
 #[macro_export]
 macro_rules! rule {
     ($fn:tt) => {
-        crate::rules::FnRule(stringify!($fn), $fn)
+        std::boxed::Box::new(crate::rules::FnRule(stringify!($fn), $fn))
     };
 }
 
@@ -132,7 +132,7 @@ macro_rules! typed_rule {
             }
         }
 
-        TypedRule {}
+        Box::new(TypedRule {})
     }};
 }
 
@@ -153,8 +153,8 @@ impl RulesEngine {
     pub fn new() -> Self {
         RulesEngine { rules: vec![] }
     }
-    pub fn add_rule(&mut self, rule: impl Rule + 'static) {
-        self.rules.push(Box::new(rule));
+    pub fn add_rule(&mut self, rule: Box<dyn Rule>) {
+        self.rules.push(rule);
     }
     pub fn add_default_rules(&mut self) {
         self.rules.extend(all_rules());
