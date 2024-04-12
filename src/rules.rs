@@ -105,7 +105,7 @@ macro_rules! metadata_rule {
             }
         }
 
-        MetadataRule {}
+        std::boxed::Box::new(MetadataRule {})
     }};
 }
 
@@ -132,7 +132,7 @@ macro_rules! typed_rule {
             }
         }
 
-        Box::new(TypedRule {})
+        std::boxed::Box::new(TypedRule {})
     }};
 }
 
@@ -186,7 +186,7 @@ mod general {
     use crate::types::PremintMetadata;
 
     pub fn all_rules() -> Vec<Box<dyn Rule>> {
-        vec![Box::new(metadata_rule!(token_uri_length))]
+        vec![metadata_rule!(token_uri_length)]
     }
 
     pub async fn token_uri_length(
