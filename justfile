@@ -6,6 +6,7 @@ seed:
     sqlx migrate run
 
 update-chain-list:
-    curl https://chainid.network/chains.json -s -odata/chains.json
+    curl https://chainid.network/chains.json -s -o- | json_pp > data/chains.json
+
 
 ci: init seed
