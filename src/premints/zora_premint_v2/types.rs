@@ -86,18 +86,17 @@ impl Premint for ZoraPremintV2 {
             premint_id: event.uid.to_string(),
             chain_id,
             tx_hash: log.transaction_hash.unwrap_or_default(),
-            log_index: log.log_index.unwrap_or_default(),
+            log_index: log.log_index.unwrap_or_default().to(),
             kind: "zora_premint_v2".to_string(),
         })
     }
 
     async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool {
-        let event =
-            IZoraPremintV2::PremintedV2::decode_raw_log(log.topics(), &**log.data().data, true);
+        let event = IZoraPremintV2::PremintedV2::decode_raw_log(log.topics, &**log.data, true);
         match event {
             Ok(event) => {
                 let conditions = vec![
-                    log.address() == PREMINT_FACTORY_ADDR,
+                    log.address == PREMINT_FACTORY_ADDR,
                     log.transaction_hash.unwrap_or_default() == tx.hash,
                     claim.tx_hash == tx.hash,
                     claim.log_index == log.log_index.unwrap_or_default(),

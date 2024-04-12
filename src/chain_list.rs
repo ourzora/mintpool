@@ -1,8 +1,10 @@
 use std::marker::PhantomData;
 
 use alloy::network::{Ethereum, Network};
+use alloy::pubsub::PubSubFrontend;
 use alloy_provider::layers::{GasEstimatorProvider, ManagedNonceProvider};
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
+use alloy_rpc_client::WsConnect;
 use alloy_transport::BoxTransport;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -56,24 +58,24 @@ pub struct Chain {
     pub parent: Option<Parent>,
 }
 
-pub type ChainListProvider<N = Ethereum> = GasEstimatorProvider<
-    N,
-    BoxTransport,
-    ManagedNonceProvider<N, BoxTransport, RootProvider<N, BoxTransport>>,
->;
+// pub type ChainListProvider<N = Ethereum> = GasEstimatorProvider<
+//     BoxTransport,
+//     ManagedNonceProvider<BoxTransport, RootProvider<BoxTransport>>,
+//     N,
+// >;
 
-async fn connect<N>(url: &String) -> eyre::Result<ChainListProvider<N>>
-where
-    N: Network,
-{
+pub type ChainListProvider<N = Ethereum> = RootProvider<PubSubFrontend, N>;
+
+async fn connect<P: Provider>(url: &String) -> eyre::Result<ChainListProvider> {
     if VARIABLE_REGEX.is_match(url) {
         return Err(eyre::eyre!("URL contains variables"));
     }
 
-    let builder = ProviderBuilder::<_, N>::default().with_recommended_layers();
-    let provider = builder.on_builtin(url).await?;
-
-    Ok(provider)
+    // let builder = ProviderBuilder::<_, N>::default().with_recommended_layers();
+    // let provider = builder.on_builtin(url).await?;
+    let conn = WsConnect::new(url);
+    let x = ProviderBuilder::new().on_ws(conn).await?;
+    Ok(x)
 }
 
 impl Chain {
