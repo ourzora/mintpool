@@ -64,25 +64,22 @@ pub struct Chain {
 //     N,
 // >;
 
-pub type ChainListProvider<N = Ethereum> = RootProvider<PubSubFrontend, N>;
+pub type ChainListProvider = RootProvider<PubSubFrontend, Ethereum>;
 
-async fn connect<P: Provider>(url: &String) -> eyre::Result<ChainListProvider> {
+// Note: this ideally should just return <P: Provider> but alloy is doing something weird where it
+// doesn't recognize RootProvider as impl Provider
+async fn connect(url: &String) -> eyre::Result<ChainListProvider> {
     if VARIABLE_REGEX.is_match(url) {
         return Err(eyre::eyre!("URL contains variables"));
     }
 
-    // let builder = ProviderBuilder::<_, N>::default().with_recommended_layers();
-    // let provider = builder.on_builtin(url).await?;
     let conn = WsConnect::new(url);
     let x = ProviderBuilder::new().on_ws(conn).await?;
     Ok(x)
 }
 
 impl Chain {
-    pub async fn get_rpc<N>(&self, need_pub_sub: bool) -> eyre::Result<ChainListProvider<N>>
-    where
-        N: Network,
-    {
+    pub async fn get_rpc(&self, need_pub_sub: bool) -> eyre::Result<ChainListProvider> {
         for rpc in self.rpc.iter() {
             if need_pub_sub && !rpc.starts_with("ws") {
                 continue;

@@ -40,7 +40,7 @@ pub async fn is_authorized_to_create_premint(
     match chain {
         Some(chain) => {
             let provider = chain.get_rpc(false).await?;
-            let result = contract_call(call, &provider).await?;
+            let result = contract_call(call, provider).await?;
 
             match result.isAuthorized {
                 true => Ok(Accept),

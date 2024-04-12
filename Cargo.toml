@@ -71,6 +71,7 @@ alloy-sol-types = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", f
 alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["serde"] }
 alloy-sol-macro = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["json"] }
 url = "2.5.0"
+futures = "0.3.30"
 
 
 [patch.crates-io]

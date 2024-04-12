@@ -3151,6 +3151,7 @@ dependencies = [
  "const-hex",
  "envconfig",
  "eyre",
+ "futures",
  "futures-util",
  "libp2p",
  "once_cell",

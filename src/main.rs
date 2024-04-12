@@ -27,9 +27,8 @@ async fn main() -> eyre::Result<()> {
     api::start_api(&config, router).await?;
 
     start_watch_chain::<ZoraPremintV2>(&config, ctl.clone()).await;
-    watch_stdin(ctl).await;
     if config.interactive {
-        watch_stdin(ctl).await;
+        watch_stdin(ctl.clone()).await;
     } else {
         let mut sigint = signal(SignalKind::interrupt())?;
         let mut sigterm = signal(SignalKind::terminate())?;
