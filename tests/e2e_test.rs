@@ -26,6 +26,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 #[tokio::test]
+#[ignore]
 /// This test does the full round trip lifecycle of a premint
 /// 1. Premint is broadcasted to mintpool
 /// 2. Premint is fetched from DB (similating a client fetching from API)

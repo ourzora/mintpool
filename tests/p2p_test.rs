@@ -15,6 +15,7 @@ async fn test_connecting_to_other_nodes() {
 
     let nodes = mintpool_build::make_nodes(2000, num_nodes, 1000).await;
     mintpool_build::connect_all_to_first(nodes.clone()).await;
+    tokio::time::sleep(time::Duration::from_secs(1)).await;
 
     let (first, nodes) = mintpool_build::split_first_rest(nodes).await;
 
