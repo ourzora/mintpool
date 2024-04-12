@@ -17,13 +17,18 @@ sol! {
     "src/premints/zora_premint_v2/zora1155PremintExecutor.json"
 }
 
+// aliasing the types here for readability. the original name need to stay
+// because they impact signature generation
+pub type PremintConfig = IZoraPremintV2::CreatorAttribution;
+pub type TokenCreationConfig = IZoraPremintV2::TokenCreationConfig;
+pub type ContractCreationConfig = IZoraPremintV2::ContractCreationConfig;
+
 // modelled after the PremintRequest API type
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ZoraPremintV2 {
-    pub collection: IZoraPremintV2::ContractCreationConfig,
-    pub premint: IZoraPremintV2::PremintConfigV2,
-    // pub premint: ZoraPremintConfigV2,
+    pub collection: ContractCreationConfig,
+    pub premint: PremintConfig,
     pub collection_address: Address,
     pub chain_id: U256,
     pub signature: String,
@@ -32,13 +37,13 @@ pub struct ZoraPremintV2 {
 impl Default for ZoraPremintV2 {
     fn default() -> Self {
         Self {
-            collection: IZoraPremintV2::ContractCreationConfig {
+            collection: ContractCreationConfig {
                 contractAdmin: Default::default(),
                 contractURI: "".to_string(),
                 contractName: "".to_string(),
             },
-            premint: IZoraPremintV2::PremintConfigV2 {
-                tokenConfig: IZoraPremintV2::TokenCreationConfigV2 {
+            premint: PremintConfig {
+                tokenConfig: TokenCreationConfig {
                     tokenURI: "".to_string(),
                     maxSupply: Default::default(),
                     maxTokensPerAddress: 0,

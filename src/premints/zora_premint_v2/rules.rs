@@ -8,7 +8,7 @@ use alloy_sol_types::{SolCall, SolInterface, SolStruct};
 use crate::chain::contract_call;
 use crate::chain_list::CHAINS;
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
-use crate::rules::Evaluation::{Accept, Reject};
+use crate::rules::Evaluation::{Accept, Ignore, Reject};
 use crate::rules::{Evaluation, Rule, RuleContext};
 use crate::typed_rule;
 use crate::types::{Premint, PremintTypes};
@@ -102,18 +102,26 @@ mod test {
     #[tokio::test]
     async fn test_is_valid_signature() {
         let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
-        assert!(matches!(
-            is_valid_signature(premint, RuleContext {}).await,
-            Ok(Accept)
-        ));
+        let result = is_valid_signature(premint, RuleContext {}).await;
+
+        match result {
+            Ok(Accept) => {}
+            Ok(Ignore) => panic!("Should not be ignored"),
+            Ok(Reject(reason)) => panic!("Rejected: {}", reason),
+            Err(err) => panic!("Error: {:?}", err),
+        }
     }
 
     #[tokio::test]
     async fn test_is_authorized_to_create_premint() {
         let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
-        assert!(matches!(
-            is_authorized_to_create_premint(premint, RuleContext {}).await,
-            Ok(Accept)
-        ));
+        let result = is_authorized_to_create_premint(premint, RuleContext {}).await;
+
+        match result {
+            Ok(Accept) => {}
+            Ok(Ignore) => panic!("Should not be ignored"),
+            Ok(Reject(reason)) => panic!("Rejected: {}", reason),
+            Err(err) => panic!("Error: {:?}", err),
+        }
     }
 }
