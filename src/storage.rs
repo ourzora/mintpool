@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::types::{Premint, PremintTypes};
+use crate::types::{Premint, PremintName, PremintTypes};
 use eyre::WrapErr;
 use sqlx::{Row, SqlitePool};
 
@@ -65,13 +65,12 @@ impl PremintStorage {
         let collection_address = metadata.collection_address.to_checksum(None);
         let token_id = metadata.token_id.to_string();
         let chain_id = metadata.chain_id.to::<i64>();
-        let id = premint.guid();
         sqlx::query!(
             r#"
             INSERT INTO premints (id, kind, signer, chain_id, collection_address, token_id, json)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         "#,
-            id,
+            metadata.id,
             metadata.kind.0,
             signer,
             chain_id,
@@ -89,13 +88,18 @@ impl PremintStorage {
         list_all(&self.db).await
     }
 
-    pub async fn get_for_id(&self, id: String) -> eyre::Result<PremintTypes> {
+    pub async fn get_for_id_and_kind(
+        &self,
+        id: String,
+        kind: PremintName,
+    ) -> eyre::Result<PremintTypes> {
         let row = sqlx::query(
             r#"
-            SELECT json FROM premints WHERE id = ?
+            SELECT json FROM premints WHERE id = ? and kind = ?
         "#,
         )
         .bind(id)
+        .bind(kind.0)
         .fetch_one(&self.db)
         .await?;
         let json = row.get(0);
@@ -151,7 +155,10 @@ mod test {
         let premint = PremintTypes::ZoraV2(Default::default());
 
         store.store(premint.clone()).await.unwrap();
-        let retrieved = store.get_for_id(premint.guid()).await.unwrap();
+        let retrieved = store
+            .get_for_id_and_kind(premint.metadata().id, premint.metadata().kind)
+            .await
+            .unwrap();
         assert_eq!(premint, retrieved);
     }
 

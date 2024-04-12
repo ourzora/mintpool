@@ -105,22 +105,21 @@ impl ZoraPremintV2 {
 #[async_trait]
 impl Premint for ZoraPremintV2 {
     fn metadata(&self) -> PremintMetadata {
+        let id = format!(
+            "{:?}:{:?}:{:?}",
+            self.chain_id, self.collection_address, self.premint.uid
+        );
+
         PremintMetadata {
-            id: self.premint.uid.to_string(),
-            kind: Self::kind_id(),
+            id,
+            version: self.premint.version as u64,
+            kind: PremintName("zora_premint_v2".to_string()),
             signer: self.collection.contractAdmin,
             chain_id: self.chain_id,
             collection_address: Address::default(), // TODO: source this
             token_id: U256::from(self.premint.uid),
             uri: self.premint.tokenConfig.tokenURI.clone(),
         }
-    }
-
-    fn guid(&self) -> String {
-        format!(
-            "{:?}:{:?}:{:?}:{:?}",
-            self.chain_id, self.collection_address, self.premint.uid, self.premint.version
-        )
     }
 
     fn check_filter(chain_id: u64) -> Option<Filter> {
@@ -169,9 +168,5 @@ impl Premint for ZoraPremintV2 {
                 false
             }
         }
-    }
-
-    fn kind_id() -> PremintName {
-        PremintName("zora_premint_v2".to_string())
     }
 }

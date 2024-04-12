@@ -15,6 +15,7 @@ where
 
 #[derive(Default)]
 pub struct SimplePremintOptions {
+    version: Option<u64>,
     chain_id: Option<u64>,
     sender: Option<Address>,
     media: Option<String>,
@@ -26,6 +27,7 @@ impl Factory<SimplePremintOptions> for SimplePremint {
         let mut rng = rand::thread_rng();
 
         Self::new(
+            options.version.unwrap_or(1),
             U256::from(
                 options
                     .chain_id
