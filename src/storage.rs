@@ -85,12 +85,14 @@ impl PremintStorage {
     }
 
     pub async fn mark_seen_on_chain(&self, claim: InclusionClaim) -> eyre::Result<()> {
+        let chain_id = claim.chain_id as i64;
         if self.prune_minted_premints {
             sqlx::query!(
                 r#"
-                DELETE FROM premints WHERE id = ?
+                DELETE FROM premints WHERE id = ? AND chain_id = ?
             "#,
-                claim.premint_id
+                claim.premint_id,
+                chain_id
             )
             .execute(&self.db)
             .await
@@ -98,9 +100,10 @@ impl PremintStorage {
         } else {
             sqlx::query!(
                 r#"
-                UPDATE premints SET seen_on_chain = true WHERE id = ?
+                UPDATE premints SET seen_on_chain = true WHERE id = ? and chain_id = ?
             "#,
-                claim.premint_id
+                claim.premint_id,
+                chain_id
             )
             .execute(&self.db)
             .await
@@ -155,8 +158,10 @@ pub async fn list_all(db: &SqlitePool) -> eyre::Result<Vec<PremintTypes>> {
 #[cfg(test)]
 mod test {
     use crate::config::{ChainInclusionMode, Config};
+    use crate::premints::zora_premint_v2::types::ZoraPremintV2;
     use crate::storage::PremintStorage;
     use crate::types::{InclusionClaim, Premint, PremintTypes};
+    use alloy_primitives::U256;
 
     #[tokio::test]
     async fn test_insert_and_get() {
@@ -227,7 +232,7 @@ mod test {
             connect_external: false,
             db_url: None, // in-memory for testing
             persist_state: false,
-            prune_minted_premints: true,
+            prune_minted_premints: true, // important for test
             api_port: 0,
             peer_limit: 1000,
             supported_premint_types: "simple".to_string(),
@@ -242,7 +247,10 @@ mod test {
 
         let store = PremintStorage::new(&config).await;
 
-        let premint_v2 = PremintTypes::V2(Default::default());
+        let mut p = ZoraPremintV2::default();
+        p.premint.uid = 1;
+        p.chain_id = U256::from(7777777);
+        let premint_v2 = PremintTypes::ZoraV2(p);
         store.store(premint_v2.clone()).await.unwrap();
         let premint_simple = PremintTypes::Simple(Default::default());
         store.store(premint_simple.clone()).await.unwrap();
@@ -252,7 +260,7 @@ mod test {
         store
             .mark_seen_on_chain(InclusionClaim {
                 premint_id: premint_v2.metadata().id.clone(),
-                chain_id: 0,
+                chain_id: 7777777,
                 tx_hash: Default::default(),
                 log_index: 0,
                 kind: "".to_string(),
@@ -274,7 +282,7 @@ mod test {
             prune_minted_premints: false,
             api_port: 0,
             peer_limit: 1000,
-            supported_premint_types: "simple".to_string(),
+            supported_premint_types: "zora_v2,simple".to_string(),
             chain_inclusion_mode: ChainInclusionMode::Check,
             supported_chain_ids: "7777777,".to_string(),
             trusted_peers: None,
@@ -286,7 +294,12 @@ mod test {
 
         let store = PremintStorage::new(&config).await;
 
-        let premint_v2 = PremintTypes::V2(Default::default());
+        // Make sure IDs are different
+        let mut p = ZoraPremintV2::default();
+        p.premint.uid = 1;
+        p.chain_id = U256::from(7777777);
+        let premint_v2 = PremintTypes::ZoraV2(p);
+
         store.store(premint_v2.clone()).await.unwrap();
         let premint_simple = PremintTypes::Simple(Default::default());
         store.store(premint_simple.clone()).await.unwrap();
@@ -296,7 +309,7 @@ mod test {
         store
             .mark_seen_on_chain(InclusionClaim {
                 premint_id: premint_v2.metadata().id.clone(),
-                chain_id: 0,
+                chain_id: 7777777,
                 tx_hash: Default::default(),
                 log_index: 0,
                 kind: "".to_string(),

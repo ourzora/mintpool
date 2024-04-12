@@ -29,6 +29,38 @@ pub struct ZoraPremintV2 {
     pub signature: String,
 }
 
+impl Default for ZoraPremintV2 {
+    fn default() -> Self {
+        Self {
+            collection: IZoraPremintV2::ContractCreationConfig {
+                contractAdmin: Default::default(),
+                contractURI: "".to_string(),
+                contractName: "".to_string(),
+            },
+            premint: IZoraPremintV2::PremintConfigV2 {
+                tokenConfig: IZoraPremintV2::TokenCreationConfigV2 {
+                    tokenURI: "".to_string(),
+                    maxSupply: Default::default(),
+                    maxTokensPerAddress: 0,
+                    pricePerToken: 0,
+                    mintStart: 0,
+                    mintDuration: 0,
+                    royaltyBPS: 0,
+                    payoutRecipient: Default::default(),
+                    fixedPriceMinter: Default::default(),
+                    createReferral: Default::default(),
+                },
+                uid: 0,
+                version: 0,
+                deleted: false,
+            },
+            collection_address: Address::default(),
+            chain_id: U256::default(),
+            signature: String::default(),
+        }
+    }
+}
+
 pub static PREMINT_FACTORY_ADDR: Address = address!("7777773606e7e46C8Ba8B98C08f5cD218e31d340");
 
 impl ZoraPremintV2 {

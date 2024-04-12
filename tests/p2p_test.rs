@@ -1,6 +1,6 @@
 mod common;
 
-use crate::common::{asserts, mintpool_build};
+use crate::common::mintpool_build;
 use common::factories::Factory;
 use mintpool::controller::ControllerCommands;
 use mintpool::controller::ControllerCommands::Broadcast;
@@ -141,13 +141,13 @@ mod build {
                 prune_minted_premints: false,
                 api_port: 0,
                 peer_limit,
-                premint_types: "simple,zora_premint_v2".to_string(),
                 chain_inclusion_mode: ChainInclusionMode::Check,
                 supported_chain_ids: "7777777".to_string(),
                 trusted_peers: None,
                 node_id: Some(i),
                 external_address: None,
                 interactive: false,
+                supported_premint_types: "".to_string(),
             };
 
             let ctl = mintpool::run::start_services(&config).await.unwrap();

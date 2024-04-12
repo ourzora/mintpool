@@ -26,7 +26,7 @@ impl Chains {
         self.0
             .iter()
             .find(|chain| chain.chain_id == chain_id)
-            .and_then(|chain| Some(chain.clone()))
+            .cloned()
     }
 }
 
@@ -57,12 +57,6 @@ pub struct Chain {
     pub red_flags: Vec<String>,
     pub parent: Option<Parent>,
 }
-
-// pub type ChainListProvider<N = Ethereum> = GasEstimatorProvider<
-//     BoxTransport,
-//     ManagedNonceProvider<BoxTransport, RootProvider<BoxTransport>>,
-//     N,
-// >;
 
 pub type ChainListProvider = RootProvider<PubSubFrontend, Ethereum>;
 
@@ -162,7 +156,7 @@ mod test {
     #[tokio::test]
     async fn test_chain_connect() {
         let chain = CHAINS.get_chain_by_id(7777777).unwrap();
-        let provider = connect::<Ethereum>(&chain.rpc[0]).await.unwrap();
+        let provider = connect(&chain.rpc[1]).await.unwrap();
 
         // quick integration test here
         let number = provider.get_block_number().await.unwrap();
@@ -172,7 +166,7 @@ mod test {
     #[tokio::test]
     async fn test_chain_connect_variable() {
         let url = "https://mainnet.infura.io/v3/${INFURA_API_KEY}".to_string();
-        let provider = connect::<Ethereum>(&url).await;
+        let provider = connect(&url).await;
 
         assert!(provider.is_err());
         match provider {

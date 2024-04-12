@@ -80,3 +80,6 @@ alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "7574bfc" }
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
+
+[dev-dependencies]
+alloy-node-bindings = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }

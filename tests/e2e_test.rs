@@ -51,6 +51,9 @@ async fn test_broadcasting_premint() {
         chain_inclusion_mode: ChainInclusionMode::Check,
         supported_chain_ids: "7777777".to_string(),
         trusted_peers: None,
+        node_id: None,
+        external_address: None,
+        interactive: false,
     };
 
     env::set_var("CHAIN_7777777_RPC_WSS", anvil.ws_endpoint());
