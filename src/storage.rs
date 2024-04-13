@@ -92,7 +92,7 @@ impl PremintStorage {
         // no rows affected means the version was not higher that what's already stored
         if result.rows_affected() == 0 {
             return Err(eyre::eyre!(
-                "Cannot store premit with lower version than existing"
+                "Cannot store premint with lower version than existing"
             ));
         }
 
