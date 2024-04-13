@@ -81,7 +81,7 @@ where
 #[macro_export]
 macro_rules! rule {
     ($fn:tt) => {
-        std::boxed::Box::new(crate::rules::FnRule(stringify!($fn), $fn))
+        std::boxed::Box::new($crate::rules::FnRule(stringify!($fn), $fn))
     };
 }
 
@@ -91,11 +91,11 @@ macro_rules! metadata_rule {
         struct MetadataRule;
 
         #[async_trait::async_trait]
-        impl crate::rules::Rule for MetadataRule {
+        impl $crate::rules::Rule for MetadataRule {
             async fn check(
                 &self,
-                item: crate::types::PremintTypes,
-                context: crate::rules::RuleContext,
+                item: $crate::types::PremintTypes,
+                context: $crate::rules::RuleContext,
             ) -> eyre::Result<crate::rules::Evaluation> {
                 $fn(item.metadata(), context).await
             }
@@ -115,15 +115,15 @@ macro_rules! typed_rule {
         struct TypedRule;
 
         #[async_trait::async_trait]
-        impl crate::rules::Rule for TypedRule {
+        impl $crate::rules::Rule for TypedRule {
             async fn check(
                 &self,
-                item: crate::types::PremintTypes,
-                context: crate::rules::RuleContext,
-            ) -> eyre::Result<crate::rules::Evaluation> {
+                item: $crate::types::PremintTypes,
+                context: $crate::rules::RuleContext,
+            ) -> eyre::Result<$crate::rules::Evaluation> {
                 match item {
                     $t(premint) => $fn(premint, context).await,
-                    _ => Ok(crate::rules::Evaluation::Ignore),
+                    _ => Ok($crate::rules::Evaluation::Ignore),
                 }
             }
 
