@@ -70,8 +70,8 @@ impl PremintStorage {
         let result = sqlx::query!(
             r#"
             INSERT INTO premints (id, kind, version, signer, chain_id, collection_address, token_id, json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (kind, id) DO UPDATE SET version = ?, json = ?
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (kind, id) DO UPDATE SET version = $3, json = $8
             WHERE excluded.version > version;
         "#,
             metadata.id,
@@ -81,8 +81,6 @@ impl PremintStorage {
             chain_id,
             collection_address,
             token_id,
-            json,
-            version,
             json,
         )
         .execute(&self.db)
