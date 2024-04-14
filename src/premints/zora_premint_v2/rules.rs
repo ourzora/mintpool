@@ -104,7 +104,8 @@ mod test {
     #[tokio::test]
     async fn test_is_valid_signature() {
         let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
-        let result = is_valid_signature(premint, RuleContext {}).await;
+        let context = RuleContext::test_default().await;
+        let result = is_valid_signature(premint, context).await;
 
         match result {
             Ok(Accept) => {}
@@ -117,7 +118,8 @@ mod test {
     #[tokio::test]
     async fn test_is_authorized_to_create_premint() {
         let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
-        let result = is_authorized_to_create_premint(premint, RuleContext {}).await;
+        let context = RuleContext::test_default().await;
+        let result = is_authorized_to_create_premint(premint, context).await;
 
         match result {
             Ok(Accept) => {}

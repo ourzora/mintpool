@@ -1,10 +1,11 @@
+use sqlx::SqlitePool;
+use tokio::select;
+use tokio::sync::{mpsc, oneshot};
+
 use crate::p2p::NetworkState;
 use crate::rules::{RuleContext, RulesEngine};
 use crate::storage::PremintStorage;
 use crate::types::{InclusionClaim, MintpoolNodeInfo, PremintTypes};
-use sqlx::SqlitePool;
-use tokio::select;
-use tokio::sync::{mpsc, oneshot};
 
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
@@ -168,7 +169,10 @@ impl Controller {
     }
 
     async fn validate_and_insert(&self, premint: PremintTypes) -> eyre::Result<()> {
-        let evaluation = self.rules.evaluate(premint.clone(), RuleContext {}).await;
+        let evaluation = self
+            .rules
+            .evaluate(premint.clone(), RuleContext::new(self.store.clone()))
+            .await;
 
         if evaluation.is_accept() {
             self.store.store(premint).await

@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use futures::future::join_all;
 
+use crate::config::Config;
+use crate::storage::PremintStorage;
 use crate::types::{Premint, PremintTypes};
 
 #[derive(Debug)]
@@ -53,7 +55,22 @@ impl Results {
 }
 
 #[derive(Clone)]
-pub struct RuleContext {}
+pub struct RuleContext {
+    pub storage: PremintStorage,
+}
+
+impl RuleContext {
+    pub fn new(storage: PremintStorage) -> Self {
+        RuleContext { storage }
+    }
+    pub async fn test_default() -> Self {
+        let config = Config::test_default();
+
+        RuleContext {
+            storage: PremintStorage::new(&config).await,
+        }
+    }
+}
 
 #[async_trait]
 pub trait Rule: Send + Sync {
@@ -258,7 +275,7 @@ mod test {
 
     #[tokio::test]
     async fn test_simple_rule() {
-        let context = RuleContext {};
+        let context = RuleContext::test_default().await;
         let rule = rule!(simple_rule);
         let result = rule
             .check(PremintTypes::Simple(Default::default()), context)
@@ -270,7 +287,7 @@ mod test {
     #[tokio::test]
     async fn test_simple_rules_engine() {
         let mut re = RulesEngine::new();
-        let context = RuleContext {};
+        let context = RuleContext::test_default().await;
         re.add_rule(rule!(simple_rule));
         re.add_rule(rule!(conditional_rule));
 
@@ -284,7 +301,7 @@ mod test {
     #[tokio::test]
     async fn test_typed_rules_engine() {
         let mut re = RulesEngine::new();
-        let context = RuleContext {};
+        let context = RuleContext::test_default().await;
 
         let rule = typed_rule!(PremintTypes::Simple, simple_typed_rule);
         let rule2 = typed_rule!(PremintTypes::ZoraV2, simple_typed_zora_rule);
