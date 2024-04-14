@@ -66,12 +66,13 @@ impl PremintStorage {
         let token_id = metadata.token_id.to_string();
         let chain_id = metadata.chain_id.to::<i64>();
         let version = metadata.version as i64;
+        let token_uri = metadata.uri;
 
         let result = sqlx::query!(
             r#"
-            INSERT INTO premints (id, kind, version, signer, chain_id, collection_address, token_id, json)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT (kind, id) DO UPDATE SET version = $3, json = $8
+            INSERT INTO premints (id, kind, version, signer, chain_id, collection_address, token_id, token_uri, json)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ON CONFLICT (kind, id) DO UPDATE SET version = $3, json = $9
             WHERE excluded.version > version;
         "#,
             metadata.id,
@@ -81,6 +82,7 @@ impl PremintStorage {
             chain_id,
             collection_address,
             token_id,
+            token_uri,
             json,
         )
         .execute(&self.db)
@@ -144,6 +146,15 @@ impl PremintStorage {
         .bind(kind.0)
         .fetch_one(&self.db)
         .await?;
+        let json = row.try_get(0)?;
+        PremintTypes::from_json(json)
+    }
+
+    pub async fn get_for_token_uri(&self, uri: String) -> eyre::Result<PremintTypes> {
+        let row = sqlx::query("SELECT json FROM premints WHERE token_uri = ?")
+            .bind(uri)
+            .fetch_one(&self.db)
+            .await?;
         let json = row.try_get(0)?;
         PremintTypes::from_json(json)
     }
