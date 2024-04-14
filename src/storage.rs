@@ -187,29 +187,9 @@ mod test {
     use crate::types::{InclusionClaim, Premint, PremintTypes};
     use alloy_primitives::U256;
 
-    fn test_config() -> Config {
-        Config {
-            seed: 0,
-            peer_port: 7777,
-            connect_external: false,
-            db_url: None, // in-memory for testing
-            persist_state: false,
-            prune_minted_premints: false,
-            peer_limit: 1000,
-            supported_premint_types: "zora_v2,simple".to_string(),
-            chain_inclusion_mode: ChainInclusionMode::Check,
-            supported_chain_ids: "7777777,".to_string(),
-            trusted_peers: None,
-            api_port: 0,
-            node_id: None,
-            interactive: false,
-            external_address: None,
-        }
-    }
-
     #[tokio::test]
     async fn test_insert_and_get() {
-        let config = test_config();
+        let config = Config::test_default();
 
         let store = PremintStorage::new(&config).await;
         let premint = PremintTypes::ZoraV2(Default::default());
@@ -224,7 +204,7 @@ mod test {
 
     #[tokio::test]
     async fn test_update() {
-        let config = test_config();
+        let config = Config::test_default();
 
         let store = PremintStorage::new(&config).await;
         let premint = PremintTypes::ZoraV2(Default::default());
@@ -257,7 +237,7 @@ mod test {
 
     #[tokio::test]
     async fn test_list_all() {
-        let config = test_config();
+        let config = Config::test_default();
 
         let store = PremintStorage::new(&config).await;
 
@@ -272,8 +252,10 @@ mod test {
 
     #[tokio::test]
     async fn test_mark_seen_on_chain() {
-        let mut config = test_config();
-        config.prune_minted_premints = true;
+        let config = Config {
+            prune_minted_premints: true,
+            ..Config::test_default()
+        };
 
         let store = PremintStorage::new(&config).await;
 
@@ -304,7 +286,7 @@ mod test {
 
     #[tokio::test]
     async fn test_prune_false_keeps_seen_premints() {
-        let config = test_config();
+        let config = Config::test_default();
 
         let store = PremintStorage::new(&config).await;
 

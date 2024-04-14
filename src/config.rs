@@ -3,6 +3,7 @@ use std::env;
 use std::str::FromStr;
 
 use envconfig::Envconfig;
+use rand::Rng;
 
 use crate::chain_list::CHAINS;
 use crate::types::PremintName;
@@ -56,6 +57,28 @@ pub struct Config {
 
     #[envconfig(from = "INTERACTIVE", default = "false")]
     pub interactive: bool,
+}
+
+impl Config {
+    pub fn test_default() -> Self {
+        Config {
+            seed: rand::random(),
+            peer_port: rand::thread_rng().gen_range(5000..=10000),
+            connect_external: false,
+            db_url: None,
+            persist_state: false,
+            prune_minted_premints: false,
+            api_port: 0,
+            peer_limit: 1000,
+            supported_premint_types: "simple,zora_premint_v2".to_string(),
+            chain_inclusion_mode: ChainInclusionMode::Check,
+            supported_chain_ids: "7777777,999999999".to_string(),
+            trusted_peers: None,
+            node_id: None,
+            external_address: None,
+            interactive: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
