@@ -105,28 +105,33 @@ impl PremintStorage {
 
     pub async fn mark_seen_on_chain(&self, claim: InclusionClaim) -> eyre::Result<()> {
         let chain_id = claim.chain_id as i64;
+        println!("{:?} {:?} {:?}", claim.premint_id, chain_id, claim.kind);
         if self.prune_minted_premints {
-            sqlx::query!(
+            let r = sqlx::query!(
                 r#"
-                DELETE FROM premints WHERE id = ? AND chain_id = ?
+                DELETE FROM premints WHERE id = ? AND chain_id = ? AND kind = ?
             "#,
                 claim.premint_id,
-                chain_id
+                chain_id,
+                claim.kind
             )
             .execute(&self.db)
             .await
             .map_err(|e| eyre::eyre!("Failed to delete premint: {}", e))?;
+            tracing::debug!("Rows affected pruning: {}", r.rows_affected())
         } else {
-            sqlx::query!(
+            let r = sqlx::query!(
                 r#"
-                UPDATE premints SET seen_on_chain = true WHERE id = ? and chain_id = ?
+                UPDATE premints SET seen_on_chain = true WHERE id = ? AND chain_id = ? AND kind = ?
             "#,
                 claim.premint_id,
-                chain_id
+                chain_id,
+                claim.kind
             )
             .execute(&self.db)
             .await
             .map_err(|e| eyre::eyre!("Failed to update premint: {}", e))?;
+            tracing::debug!("Rows affected marking: {}", r.rows_affected())
         }
 
         Ok(())
@@ -198,6 +203,7 @@ mod test {
     use crate::storage::PremintStorage;
     use crate::types::{InclusionClaim, Premint, PremintTypes};
     use alloy_primitives::U256;
+    use sqlx::Row;
 
     #[tokio::test]
     async fn test_insert_and_get() {
@@ -273,7 +279,7 @@ mod test {
 
         let mut p = ZoraPremintV2::default();
         p.premint.uid = 1;
-        p.chain_id = U256::from(7777777);
+        p.chain_id = 7777777;
         let premint_v2 = PremintTypes::ZoraV2(p);
         store.store(premint_v2.clone()).await.unwrap();
         let premint_simple = PremintTypes::Simple(Default::default());
@@ -287,7 +293,7 @@ mod test {
                 chain_id: 7777777,
                 tx_hash: Default::default(),
                 log_index: 0,
-                kind: "".to_string(),
+                kind: "zora_premint_v2".to_string(),
             })
             .await
             .unwrap();
@@ -298,14 +304,15 @@ mod test {
 
     #[tokio::test]
     async fn test_prune_false_keeps_seen_premints() {
-        let config = Config::test_default();
+        let mut config = Config::test_default();
+        config.prune_minted_premints = false;
 
         let store = PremintStorage::new(&config).await;
 
         // Make sure IDs are different
         let mut p = ZoraPremintV2::default();
         p.premint.uid = 1;
-        p.chain_id = U256::from(7777777);
+        p.chain_id = 7777777;
         let premint_v2 = PremintTypes::ZoraV2(p);
 
         store.store(premint_v2.clone()).await.unwrap();
@@ -320,19 +327,32 @@ mod test {
                 chain_id: 7777777,
                 tx_hash: Default::default(),
                 log_index: 0,
-                kind: "".to_string(),
+                kind: "zora_premint_v2".to_string(),
             })
             .await
             .unwrap();
 
-        let all = store.list_all().await.unwrap();
-        assert_eq!(all.len(), 2);
+        let all = sqlx::query("SELECT count(*) as c FROM premints")
+            .fetch_one(&store.db())
+            .await
+            .unwrap();
+        let count: i64 = all.try_get("c").unwrap();
+        assert_eq!(count, 2);
 
-        let res = sqlx::query("SELECT * FROM premints WHERE seen_on_chain = true")
-            .execute(&store.db())
+        let res = sqlx::query("SELECT count(*) as c FROM premints WHERE seen_on_chain = true")
+            .fetch_one(&store.db())
             .await
             .unwrap();
 
-        assert_eq!(res.rows_affected(), 1);
+        let count: i64 = res.try_get("c").unwrap();
+        assert_eq!(count, 1);
+
+        let res = sqlx::query("SELECT count(*) as c FROM premints WHERE seen_on_chain = false")
+            .fetch_one(&store.db())
+            .await
+            .unwrap();
+
+        let count: i64 = res.try_get("c").unwrap();
+        assert_eq!(count, 1);
     }
 }

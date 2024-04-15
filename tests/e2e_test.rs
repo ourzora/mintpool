@@ -35,7 +35,7 @@ use std::time::Duration;
 /// 3. Premint is brought onchain by a client
 /// 4. Premint is removed from mintpool when an event is seen onchain
 #[test_log::test(tokio::test)]
-async fn test_broadcasting_premint() {
+async fn test_zora_premint_v2_e2e() {
     // ============================================================================================
     // Configure and launch anvil, watcher, and mintpool
     // ============================================================================================

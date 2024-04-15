@@ -290,7 +290,7 @@ mod test {
     ) -> eyre::Result<Evaluation> {
         match item {
             PremintTypes::Simple(s) => {
-                if s.metadata().chain_id == U256::default() {
+                if s.metadata().chain_id == 0 {
                     Ok(Accept)
                 } else {
                     Ok(Reject("Chain ID is not default".to_string()))

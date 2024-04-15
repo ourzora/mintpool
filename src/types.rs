@@ -145,7 +145,7 @@ mod test {
     fn test_premint_serde() {
         let premint = PremintTypes::Simple(SimplePremint {
             version: 1,
-            chain_id: U256::from(1),
+            chain_id: 1,
             sender: "0x66f9664f97F2b50F62D13eA064982f936dE76657"
                 .parse()
                 .unwrap(),
@@ -194,7 +194,7 @@ mod test {
 
         let claim = ZoraPremintV2::map_claim(7777777, log.clone()).unwrap();
         let expected = InclusionClaim {
-            premint_id: "1".to_string(),
+            premint_id: "7777777:0x65aae9d752ecac4965015664d0a6d0951e28d757:1".to_string(),
             chain_id: 7777777,
             tx_hash: log.clone().transaction_hash.unwrap(),
             log_index: 28,
