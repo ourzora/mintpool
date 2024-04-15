@@ -203,7 +203,10 @@ mod general {
     use crate::types::PremintMetadata;
 
     pub fn all_rules() -> Vec<Box<dyn Rule>> {
-        vec![metadata_rule!(token_uri_length)]
+        vec![
+            metadata_rule!(token_uri_length),
+            metadata_rule!(existing_token_uri),
+        ]
     }
 
     pub async fn token_uri_length(
@@ -227,6 +230,34 @@ mod general {
             _ => Accept,
         })
     }
+
+    pub async fn existing_token_uri(
+        meta: PremintMetadata,
+        context: RuleContext,
+    ) -> eyre::Result<Evaluation> {
+        let existing = context.storage.get_for_token_uri(meta.uri).await;
+
+        match existing {
+            Err(report) => match report.downcast_ref::<sqlx::Error>() {
+                // if the token uri doesn't exist, that's good!
+                Some(sqlx::Error::RowNotFound) => Ok(Accept),
+
+                // all other errors should be reported
+                _ => Err(report),
+            },
+            Ok(existing) => {
+                let metadata = existing.metadata();
+
+                if metadata.id == meta.id {
+                    // it's okay if the token uri exists for another version of the same token.
+                    // other rules should ensure that we're only overwriting it if signer matches
+                    Ok(Accept)
+                } else {
+                    Ok(Reject("Token URI already exists".to_string()))
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -234,6 +265,7 @@ mod test {
     use alloy_primitives::U256;
 
     use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+    use crate::rules::general::existing_token_uri;
     use crate::rules::Evaluation::{Accept, Reject};
     use crate::types::SimplePremint;
 
@@ -329,5 +361,45 @@ mod test {
             .await;
 
         assert!(result.is_accept());
+    }
+
+    #[tokio::test]
+    async fn test_token_uri_exists_rule() {
+        let storage = PremintStorage::new(&Config::test_default()).await;
+        let premint = PremintTypes::Simple(SimplePremint::default());
+
+        let evaluation = existing_token_uri(premint.metadata(), RuleContext::new(storage.clone()))
+            .await
+            .expect("Rule execution should not fail");
+
+        assert!(matches!(evaluation, Accept));
+
+        // now we'll store the token in the database
+        storage
+            .store(premint.clone())
+            .await
+            .expect("Simple premint should be stored");
+
+        let evaluation = existing_token_uri(premint.metadata(), RuleContext::new(storage.clone()))
+            .await
+            .expect("Rule execution should not fail");
+
+        // rule should still pass, because it's the same token id
+        assert!(matches!(evaluation, Accept));
+
+        // now we'll try a different token with the same token uri
+        let premint2 = SimplePremint::new(
+            1,
+            Default::default(),
+            Default::default(),
+            10,
+            premint.metadata().uri,
+        );
+
+        let evaluation = existing_token_uri(premint2.metadata(), RuleContext::new(storage.clone()))
+            .await
+            .expect("Rule execution should not fail");
+
+        assert!(matches!(evaluation, Reject(_)));
     }
 }
