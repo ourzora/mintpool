@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::env;
-use std::error::Error;
 use std::str::FromStr;
 
 use envconfig::Envconfig;

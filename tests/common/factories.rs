@@ -39,7 +39,7 @@ impl Factory<SimplePremintOptions> for SimplePremint {
             options.token_id.unwrap_or(rng.next_u64()),
             options
                 .media
-                .unwrap_or("http://example.com/token".to_string()),
+                .unwrap_or("https://example.com/token".to_string()),
         )
     }
 }

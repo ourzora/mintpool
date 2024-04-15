@@ -4,10 +4,8 @@ use crate::types::{InclusionClaim, Premint, PremintMetadata, PremintName};
 use alloy::rpc::types::eth::{Filter, Log, Transaction};
 use alloy::sol_types::private::U256;
 use alloy_primitives::{address, Address};
-use alloy_signer::Signer;
-use alloy_signer_wallet::LocalWallet;
 use alloy_sol_macro::sol;
-use alloy_sol_types::{Eip712Domain, SolCall, SolEvent};
+use alloy_sol_types::{Eip712Domain, SolEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -130,7 +128,7 @@ impl Premint for ZoraPremintV2 {
 
     async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool {
         let event =
-            IZoraPremintV2::PremintedV2::decode_raw_log(log.topics(), &**log.data().data, true);
+            IZoraPremintV2::PremintedV2::decode_raw_log(log.topics(), &log.data().data, true);
         match event {
             Ok(event) => {
                 let conditions = vec![

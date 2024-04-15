@@ -50,7 +50,6 @@ pub mod mintpool_build {
         peer_limit: u64,
     ) -> Vec<ControllerInterface> {
         let mut nodes = Vec::new();
-        let rand_n = rand::random::<u64>();
         for i in 0..num_nodes {
             let config = make_config(start_port + i, peer_limit);
             let ctl = mintpool::run::start_services(&config).await.unwrap();

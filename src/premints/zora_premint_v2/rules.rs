@@ -1,14 +1,13 @@
 use std::str::FromStr;
 
 use alloy_primitives::Signature;
-use alloy_provider::Provider;
 use alloy_sol_macro::sol;
-use alloy_sol_types::{SolCall, SolInterface, SolStruct};
+use alloy_sol_types::SolStruct;
 
 use crate::chain::contract_call;
 use crate::chain_list::CHAINS;
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
-use crate::rules::Evaluation::{Accept, Ignore, Reject};
+use crate::rules::Evaluation::{Accept, Reject};
 use crate::rules::{Evaluation, Rule, RuleContext};
 use crate::typed_rule;
 use crate::types::{Premint, PremintTypes};
@@ -27,7 +26,7 @@ sol! {
 
 pub async fn is_authorized_to_create_premint(
     premint: ZoraPremintV2,
-    context: RuleContext,
+    _context: RuleContext,
 ) -> eyre::Result<Evaluation> {
     let call = PremintExecutor::isAuthorizedToCreatePremintCall {
         contractAddress: premint.collection_address,
@@ -50,7 +49,7 @@ pub async fn is_authorized_to_create_premint(
 
 pub async fn is_valid_signature(
     premint: ZoraPremintV2,
-    context: RuleContext,
+    _context: RuleContext,
 ) -> eyre::Result<Evaluation> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
@@ -73,7 +72,7 @@ pub async fn is_valid_signature(
 
 async fn is_chain_supported(
     premint: ZoraPremintV2,
-    context: RuleContext,
+    _context: RuleContext,
 ) -> eyre::Result<Evaluation> {
     let supported_chains: Vec<u64> = vec![7777777, 999999999, 8453];
     let chain_id = premint.chain_id.to();
@@ -94,9 +93,8 @@ pub fn all_rules() -> Vec<Box<dyn Rule>> {
 
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
-
     use super::*;
+    use crate::rules::Evaluation::Ignore;
 
     const PREMINT_JSON: &str = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),

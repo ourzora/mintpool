@@ -10,7 +10,6 @@ use tracing_subscriber::EnvFilter;
 async fn main() -> eyre::Result<()> {
     let config = mintpool::config::init();
 
-    if config.interactive {}
     let subscriber = tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env());
 
     match config.interactive {

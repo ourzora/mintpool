@@ -33,7 +33,7 @@ impl Results {
     }
 
     pub fn is_err(&self) -> bool {
-        self.0.iter().any(|r| matches!(r.result, Err(_)))
+        self.0.iter().any(|r| r.result.is_err())
     }
 
     pub fn summary(&self) -> String {
@@ -191,7 +191,7 @@ mod general {
 
     pub async fn token_uri_length(
         meta: PremintMetadata,
-        context: RuleContext,
+        _context: RuleContext,
     ) -> eyre::Result<Evaluation> {
         let max_allowed = if meta.uri.starts_with("data:") {
             // allow some more data for data uris
@@ -228,7 +228,7 @@ mod test {
 
     async fn conditional_rule(
         item: PremintTypes,
-        context: RuleContext,
+        _context: RuleContext,
     ) -> eyre::Result<Evaluation> {
         match item {
             PremintTypes::Simple(s) => {
@@ -243,15 +243,15 @@ mod test {
     }
 
     async fn simple_typed_rule(
-        item: SimplePremint,
-        context: RuleContext,
+        _item: SimplePremint,
+        _context: RuleContext,
     ) -> eyre::Result<Evaluation> {
         Ok(Accept)
     }
 
     async fn simple_typed_zora_rule(
-        item: ZoraPremintV2,
-        context: RuleContext,
+        _item: ZoraPremintV2,
+        _context: RuleContext,
     ) -> eyre::Result<Evaluation> {
         Ok(Accept)
     }

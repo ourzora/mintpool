@@ -7,6 +7,7 @@ use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum SwarmCommand {
     ConnectToPeer {
         address: String,

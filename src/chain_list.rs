@@ -6,7 +6,6 @@ use alloy::pubsub::PubSubFrontend;
 use alloy_provider::layers::{GasEstimatorProvider, ManagedNonceProvider};
 use alloy_provider::{Identity, ProviderBuilder, RootProvider};
 use alloy_rpc_client::WsConnect;
-use alloy_transport::BoxTransport;
 use eyre::ContextCompat;
 use mini_moka::sync::Cache;
 use once_cell::sync::Lazy;
@@ -25,7 +24,7 @@ pub struct Chains<N>(Vec<Chain>, Cache<String, Arc<ChainListProvider<N>>>)
 where
     N: Network;
 
-pub static CHAINS: Lazy<Chains<Ethereum>> = Lazy::new(|| Chains::new());
+pub static CHAINS: Lazy<Chains<Ethereum>> = Lazy::new(Chains::new);
 static VARIABLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\$\{(.+?)}").unwrap());
 
 impl<N: Network> Chains<N>

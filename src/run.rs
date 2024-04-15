@@ -40,7 +40,7 @@ pub async fn start_services(config: &Config) -> eyre::Result<ControllerInterface
 
     let port = config.peer_port;
     let network_ip = config.initial_network_ip();
-    let node_id = config.node_id.clone();
+    let node_id = config.node_id;
 
     tokio::spawn(async move {
         let future = swarm_controller.run(port, network_ip);
@@ -52,7 +52,7 @@ pub async fn start_services(config: &Config) -> eyre::Result<ControllerInterface
         .expect("Swarm controller failed");
     });
 
-    let node_id = config.node_id.clone();
+    let node_id = config.node_id;
     tokio::spawn(async move {
         let future = controller.run_loop();
 
@@ -68,9 +68,7 @@ pub async fn start_services(config: &Config) -> eyre::Result<ControllerInterface
 pub async fn start_watch_chain<T: Premint>(config: &Config, controller: ControllerInterface) {
     if config.chain_inclusion_mode == ChainInclusionMode::Check {
         for chain_id in config.supported_chains() {
-            let rpc_url = config.rpc_url(chain_id).expect(format!("Failed to get RPC URL for configured chain_id {chain_id}. Set environment variable CHAIN_{chain_id}_RPC_WSS").as_str());
-
-            let checker = MintChecker::new(chain_id, rpc_url, controller.clone());
+            let checker = MintChecker::new(chain_id, controller.clone());
             tokio::spawn(async move {
                 loop {
                     if let Err(err) = checker.poll_for_new_mints::<T>().await {

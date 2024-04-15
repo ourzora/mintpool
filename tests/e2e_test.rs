@@ -20,7 +20,6 @@ use mintpool::premints::zora_premint_v2::types::{
 };
 use mintpool::run;
 use mintpool::types::PremintTypes;
-use serde::Deserialize;
 use std::env;
 use std::str::FromStr;
 use std::time::Duration;

@@ -44,6 +44,7 @@ pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[allow(clippy::large_enum_variant)]
 pub enum PremintTypes {
     Simple(SimplePremint),
     ZoraV2(ZoraPremintV2),
@@ -112,15 +113,20 @@ impl Premint for SimplePremint {
         }
     }
 
-    fn check_filter(chain_id: u64) -> Option<Filter> {
+    fn check_filter(_chain_id: u64) -> Option<Filter> {
         todo!()
     }
 
-    fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim> {
+    fn map_claim(_chain_id: u64, _log: Log) -> eyre::Result<InclusionClaim> {
         todo!()
     }
 
-    async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool {
+    async fn verify_claim(
+        _chain_id: u64,
+        _tx: Transaction,
+        _log: Log,
+        _claim: InclusionClaim,
+    ) -> bool {
         todo!()
     }
 }
