@@ -1,8 +1,9 @@
 mod common;
 
 use crate::common::mintpool_build;
+use alloy::hex;
 use alloy::network::EthereumSigner;
-use alloy::rpc::types::eth::{TransactionInput, TransactionRequest};
+use alloy::rpc::types::eth::{BlockId, BlockNumberOrTag, TransactionInput, TransactionRequest};
 use alloy_json_rpc::RpcError;
 use alloy_node_bindings::Anvil;
 use alloy_primitives::{Bytes, U256};
@@ -11,13 +12,17 @@ use alloy_rpc_client::RpcClient;
 use alloy_signer::Signer;
 use alloy_signer_wallet::LocalWallet;
 use alloy_sol_types::{SolCall, SolValue};
+use mintpool::chain::contract_call;
+use mintpool::chain_list::CHAINS;
 use mintpool::config::{ChainInclusionMode, Config};
 use mintpool::controller::{ControllerCommands, DBQuery};
 use mintpool::premints::zora_premint_v2::broadcast::premint_to_call;
+use mintpool::premints::zora_premint_v2::rules::is_valid_signature;
 use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
 use mintpool::premints::zora_premint_v2::types::{
     IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
 };
+use mintpool::rules::RuleContext;
 use mintpool::run;
 use mintpool::types::PremintTypes;
 use std::env;
@@ -32,9 +37,10 @@ use std::time::Duration;
 /// 3. Premint is brought onchain by a client
 /// 4. Premint is removed from mintpool when an event is seen onchain
 async fn test_broadcasting_premint() {
+    let fork_block = 13253646;
     let anvil = Anvil::new()
         .chain_id(7777777)
-        .fork_block_number(12665000)
+        .fork_block_number(fork_block)
         .fork("https://rpc.zora.energy")
         .spawn();
 
@@ -88,6 +94,8 @@ async fn test_broadcasting_premint() {
 
     let found = all_premints.first().unwrap();
 
+    println!("Premint: {:?}", found);
+
     // ============================================================================================
     // bring premint onchain
     // ============================================================================================
@@ -100,53 +108,98 @@ async fn test_broadcasting_premint() {
         .signer(EthereumSigner::from(signer.clone()))
         .on_client(RpcClient::new_http(anvil.endpoint_url()));
 
+    let b = provider
+        .get_balance(
+            signer.address(),
+            Some(BlockId::Number(BlockNumberOrTag::Number(fork_block))),
+        )
+        .await
+        .unwrap();
+
+    println!("balance: {:?}", b);
+
     let premint = match found {
         PremintTypes::ZoraV2(premint) => premint,
         _ => panic!("unexpected premint type"),
     };
 
-    let calldata = premint_to_call(
-        premint.clone(),
-        U256::from(1),
-        MintArguments {
-            mintRecipient: signer.address(),
-            mintComment: "".to_string(),
-            mintRewardsRecipients: vec![],
-        },
-    );
+    // let calldata = premint_to_call(
+    //     premint.clone(),
+    //     U256::from(1),
+    //     MintArguments {
+    //         mintRecipient: signer.address(),
+    //         mintComment: "".to_string(),
+    //         mintRewardsRecipients: vec![],
+    //     },
+    // );
 
-    let gas_price = provider.get_gas_price().await.unwrap();
-    let max_fee_per_gas = provider.get_max_priority_fee_per_gas().await.unwrap();
+    is_valid_signature(premint.clone(), RuleContext {})
+        .await
+        .expect("signature is not valid");
+    println!("signature is valid");
+    let sig_calldata = {
+        let sig = Bytes::from(premint.clone().signature);
+        IZoraPremintV2::isValidSignatureCall {
+            contractConfig: premint.clone().collection,
+            premintConfig: premint.clone().premint,
+            signature: sig,
+        }
+    };
 
+    let p = CHAINS.connect(&anvil.ws_endpoint()).await.unwrap();
+    contract_call(sig_calldata, p).await.unwrap();
+
+    let calldata = {
+        let sig = Bytes::from(premint.clone().signature);
+        IZoraPremintV2::premintV2Call {
+            contractConfig: premint.clone().collection,
+            premintConfig: premint.clone().premint,
+            signature: sig,
+            quantityToMint: U256::from(1),
+            mintArguments: MintArguments {
+                mintRecipient: signer.address(),
+                mintComment: "".to_string(),
+                mintRewardsRecipients: vec![],
+            },
+        }
+    };
+
+    let d = calldata.abi_encode();
+    let d = hex::encode(&d);
+    println!("calldata: 0x{:?}", d);
+
+    let value: u64 = 777_000_000_000_000;
     // Someone found the premint and brought it onchain
     let tx_request = TransactionRequest {
         from: Some(signer.address()),
         to: Some(PREMINT_FACTORY_ADDR),
-        input: TransactionInput::new(Bytes::from(calldata.abi_encode())),
-        value: Some(U256::from(0.000777 * (10 ^ 18) as f32)),
-        gas_price: Some(gas_price),
-        max_fee_per_gas: Some(max_fee_per_gas),
-        chain_id: Some(7777777),
+        input: Some(Bytes::from(calldata.abi_encode())).into(),
+        value: Some(U256::from(value)),
+        // chain_id: Some(7777777),
         ..Default::default()
     };
+
+    println!("TX: {:?}", tx_request);
 
     let tx = provider.send_transaction(tx_request).await;
     let tx = match tx {
         Ok(tx) => tx,
         Err(e) => match e {
             RpcError::ErrorResp(err) => {
-                let b = err.data.unwrap();
+                let b = err.clone().data.unwrap();
 
                 let msg =
                     IZoraPremintV2::premintV2Call::abi_decode_returns(&b.get().abi_encode(), false)
                         .unwrap();
-                panic!("unexpected error: {:?}", msg)
+                panic!("unexpected error: {:?} returns: {:?}", err.clone(), msg)
             }
             _ => {
-                panic!("unexpected error: {:?}", e);
+                panic!("unexpected error, could not parse: {:?}", e);
             }
         },
     };
+
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
     match tx.get_receipt().await {
         Ok(receipt) => {
@@ -154,15 +207,15 @@ async fn test_broadcasting_premint() {
         }
         Err(e) => match e {
             RpcError::ErrorResp(err) => {
-                let b = err.data.unwrap();
+                let b = err.clone().data.unwrap();
 
                 let msg =
                     IZoraPremintV2::premintV2Call::abi_decode_returns(&b.get().abi_encode(), false)
                         .unwrap();
-                panic!("unexpected error: {:?}", msg)
+                panic!("unexpected error: {:?}, returns: {:?}", err, msg)
             }
             _ => {
-                panic!("unexpected error: {:?}", e);
+                panic!("unexpected unparsable error: {:?}", e);
             }
         },
     }
@@ -174,31 +227,37 @@ async fn test_broadcasting_premint() {
     tokio::time::sleep(Duration::from_secs(1)).await;
 }
 
+// const PREMINT_JSON: &str = include_str!(concat!(
+//     env!("CARGO_MANIFEST_DIR"),
+//     "/data/valid_zora_v2_premint.json"
+// ));
+
 const PREMINT_JSON: &str = r#"
 {
   "collection": {
-    "contractAdmin": "0xa771209423284bace9a24a06d166a11196724b53",
-    "contractURI": "ipfs://bafkreic4fnavhtymee7makmk7wp257nloh5y5ysc2fcwa5rpg6v6f3jhly",
-    "contractName": "Karate sketch"
+    "contractAdmin": "0xd272a3cb66bea1fa7547dad5b420d5ebe14222e5",
+    "contractURI": "ipfs://bafkreicuxlqqgoo6fxlmijqvilckvwj6ey26yvzpwg73ybcltvvek2og6i",
+    "contractName": "Fancy title"
   },
   "premint": {
     "tokenConfig": {
-      "tokenURI": "ipfs://bafkreier5h4a6btu24fsitbjdvpyak7moi6wkp33wlqmx2kfwgpq2lvx4y",
+      "tokenURI": "ipfs://bafkreia474gkk2ak5eeqstp43nqeiunqkkfeblctna3y54av7bt6uwehmq",
       "maxSupply": 18446744073709551615,
       "maxTokensPerAddress": 0,
       "pricePerToken": 0,
-      "mintStart": 1702541688,
+      "mintStart": 1708100240,
       "mintDuration": 2592000,
       "royaltyBPS": 500,
       "fixedPriceMinter": "0x04e2516a2c207e84a1839755675dfd8ef6302f0a",
-      "payoutRecipient": "0xa771209423284bace9a24a06d166a11196724b53",
+      "payoutRecipient": "0xd272a3cb66bea1fa7547dad5b420d5ebe14222e5",
       "createReferral": "0x0000000000000000000000000000000000000000"
     },
-    "uid": 2,
+    "uid": 1,
     "version": 1,
     "deleted": false
   },
-  "collectionAddress": "0x42e108d1ed954b0adbd53ea118ba7614622d10d0",
+  "collectionAddress": "0x0cfbce0e2ea475d6413e2f038b2b62e64106ad1f",
   "chainId": 7777777,
-  "signature": "0x894405d100900e6823385ca881c91d5ca7137a326f0c7d27edfd2907d9669cea55626bbd807a36cea815eceeac6634f45cfec54d7157c35f496b999e7b9451de1c"
+  "signer": "0xd272a3cb66bea1fa7547dad5b420d5ebe14222e5",
+  "signature": "0x2eb4d27a5b04fd41bdd33f66a18a4993c0116724c5fe5b8dc20bf22f45455c621139eabdbd27434e240938a60b1952979c9dc9c8a141cc71764786fe4d3f909f1c"
 }"#;
