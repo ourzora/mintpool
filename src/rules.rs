@@ -5,7 +5,7 @@ use crate::config::Config;
 use crate::storage::PremintStorage;
 use crate::types::{Premint, PremintTypes};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Evaluation {
     Accept,
     Ignore,

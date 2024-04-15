@@ -12,16 +12,14 @@ use alloy_rpc_client::RpcClient;
 use alloy_signer::Signer;
 use alloy_signer_wallet::LocalWallet;
 use alloy_sol_types::{SolCall, SolValue};
-use mintpool::chain::contract_call;
-use mintpool::chain_list::CHAINS;
 use mintpool::config::{ChainInclusionMode, Config};
 use mintpool::controller::{ControllerCommands, DBQuery};
-use mintpool::premints::zora_premint_v2::broadcast::premint_to_call;
 use mintpool::premints::zora_premint_v2::rules::is_valid_signature;
 use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
 use mintpool::premints::zora_premint_v2::types::{
     IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
 };
+use mintpool::rules::Evaluation::Accept;
 use mintpool::rules::RuleContext;
 use mintpool::run;
 use mintpool::types::PremintTypes;
@@ -72,6 +70,7 @@ async fn test_broadcasting_premint() {
 
     // Push a message to the mintpool
     let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
+
     ctl.send_command(ControllerCommands::Broadcast {
         message: PremintTypes::ZoraV2(premint),
     })
@@ -123,34 +122,16 @@ async fn test_broadcasting_premint() {
         _ => panic!("unexpected premint type"),
     };
 
-    // let calldata = premint_to_call(
-    //     premint.clone(),
-    //     U256::from(1),
-    //     MintArguments {
-    //         mintRecipient: signer.address(),
-    //         mintComment: "".to_string(),
-    //         mintRewardsRecipients: vec![],
-    //     },
-    // );
-
-    is_valid_signature(premint.clone(), RuleContext {})
+    let r = is_valid_signature(premint.clone(), RuleContext {})
         .await
         .expect("signature is not valid");
+    assert_eq!(r, Accept);
     println!("signature is valid");
-    let sig_calldata = {
-        let sig = Bytes::from(premint.clone().signature);
-        IZoraPremintV2::isValidSignatureCall {
-            contractConfig: premint.clone().collection,
-            premintConfig: premint.clone().premint,
-            signature: sig,
-        }
-    };
-
-    let p = CHAINS.connect(&anvil.ws_endpoint()).await.unwrap();
-    contract_call(sig_calldata, p).await.unwrap();
 
     let calldata = {
-        let sig = Bytes::from(premint.clone().signature);
+        let s = premint.clone().signature;
+        let h = hex::decode(s).unwrap();
+        let sig = Bytes::from(h);
         IZoraPremintV2::premintV2Call {
             contractConfig: premint.clone().collection,
             premintConfig: premint.clone().premint,
@@ -168,6 +149,9 @@ async fn test_broadcasting_premint() {
     let d = hex::encode(&d);
     println!("calldata: 0x{:?}", d);
 
+    let gas_price = provider.get_gas_price().await.unwrap();
+    let max_fee_per_gas = provider.get_max_priority_fee_per_gas().await.unwrap();
+
     let value: u64 = 777_000_000_000_000;
     // Someone found the premint and brought it onchain
     let tx_request = TransactionRequest {
@@ -175,7 +159,9 @@ async fn test_broadcasting_premint() {
         to: Some(PREMINT_FACTORY_ADDR),
         input: Some(Bytes::from(calldata.abi_encode())).into(),
         value: Some(U256::from(value)),
-        // chain_id: Some(7777777),
+        chain_id: Some(7777777),
+        gas_price: Some(gas_price),
+        max_fee_per_gas: Some(max_fee_per_gas),
         ..Default::default()
     };
 
@@ -186,12 +172,13 @@ async fn test_broadcasting_premint() {
         Ok(tx) => tx,
         Err(e) => match e {
             RpcError::ErrorResp(err) => {
+                println!("Error: {:?}", err.clone());
                 let b = err.clone().data.unwrap();
 
                 let msg =
                     IZoraPremintV2::premintV2Call::abi_decode_returns(&b.get().abi_encode(), false)
                         .unwrap();
-                panic!("unexpected error: {:?} returns: {:?}", err.clone(), msg)
+                panic!("returned value: {:?}", msg)
             }
             _ => {
                 panic!("unexpected error, could not parse: {:?}", e);
