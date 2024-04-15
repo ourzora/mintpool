@@ -65,22 +65,35 @@ impl PremintStorage {
         let collection_address = metadata.collection_address.to_checksum(None);
         let token_id = metadata.token_id.to_string();
         let chain_id = metadata.chain_id.to::<i64>();
-        sqlx::query!(
+        let version = metadata.version as i64;
+
+        let result = sqlx::query!(
             r#"
-            INSERT INTO premints (id, kind, signer, chain_id, collection_address, token_id, json)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO premints (id, kind, version, signer, chain_id, collection_address, token_id, json)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (kind, id) DO UPDATE SET version = $3, json = $8
+            WHERE excluded.version > version;
         "#,
             metadata.id,
             metadata.kind.0,
+            version,
             signer,
             chain_id,
             collection_address,
             token_id,
-            json
+            json,
         )
         .execute(&self.db)
         .await
         .map_err(|e| eyre::eyre!("Failed to store premint: {}", e))?;
+
+        // no rows affected means the version was not higher that what's already stored
+        if result.rows_affected() == 0 {
+            return Err(eyre::eyre!(
+                "Cannot store premint with lower version than existing"
+            ));
+        }
+
         Ok(())
     }
 
@@ -163,9 +176,8 @@ mod test {
     use crate::types::{InclusionClaim, Premint, PremintTypes};
     use alloy_primitives::U256;
 
-    #[tokio::test]
-    async fn test_insert_and_get() {
-        let config = Config {
+    fn test_config() -> Config {
+        Config {
             seed: 0,
             peer_port: 7777,
             connect_external: false,
@@ -173,7 +185,7 @@ mod test {
             persist_state: false,
             prune_minted_premints: false,
             peer_limit: 1000,
-            supported_premint_types: "simple".to_string(),
+            supported_premint_types: "zora_v2,simple".to_string(),
             chain_inclusion_mode: ChainInclusionMode::Check,
             supported_chain_ids: "7777777,".to_string(),
             trusted_peers: None,
@@ -181,7 +193,12 @@ mod test {
             node_id: None,
             interactive: false,
             external_address: None,
-        };
+        }
+    }
+
+    #[tokio::test]
+    async fn test_insert_and_get() {
+        let config = test_config();
 
         let store = PremintStorage::new(&config).await;
         let premint = PremintTypes::ZoraV2(Default::default());
@@ -195,24 +212,41 @@ mod test {
     }
 
     #[tokio::test]
+    async fn test_update() {
+        let config = test_config();
+
+        let store = PremintStorage::new(&config).await;
+        let premint = PremintTypes::ZoraV2(Default::default());
+
+        // first should work
+        match store.store(premint.clone()).await {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to store premint: {}", e),
+        }
+
+        // second should fail
+        match store.store(premint.clone()).await {
+            Ok(_) => panic!("Should not have been able to store premint with same ID"),
+            Err(_) => {}
+        }
+
+        // now let's try to update
+
+        let mut premint = ZoraPremintV2::default();
+        premint.premint.version = 2;
+        let premint = PremintTypes::ZoraV2(premint);
+        store.store(premint.clone()).await.unwrap();
+
+        let retrieved = store
+            .get_for_id_and_kind(premint.metadata().id.clone(), premint.metadata().kind)
+            .await
+            .unwrap();
+        assert_eq!(premint, retrieved);
+    }
+
+    #[tokio::test]
     async fn test_list_all() {
-        let config = Config {
-            seed: 0,
-            peer_port: 7778,
-            connect_external: false,
-            db_url: None, // in-memory for testing
-            persist_state: false,
-            prune_minted_premints: false,
-            api_port: 7777,
-            peer_limit: 1000,
-            supported_premint_types: "simple".to_string(),
-            chain_inclusion_mode: ChainInclusionMode::Check,
-            supported_chain_ids: "7777777,".to_string(),
-            trusted_peers: None,
-            node_id: None,
-            interactive: false,
-            external_address: None,
-        };
+        let config = test_config();
 
         let store = PremintStorage::new(&config).await;
 
@@ -227,23 +261,8 @@ mod test {
 
     #[tokio::test]
     async fn test_mark_seen_on_chain() {
-        let config = Config {
-            seed: 0,
-            connect_external: false,
-            db_url: None, // in-memory for testing
-            persist_state: false,
-            prune_minted_premints: true, // important for test
-            api_port: 0,
-            peer_limit: 1000,
-            supported_premint_types: "simple".to_string(),
-            chain_inclusion_mode: ChainInclusionMode::Check,
-            supported_chain_ids: "7777777,".to_string(),
-            trusted_peers: None,
-            node_id: None,
-            external_address: None,
-            peer_port: 0,
-            interactive: false,
-        };
+        let mut config = test_config();
+        config.prune_minted_premints = true;
 
         let store = PremintStorage::new(&config).await;
 
@@ -274,23 +293,7 @@ mod test {
 
     #[tokio::test]
     async fn test_prune_false_keeps_seen_premints() {
-        let config = Config {
-            seed: 0,
-            connect_external: false,
-            db_url: None, // in-memory for testing
-            persist_state: false,
-            prune_minted_premints: false,
-            api_port: 0,
-            peer_limit: 1000,
-            supported_premint_types: "zora_v2,simple".to_string(),
-            chain_inclusion_mode: ChainInclusionMode::Check,
-            supported_chain_ids: "7777777,".to_string(),
-            trusted_peers: None,
-            node_id: None,
-            external_address: None,
-            peer_port: 0,
-            interactive: false,
-        };
+        let config = test_config();
 
         let store = PremintStorage::new(&config).await;
 
