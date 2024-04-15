@@ -7,7 +7,7 @@ use alloy_sol_types::SolStruct;
 use crate::chain::contract_call;
 use crate::chain_list::CHAINS;
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
-use crate::rules::Evaluation::{Accept, Ignore, Reject};
+use crate::rules::Evaluation::{Accept, Reject};
 use crate::rules::{Evaluation, Rule, RuleContext};
 use crate::typed_rule;
 use crate::types::{Premint, PremintTypes};
@@ -72,7 +72,7 @@ pub async fn is_valid_signature(
 
 async fn is_chain_supported(
     premint: ZoraPremintV2,
-    context: RuleContext,
+    _context: RuleContext,
 ) -> eyre::Result<Evaluation> {
     let supported_chains: Vec<u64> = vec![7777777, 999999999, 8453];
     let chain_id = premint.chain_id.to();
