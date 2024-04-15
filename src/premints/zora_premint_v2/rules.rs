@@ -71,13 +71,24 @@ pub async fn is_valid_signature(
     Ok(Accept)
 }
 
+async fn is_chain_supported(
+    premint: ZoraPremintV2,
+    context: RuleContext,
+) -> eyre::Result<Evaluation> {
+    let supported_chains: Vec<u64> = vec![7777777, 999999999, 8453];
+    let chain_id = premint.chain_id.to();
+
+    match supported_chains.contains(&chain_id) {
+        true => Ok(Accept),
+        false => Ok(Reject("Chain not supported".to_string())),
+    }
+}
+
 pub fn all_rules() -> Vec<Box<dyn Rule>> {
     vec![
-        Box::new(typed_rule!(
-            PremintTypes::ZoraV2,
-            is_authorized_to_create_premint
-        )),
-        Box::new(typed_rule!(PremintTypes::ZoraV2, is_valid_signature)),
+        typed_rule!(PremintTypes::ZoraV2, is_authorized_to_create_premint),
+        typed_rule!(PremintTypes::ZoraV2, is_valid_signature),
+        typed_rule!(PremintTypes::ZoraV2, is_chain_supported),
     ]
 }
 

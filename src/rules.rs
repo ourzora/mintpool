@@ -81,7 +81,7 @@ where
 #[macro_export]
 macro_rules! rule {
     ($fn:tt) => {
-        crate::rules::FnRule(stringify!($fn), $fn)
+        std::boxed::Box::new($crate::rules::FnRule(stringify!($fn), $fn))
     };
 }
 
@@ -91,11 +91,11 @@ macro_rules! metadata_rule {
         struct MetadataRule;
 
         #[async_trait::async_trait]
-        impl crate::rules::Rule for MetadataRule {
+        impl $crate::rules::Rule for MetadataRule {
             async fn check(
                 &self,
-                item: crate::types::PremintTypes,
-                context: crate::rules::RuleContext,
+                item: $crate::types::PremintTypes,
+                context: $crate::rules::RuleContext,
             ) -> eyre::Result<crate::rules::Evaluation> {
                 $fn(item.metadata(), context).await
             }
@@ -105,7 +105,7 @@ macro_rules! metadata_rule {
             }
         }
 
-        MetadataRule {}
+        std::boxed::Box::new(MetadataRule {})
     }};
 }
 
@@ -115,15 +115,15 @@ macro_rules! typed_rule {
         struct TypedRule;
 
         #[async_trait::async_trait]
-        impl crate::rules::Rule for TypedRule {
+        impl $crate::rules::Rule for TypedRule {
             async fn check(
                 &self,
-                item: crate::types::PremintTypes,
-                context: crate::rules::RuleContext,
-            ) -> eyre::Result<crate::rules::Evaluation> {
+                item: $crate::types::PremintTypes,
+                context: $crate::rules::RuleContext,
+            ) -> eyre::Result<$crate::rules::Evaluation> {
                 match item {
                     $t(premint) => $fn(premint, context).await,
-                    _ => Ok(crate::rules::Evaluation::Ignore),
+                    _ => Ok($crate::rules::Evaluation::Ignore),
                 }
             }
 
@@ -132,7 +132,7 @@ macro_rules! typed_rule {
             }
         }
 
-        TypedRule {}
+        std::boxed::Box::new(TypedRule {})
     }};
 }
 
@@ -153,8 +153,8 @@ impl RulesEngine {
     pub fn new() -> Self {
         RulesEngine { rules: vec![] }
     }
-    pub fn add_rule(&mut self, rule: impl Rule + 'static) {
-        self.rules.push(Box::new(rule));
+    pub fn add_rule(&mut self, rule: Box<dyn Rule>) {
+        self.rules.push(rule);
     }
     pub fn add_default_rules(&mut self) {
         self.rules.extend(all_rules());
@@ -186,7 +186,7 @@ mod general {
     use crate::types::PremintMetadata;
 
     pub fn all_rules() -> Vec<Box<dyn Rule>> {
-        vec![Box::new(metadata_rule!(token_uri_length))]
+        vec![metadata_rule!(token_uri_length)]
     }
 
     pub async fn token_uri_length(
