@@ -105,7 +105,6 @@ impl PremintStorage {
 
     pub async fn mark_seen_on_chain(&self, claim: InclusionClaim) -> eyre::Result<()> {
         let chain_id = claim.chain_id as i64;
-        println!("{:?} {:?} {:?}", claim.premint_id, chain_id, claim.kind);
         if self.prune_minted_premints {
             let r = sqlx::query!(
                 r#"
