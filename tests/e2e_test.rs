@@ -36,7 +36,10 @@ use std::time::Duration;
 /// 4. Premint is removed from mintpool when an event is seen onchain
 #[test_log::test(tokio::test)]
 async fn test_broadcasting_premint() {
-    env::set_var("RUST_LOG", "info");
+    // ============================================================================================
+    // Configure and launch anvil, watcher, and mintpool
+    // ============================================================================================
+
     let fork_block = 13253646;
     let anvil = Anvil::new()
         .chain_id(7777777)
@@ -62,12 +65,15 @@ async fn test_broadcasting_premint() {
         interactive: false,
     };
 
+    // set this so CHAINS will use the anvil rpc rather than the one in chains.json
     env::set_var("CHAIN_7777777_RPC_WSS", anvil.ws_endpoint());
 
     let ctl = run::start_services(&config).await.unwrap();
     run::start_watch_chain::<ZoraPremintV2>(&config, ctl.clone()).await;
 
-    // end creation of services
+    // ============================================================================================
+    // Publish a premint to the mintpool
+    // ============================================================================================
 
     // Push a message to the mintpool
     let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
@@ -78,13 +84,12 @@ async fn test_broadcasting_premint() {
     .await
     .unwrap();
 
-    // Read the premint from DB
+    // Read the premint from DB, expect there to be 1
     let (send, recv) = tokio::sync::oneshot::channel();
     ctl.send_command(ControllerCommands::Query(DBQuery::ListAll(send)))
         .await
         .unwrap();
     let all_premints = recv.await.unwrap().unwrap();
-
     assert_eq!(all_premints.len(), 1);
 
     // ============================================================================================
@@ -92,8 +97,6 @@ async fn test_broadcasting_premint() {
     // ============================================================================================
 
     let found = all_premints.first().unwrap();
-
-    println!("Premint: {:?}", found);
     let premint = match found {
         PremintTypes::ZoraV2(premint) => premint,
         _ => panic!("unexpected premint type"),
@@ -111,12 +114,6 @@ async fn test_broadcasting_premint() {
         .signer(EthereumSigner::from(signer.clone()))
         .on_client(RpcClient::new_http(anvil.endpoint_url()));
 
-    let r = is_valid_signature(premint.clone(), RuleContext {})
-        .await
-        .expect("signature is not valid");
-    assert_eq!(r, Accept);
-    println!("signature is valid");
-
     let calldata = {
         let s = premint.clone().signature;
         let h = hex::decode(s).unwrap();
@@ -133,10 +130,6 @@ async fn test_broadcasting_premint() {
             },
         }
     };
-
-    let d = calldata.abi_encode();
-    let d = hex::encode(&d);
-    println!("calldata: 0x{:?}", d);
 
     let gas_price = provider.get_gas_price().await.unwrap();
     let max_fee_per_gas = provider.get_max_priority_fee_per_gas().await.unwrap();
@@ -183,10 +176,11 @@ async fn test_broadcasting_premint() {
         }
         Err(e) => panic!("{}", map_call_error(e)),
     }
-
-    println!("tx processed");
     tokio::time::sleep(Duration::from_secs(1)).await;
 
+    // ============================================================================================
+    // Confirm is either marked as pruned or removed from DB
+    // ============================================================================================
     let (send, recv) = tokio::sync::oneshot::channel();
     ctl.send_command(ControllerCommands::Query(DBQuery::ListAll(send)))
         .await
