@@ -92,8 +92,6 @@ impl Premint for ZoraPremintV2 {
             self.chain_id, self.collection_address, self.premint.uid
         );
 
-        println!("Premint ID: {}", id);
-
         PremintMetadata {
             id,
             version: self.premint.version as u64,
@@ -126,8 +124,6 @@ impl Premint for ZoraPremintV2 {
         )?;
 
         let id = Self::event_to_guid(chain_id, &event);
-
-        println!("Retreived premint ID: {}", id);
 
         Ok(InclusionClaim {
             premint_id: id,
