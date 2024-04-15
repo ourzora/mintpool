@@ -239,6 +239,14 @@ mod test {
 
     use super::*;
 
+    async fn test_rules_engine() -> (RulesEngine, PremintStorage) {
+        let config = Config::test_default();
+        let storage = PremintStorage::new(&config).await;
+        let re = RulesEngine::new();
+
+        (re, storage)
+    }
+
     async fn simple_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<Evaluation> {
         Ok(Accept)
     }
@@ -286,12 +294,13 @@ mod test {
 
     #[tokio::test]
     async fn test_simple_rules_engine() {
-        let mut re = RulesEngine::new();
-        let context = RuleContext::test_default().await;
-        re.add_rule(rule!(simple_rule));
-        re.add_rule(rule!(conditional_rule));
+        let (mut engine, storage) = test_rules_engine().await;
 
-        let result = re
+        let context = RuleContext::test_default().await;
+        engine.add_rule(rule!(simple_rule));
+        engine.add_rule(rule!(conditional_rule));
+
+        let result = engine
             .evaluate(PremintTypes::Simple(Default::default()), context)
             .await;
 
@@ -300,7 +309,7 @@ mod test {
 
     #[tokio::test]
     async fn test_typed_rules_engine() {
-        let mut re = RulesEngine::new();
+        let (mut engine, storage) = test_rules_engine().await;
         let context = RuleContext::test_default().await;
 
         let rule = typed_rule!(PremintTypes::Simple, simple_typed_rule);
@@ -312,10 +321,10 @@ mod test {
             "PremintTypes::ZoraV2::simple_typed_zora_rule"
         );
 
-        re.add_rule(rule);
-        re.add_rule(rule2);
+        engine.add_rule(rule);
+        engine.add_rule(rule2);
 
-        let result = re
+        let result = engine
             .evaluate(PremintTypes::Simple(Default::default()), context)
             .await;
 
