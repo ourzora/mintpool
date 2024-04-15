@@ -63,6 +63,7 @@ impl RuleContext {
     pub fn new(storage: PremintStorage) -> Self {
         RuleContext { storage }
     }
+    #[cfg(test)]
     pub async fn test_default() -> Self {
         let config = Config::test_default();
 

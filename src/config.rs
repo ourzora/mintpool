@@ -60,6 +60,7 @@ pub struct Config {
 }
 
 impl Config {
+    #[cfg(test)]
     pub fn test_default() -> Self {
         Config {
             seed: rand::random(),
