@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use futures::future::join_all;
 
+use crate::config::Config;
+use crate::storage::PremintStorage;
 use crate::types::{Premint, PremintTypes};
 
 #[derive(Debug)]
@@ -53,7 +55,23 @@ impl Results {
 }
 
 #[derive(Clone)]
-pub struct RuleContext {}
+pub struct RuleContext {
+    pub storage: PremintStorage,
+}
+
+impl RuleContext {
+    pub fn new(storage: PremintStorage) -> Self {
+        RuleContext { storage }
+    }
+    #[cfg(test)]
+    pub async fn test_default() -> Self {
+        let config = Config::test_default();
+
+        RuleContext {
+            storage: PremintStorage::new(&config).await,
+        }
+    }
+}
 
 #[async_trait]
 pub trait Rule: Send + Sync {
@@ -186,7 +204,10 @@ mod general {
     use crate::types::PremintMetadata;
 
     pub fn all_rules() -> Vec<Box<dyn Rule>> {
-        vec![metadata_rule!(token_uri_length)]
+        vec![
+            metadata_rule!(token_uri_length),
+            metadata_rule!(existing_token_uri),
+        ]
     }
 
     pub async fn token_uri_length(
@@ -210,6 +231,34 @@ mod general {
             _ => Accept,
         })
     }
+
+    pub async fn existing_token_uri(
+        meta: PremintMetadata,
+        context: RuleContext,
+    ) -> eyre::Result<Evaluation> {
+        let existing = context.storage.get_for_token_uri(meta.uri).await;
+
+        match existing {
+            Err(report) => match report.downcast_ref::<sqlx::Error>() {
+                // if the token uri doesn't exist, that's good!
+                Some(sqlx::Error::RowNotFound) => Ok(Accept),
+
+                // all other errors should be reported
+                _ => Err(report),
+            },
+            Ok(existing) => {
+                let metadata = existing.metadata();
+
+                if metadata.id == meta.id {
+                    // it's okay if the token uri exists for another version of the same token.
+                    // other rules should ensure that we're only overwriting it if signer matches
+                    Ok(Accept)
+                } else {
+                    Ok(Reject("Token URI already exists".to_string()))
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -217,10 +266,19 @@ mod test {
     use alloy_primitives::U256;
 
     use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+    use crate::rules::general::existing_token_uri;
     use crate::rules::Evaluation::{Accept, Reject};
     use crate::types::SimplePremint;
 
     use super::*;
+
+    async fn test_rules_engine() -> (RulesEngine, PremintStorage) {
+        let config = Config::test_default();
+        let storage = PremintStorage::new(&config).await;
+        let re = RulesEngine::new();
+
+        (re, storage)
+    }
 
     async fn simple_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<Evaluation> {
         Ok(Accept)
@@ -258,7 +316,7 @@ mod test {
 
     #[tokio::test]
     async fn test_simple_rule() {
-        let context = RuleContext {};
+        let context = RuleContext::test_default().await;
         let rule = rule!(simple_rule);
         let result = rule
             .check(PremintTypes::Simple(Default::default()), context)
@@ -269,12 +327,13 @@ mod test {
 
     #[tokio::test]
     async fn test_simple_rules_engine() {
-        let mut re = RulesEngine::new();
-        let context = RuleContext {};
-        re.add_rule(rule!(simple_rule));
-        re.add_rule(rule!(conditional_rule));
+        let (mut engine, storage) = test_rules_engine().await;
 
-        let result = re
+        let context = RuleContext::test_default().await;
+        engine.add_rule(rule!(simple_rule));
+        engine.add_rule(rule!(conditional_rule));
+
+        let result = engine
             .evaluate(PremintTypes::Simple(Default::default()), context)
             .await;
 
@@ -283,8 +342,8 @@ mod test {
 
     #[tokio::test]
     async fn test_typed_rules_engine() {
-        let mut re = RulesEngine::new();
-        let context = RuleContext {};
+        let (mut engine, storage) = test_rules_engine().await;
+        let context = RuleContext::test_default().await;
 
         let rule = typed_rule!(PremintTypes::Simple, simple_typed_rule);
         let rule2 = typed_rule!(PremintTypes::ZoraV2, simple_typed_zora_rule);
@@ -295,13 +354,53 @@ mod test {
             "PremintTypes::ZoraV2::simple_typed_zora_rule"
         );
 
-        re.add_rule(rule);
-        re.add_rule(rule2);
+        engine.add_rule(rule);
+        engine.add_rule(rule2);
 
-        let result = re
+        let result = engine
             .evaluate(PremintTypes::Simple(Default::default()), context)
             .await;
 
         assert!(result.is_accept());
+    }
+
+    #[tokio::test]
+    async fn test_token_uri_exists_rule() {
+        let storage = PremintStorage::new(&Config::test_default()).await;
+        let premint = PremintTypes::Simple(SimplePremint::default());
+
+        let evaluation = existing_token_uri(premint.metadata(), RuleContext::new(storage.clone()))
+            .await
+            .expect("Rule execution should not fail");
+
+        assert!(matches!(evaluation, Accept));
+
+        // now we'll store the token in the database
+        storage
+            .store(premint.clone())
+            .await
+            .expect("Simple premint should be stored");
+
+        let evaluation = existing_token_uri(premint.metadata(), RuleContext::new(storage.clone()))
+            .await
+            .expect("Rule execution should not fail");
+
+        // rule should still pass, because it's the same token id
+        assert!(matches!(evaluation, Accept));
+
+        // now we'll try a different token with the same token uri
+        let premint2 = SimplePremint::new(
+            1,
+            Default::default(),
+            Default::default(),
+            10,
+            premint.metadata().uri,
+        );
+
+        let evaluation = existing_token_uri(premint2.metadata(), RuleContext::new(storage.clone()))
+            .await
+            .expect("Rule execution should not fail");
+
+        assert!(matches!(evaluation, Reject(_)));
     }
 }

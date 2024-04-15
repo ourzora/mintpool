@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS premints
     chain_id           INTEGER NOT NULL,
     collection_address TEXT,
     token_id           TEXT, -- may be u256, ensure we can store
-    json               JSON    NOT NULL,
+    token_uri          TEXT,
+    json               JSONB   NOT NULL,
     seen_on_chain      BOOLEAN NOT NULL DEFAULT false,
     PRIMARY KEY (kind, id)
 )
