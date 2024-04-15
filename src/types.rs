@@ -28,7 +28,7 @@ pub struct PremintMetadata {
     pub version: u64,
     pub kind: PremintName,
     pub signer: Address,
-    pub chain_id: U256,
+    pub chain_id: u64,
     pub collection_address: Address,
     pub token_id: U256,
     pub uri: String,
@@ -74,20 +74,14 @@ impl PremintTypes {
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct SimplePremint {
     version: u64,
-    chain_id: U256,
+    chain_id: u64,
     sender: Address,
     token_id: u64,
     media: String,
 }
 
 impl SimplePremint {
-    pub fn new(
-        version: u64,
-        chain_id: U256,
-        sender: Address,
-        token_id: u64,
-        media: String,
-    ) -> Self {
+    pub fn new(version: u64, chain_id: u64, sender: Address, token_id: u64, media: String) -> Self {
         Self {
             version,
             chain_id,
@@ -131,7 +125,7 @@ impl Premint for SimplePremint {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InclusionClaim {
     pub premint_id: String,
     pub chain_id: u64,

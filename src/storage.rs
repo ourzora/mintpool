@@ -2,15 +2,19 @@ use crate::config::Config;
 use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
 use eyre::WrapErr;
 use sqlx::{Row, SqlitePool};
+use std::fs;
 
 async fn init_db(config: &Config) -> SqlitePool {
     let expect_msg =
         "Failed to connect to DB. Ensure envar DATABASE_URL is set or ensure PERSIST_STATE=false.";
 
     if config.persist_state {
-        SqlitePool::connect(&config.db_url.clone().expect(expect_msg))
-            .await
-            .expect(expect_msg)
+        let db_url = config.db_url.clone().expect(expect_msg);
+
+        if fs::metadata(db_url.clone()).is_err() {
+            fs::File::create(db_url.clone()).expect("Failed to create DB file");
+        }
+        SqlitePool::connect(&db_url).await.expect(expect_msg)
     } else {
         SqlitePool::connect("sqlite::memory:")
             .await
@@ -64,7 +68,7 @@ impl PremintStorage {
         let signer = metadata.signer.to_checksum(None);
         let collection_address = metadata.collection_address.to_checksum(None);
         let token_id = metadata.token_id.to_string();
-        let chain_id = metadata.chain_id.to::<i64>();
+        let chain_id = metadata.chain_id as i64;
         let version = metadata.version as i64;
         let token_uri = metadata.uri;
 
@@ -163,7 +167,7 @@ impl PremintStorage {
 pub async fn list_all(db: &SqlitePool) -> eyre::Result<Vec<PremintTypes>> {
     let rows = sqlx::query(
         r#"
-            SELECT json FROM premints
+            SELECT json FROM premints WHERE seen_on_chain = false
         "#,
     )
     .fetch_all(db)
@@ -173,9 +177,17 @@ pub async fn list_all(db: &SqlitePool) -> eyre::Result<Vec<PremintTypes>> {
         .iter()
         .map(|row| {
             let json: String = row.get(0);
-            PremintTypes::from_json(json).unwrap()
+            PremintTypes::from_json(json)
+        })
+        .filter_map(|i| match i {
+            Ok(p) => Some(p),
+            Err(e) => {
+                tracing::warn!("Failed to deserialize premint in db: {}", e);
+                None
+            }
         })
         .collect();
+
     Ok(premints)
 }
 

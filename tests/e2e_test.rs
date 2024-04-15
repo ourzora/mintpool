@@ -1,9 +1,9 @@
+#![cfg(test)]
 mod common;
 
-use crate::common::mintpool_build;
 use alloy::hex;
 use alloy::network::EthereumSigner;
-use alloy::rpc::types::eth::{BlockId, BlockNumberOrTag, TransactionInput, TransactionRequest};
+use alloy::rpc::types::eth::TransactionRequest;
 use alloy_json_rpc::RpcError;
 use alloy_node_bindings::Anvil;
 use alloy_primitives::{Bytes, U256};
@@ -12,6 +12,7 @@ use alloy_rpc_client::RpcClient;
 use alloy_signer::Signer;
 use alloy_signer_wallet::LocalWallet;
 use alloy_sol_types::{SolCall, SolValue};
+use alloy_transport::TransportErrorKind;
 use mintpool::config::{ChainInclusionMode, Config};
 use mintpool::controller::{ControllerCommands, DBQuery};
 use mintpool::premints::zora_premint_v2::rules::is_valid_signature;
@@ -24,17 +25,18 @@ use mintpool::rules::RuleContext;
 use mintpool::run;
 use mintpool::types::PremintTypes;
 use std::env;
+use std::fmt::Debug;
 use std::str::FromStr;
 use std::time::Duration;
 
-#[tokio::test]
-#[ignore]
 /// This test does the full round trip lifecycle of a premint
 /// 1. Premint is broadcasted to mintpool
 /// 2. Premint is fetched from DB (similating a client fetching from API)
 /// 3. Premint is brought onchain by a client
 /// 4. Premint is removed from mintpool when an event is seen onchain
+#[test_log::test(tokio::test)]
 async fn test_broadcasting_premint() {
+    env::set_var("RUST_LOG", "info");
     let fork_block = 13253646;
     let anvil = Anvil::new()
         .chain_id(7777777)
@@ -42,16 +44,16 @@ async fn test_broadcasting_premint() {
         .fork("https://rpc.zora.energy")
         .spawn();
 
-    let mut config = Config {
+    let config = Config {
         seed: 0,
         peer_port: 7778,
         connect_external: false,
         db_url: None,
         persist_state: false,
-        prune_minted_premints: false,
+        prune_minted_premints: false, // important so we can query table
         api_port: 0,
         peer_limit: 10,
-        supported_premint_types: "".to_string(),
+        supported_premint_types: "zora_premint_v2".to_string(),
         chain_inclusion_mode: ChainInclusionMode::Check,
         supported_chain_ids: "7777777".to_string(),
         trusted_peers: None,
@@ -62,8 +64,7 @@ async fn test_broadcasting_premint() {
 
     env::set_var("CHAIN_7777777_RPC_WSS", anvil.ws_endpoint());
 
-    let ctl = mintpool_build::make_nodes(config.peer_port, 1, config.peer_limit).await;
-    let ctl = ctl.first().unwrap();
+    let ctl = run::start_services(&config).await.unwrap();
     run::start_watch_chain::<ZoraPremintV2>(&config, ctl.clone()).await;
 
     // end creation of services
@@ -77,9 +78,8 @@ async fn test_broadcasting_premint() {
     .await
     .unwrap();
 
-    let (send, recv) = tokio::sync::oneshot::channel();
-
     // Read the premint from DB
+    let (send, recv) = tokio::sync::oneshot::channel();
     ctl.send_command(ControllerCommands::Query(DBQuery::ListAll(send)))
         .await
         .unwrap();
@@ -94,6 +94,10 @@ async fn test_broadcasting_premint() {
     let found = all_premints.first().unwrap();
 
     println!("Premint: {:?}", found);
+    let premint = match found {
+        PremintTypes::ZoraV2(premint) => premint,
+        _ => panic!("unexpected premint type"),
+    };
 
     // ============================================================================================
     // bring premint onchain
@@ -106,21 +110,6 @@ async fn test_broadcasting_premint() {
         .with_recommended_layers()
         .signer(EthereumSigner::from(signer.clone()))
         .on_client(RpcClient::new_http(anvil.endpoint_url()));
-
-    let b = provider
-        .get_balance(
-            signer.address(),
-            Some(BlockId::Number(BlockNumberOrTag::Number(fork_block))),
-        )
-        .await
-        .unwrap();
-
-    println!("balance: {:?}", b);
-
-    let premint = match found {
-        PremintTypes::ZoraV2(premint) => premint,
-        _ => panic!("unexpected premint type"),
-    };
 
     let r = is_valid_signature(premint.clone(), RuleContext {})
         .await
@@ -165,12 +154,8 @@ async fn test_broadcasting_premint() {
         ..Default::default()
     };
 
-    println!("TX: {:?}", tx_request);
-
-    let tx = provider.send_transaction(tx_request).await;
-    let tx = match tx {
-        Ok(tx) => tx,
-        Err(e) => match e {
+    fn map_call_error(err: RpcError<TransportErrorKind>) -> String {
+        match err {
             RpcError::ErrorResp(err) => {
                 println!("Error: {:?}", err.clone());
                 let b = err.clone().data.unwrap();
@@ -178,46 +163,37 @@ async fn test_broadcasting_premint() {
                 let msg =
                     IZoraPremintV2::premintV2Call::abi_decode_returns(&b.get().abi_encode(), false)
                         .unwrap();
-                panic!("returned value: {:?}", msg)
+                format!("Error: {:?}, returns: {:?}", err, msg)
             }
             _ => {
-                panic!("unexpected error, could not parse: {:?}", e);
+                format!("unexpected error, could not parse: {:?}", err)
             }
-        },
+        }
+    }
+
+    let tx = provider.send_transaction(tx_request).await;
+    let tx = match tx {
+        Ok(tx) => tx,
+        Err(e) => panic!("{}", map_call_error(e)),
     };
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
-
     match tx.get_receipt().await {
-        Ok(receipt) => {
-            println!("receipt: {:?}", receipt);
+        Ok(_receipt) => {
+            println!("receipt found");
         }
-        Err(e) => match e {
-            RpcError::ErrorResp(err) => {
-                let b = err.clone().data.unwrap();
-
-                let msg =
-                    IZoraPremintV2::premintV2Call::abi_decode_returns(&b.get().abi_encode(), false)
-                        .unwrap();
-                panic!("unexpected error: {:?}, returns: {:?}", err, msg)
-            }
-            _ => {
-                panic!("unexpected unparsable error: {:?}", e);
-            }
-        },
+        Err(e) => panic!("{}", map_call_error(e)),
     }
-    // NOTE: this currently revents I suspect because this premint is already onchain, we should grab a different one
 
     println!("tx processed");
-
-    // TODO: check that the premint was removed from the mintpool, giving it a second to process
     tokio::time::sleep(Duration::from_secs(1)).await;
-}
 
-// const PREMINT_JSON: &str = include_str!(concat!(
-//     env!("CARGO_MANIFEST_DIR"),
-//     "/data/valid_zora_v2_premint.json"
-// ));
+    let (send, recv) = tokio::sync::oneshot::channel();
+    ctl.send_command(ControllerCommands::Query(DBQuery::ListAll(send)))
+        .await
+        .unwrap();
+    let all_premints = recv.await.unwrap().unwrap();
+    assert_eq!(all_premints.len(), 0);
+}
 
 const PREMINT_JSON: &str = r#"
 {

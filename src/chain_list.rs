@@ -40,14 +40,20 @@ where
         )
     }
 
-    pub fn get_chain_by_id(&self, chain_id: i64) -> Option<Chain> {
+    pub fn get_chain_by_id(&self, chain_id: u64) -> Option<Chain> {
         self.0
             .iter()
             .find(|chain| chain.chain_id == chain_id)
             .cloned()
     }
 
-    pub async fn get_rpc(&self, chain_id: i64) -> eyre::Result<Arc<ChainListProvider<N>>> {
+    pub fn get_rpc_url(&self, chain_id: u64) -> eyre::Result<String> {
+        // allow tests to override the chains.json to they can dynamically set the RPC when
+        // integration testing against anvil
+        if let Ok(url) = std::env::var(format!("CHAIN_{}_RPC_WSS", chain_id)) {
+            return Ok(url);
+        }
+
         let chain = self
             .get_chain_by_id(chain_id)
             .wrap_err(format!("Chain id {} not found", chain_id))?;
@@ -57,14 +63,17 @@ where
                 continue;
             }
 
-            tracing::info!("Trying to connect to {}", rpc);
-            let provider = self.connect(rpc).await;
-            if provider.is_ok() {
-                return provider;
-            }
+            return Ok(rpc.clone());
         }
 
         Err(eyre::eyre!("No suitable RPC URL found for chain"))
+    }
+
+    pub async fn get_rpc(&self, chain_id: u64) -> eyre::Result<Arc<ChainListProvider<N>>> {
+        match self.get_rpc_url(chain_id) {
+            Ok(url) => self.connect(&url).await,
+            Err(e) => Err(e),
+        }
     }
 
     async fn connect(&self, url: &String) -> eyre::Result<Arc<ChainListProvider<N>>> {
@@ -100,7 +109,7 @@ pub struct Chain {
     pub name: String,
     pub chain: String,
     pub rpc: Vec<String>,
-    pub chain_id: i64,
+    pub chain_id: u64,
     pub network_id: i64,
 }
 

@@ -28,11 +28,9 @@ impl Factory<SimplePremintOptions> for SimplePremint {
 
         Self::new(
             options.version.unwrap_or(1),
-            U256::from(
-                options
-                    .chain_id
-                    .unwrap_or(rng.gen_range(1..=i64::MAX as u64)),
-            ),
+            options
+                .chain_id
+                .unwrap_or(rng.gen_range(1..=i64::MAX as u64)),
             options
                 .sender
                 .unwrap_or(Address::from(rng.gen::<[u8; 20]>())),

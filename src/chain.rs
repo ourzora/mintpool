@@ -36,20 +36,21 @@ where
 pub struct MintChecker {
     chain_id: u64,
     controller: ControllerInterface,
+    rpc_url: String,
 }
 
 impl MintChecker {
-    pub fn new(chain_id: u64, controller: ControllerInterface) -> Self {
+    pub fn new(chain_id: u64, rpc_url: String, controller: ControllerInterface) -> Self {
         Self {
             chain_id,
             controller,
+            rpc_url, // needed in case of WS disconnect so mintchecker can force a reconnect
         }
     }
 
     pub async fn poll_for_new_mints<T: Premint>(&self) -> eyre::Result<()> {
         let mut highest_block: Option<u64> = None;
 
-        let rpc = self.make_provider().await?;
         let mut filter = if let Some(filter) = T::check_filter(self.chain_id) {
             filter
         } else {
@@ -59,15 +60,38 @@ impl MintChecker {
         };
 
         loop {
-            // set start block incase of WS disconnect
+            let rpc = match self.make_provider().await {
+                Ok(rpc) => rpc,
+                Err(e) => {
+                    tracing::error!("Error getting provider: {}", e);
+                    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                    continue;
+                }
+            };
+            tracing::info!(
+                "Starting checker for chain {}, {}",
+                self.chain_id,
+                self.rpc_url
+            );
+
+            // set start block in case of WS disconnect
             if let Some(highest_block) = highest_block {
                 filter = filter.from_block(highest_block);
             }
-            let mut stream = rpc.subscribe_logs(&filter).await?.into_stream();
+            let mut stream = match rpc.subscribe_logs(&filter).await {
+                Ok(t) => t.into_stream(),
+                Err(e) => {
+                    tracing::error!("Error subscribing to logs: {}", e);
+                    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                    continue;
+                }
+            };
 
             while let Some(log) = stream.next().await {
+                tracing::debug!("Saw log");
                 match T::map_claim(self.chain_id, log.clone()) {
                     Ok(claim) => {
+                        tracing::debug!("Found claim of inclusion {:?}", claim);
                         if let Err(err) = self
                             .controller
                             .send_command(ControllerCommands::ResolveOnchainMint(claim))
@@ -88,6 +112,6 @@ impl MintChecker {
     }
 
     async fn make_provider(&self) -> eyre::Result<Arc<ChainListProvider>> {
-        CHAINS.get_rpc(self.chain_id as i64).await
+        CHAINS.get_rpc(self.chain_id).await
     }
 }

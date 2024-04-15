@@ -19,3 +19,10 @@ Seed db for type checked sqlx:
 just seed
 ```
 
+### Testing
+
+Integration tests can override the config in chains.json by setting `CHAIN_{}_RPC_WSS`. Ex:
+
+```rust
+env::set_var("CHAIN_7777777_RPC_WSS", anvil.ws_endpoint());
+```

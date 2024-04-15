@@ -132,25 +132,10 @@ impl Config {
         }
     }
 
-    pub fn rpc_url(&self, chain_id: u64) -> eyre::Result<String> {
-        let defaults = HashMap::from([
-            (7777777, "wss://rpc.zora.co"),
-            (8423, "wss://base-rpc.publicnode.com"),
-        ]);
-
-        match env::var(format!("CHAIN_{}_RPC_WSS", chain_id)) {
-            Ok(url) => Ok(url),
-            Err(_) => match defaults.get(&chain_id) {
-                Some(url) => Ok(url.to_string()),
-                None => Err(eyre::eyre!("No default RPC URL for chain {}", chain_id)),
-            },
-        }
-    }
-
     pub fn validate(self) -> Self {
         for chain_id in self.supported_chains() {
             CHAINS
-                .get_chain_by_id(chain_id as i64)
+                .get_chain_by_id(chain_id)
                 .expect(format!("Chain ID {} is not supported", chain_id).as_str());
         }
         self
@@ -166,6 +151,13 @@ pub fn init() -> Config {
 #[cfg(test)]
 mod test {
     use crate::config::ChainInclusionMode;
+    use std::env;
+
+    #[test]
+    fn test_init() {
+        env::set_var("SEED", "1");
+        super::init();
+    }
 
     #[test]
     fn test_premint_names() {
