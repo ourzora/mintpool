@@ -93,8 +93,8 @@ pub fn all_rules() -> Vec<Box<dyn Rule>> {
 
 #[cfg(test)]
 mod test {
-
     use super::*;
+    use crate::rules::Evaluation::Ignore;
 
     const PREMINT_JSON: &str = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
