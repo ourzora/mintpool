@@ -1,8 +1,10 @@
 use crate::config::Config;
 use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
 use eyre::WrapErr;
-use sqlx::{Row, SqlitePool};
+use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::{ConnectOptions, Row, SqlitePool};
 use std::fs;
+use std::str::FromStr;
 
 async fn init_db(config: &Config) -> SqlitePool {
     let expect_msg =
@@ -10,11 +12,11 @@ async fn init_db(config: &Config) -> SqlitePool {
 
     if config.persist_state {
         let db_url = config.db_url.clone().expect(expect_msg);
+        let opts = SqliteConnectOptions::from_str(&db_url)
+            .expect("Failed to parse DB URL")
+            .create_if_missing(true);
 
-        if fs::metadata(db_url.clone()).is_err() {
-            fs::File::create(db_url.clone()).expect("Failed to create DB file");
-        }
-        SqlitePool::connect(&db_url).await.expect(expect_msg)
+        SqlitePool::connect_with(opts).await.expect(expect_msg)
     } else {
         SqlitePool::connect("sqlite::memory:")
             .await
