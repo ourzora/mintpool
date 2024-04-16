@@ -13,6 +13,9 @@ Install dependencies:
 just init
 ```
 
+Install foundry for integration tests, see
+instructions [here](https://book.getfoundry.sh/getting-started/installation)
+
 Seed db for type checked sqlx:
 
 ```shell
