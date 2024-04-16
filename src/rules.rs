@@ -201,7 +201,7 @@ impl RulesEngine {
 }
 
 mod general {
-    use crate::rules::Evaluation::{Accept, Reject};
+    use crate::rules::Evaluation::{Accept, Ignore, Reject};
     use crate::rules::{Evaluation, Rule, RuleContext};
     use crate::types::PremintMetadata;
 
@@ -209,6 +209,8 @@ mod general {
         vec![
             metadata_rule!(token_uri_length),
             metadata_rule!(existing_token_uri),
+            metadata_rule!(signer_matches),
+            metadata_rule!(version_is_higher),
         ]
     }
 
@@ -257,6 +259,41 @@ mod general {
                     Ok(Accept)
                 } else {
                     Ok(Reject("Token URI already exists".to_string()))
+                }
+            }
+        }
+    }
+
+    pub async fn signer_matches(
+        meta: &PremintMetadata,
+        context: &RuleContext,
+    ) -> eyre::Result<Evaluation> {
+        match &context.existing {
+            None => Ok(Ignore),
+            Some(existing) => {
+                if existing.metadata().signer == meta.signer {
+                    Ok(Accept)
+                } else {
+                    Ok(Reject("Signer does not match".to_string()))
+                }
+            }
+        }
+    }
+
+    pub async fn version_is_higher(
+        meta: &PremintMetadata,
+        context: &RuleContext,
+    ) -> eyre::Result<Evaluation> {
+        match &context.existing {
+            None => Ok(Ignore),
+            Some(existing) => {
+                if meta.version > existing.metadata().version {
+                    Ok(Accept)
+                } else {
+                    Ok(Reject(format!(
+                        "Existing premint with higher version {} exists",
+                        existing.metadata().version
+                    )))
                 }
             }
         }
@@ -369,10 +406,12 @@ mod test {
         let storage = PremintStorage::new(&Config::test_default()).await;
         let premint = PremintTypes::Simple(SimplePremint::default());
 
-        let evaluation =
-            existing_token_uri(&premint.metadata(), &RuleContext::new(storage.clone()))
-                .await
-                .expect("Rule execution should not fail");
+        let evaluation = existing_token_uri(
+            &premint.metadata(),
+            &RuleContext::new(storage.clone(), None),
+        )
+        .await
+        .expect("Rule execution should not fail");
 
         assert!(matches!(evaluation, Accept));
 
@@ -382,10 +421,12 @@ mod test {
             .await
             .expect("Simple premint should be stored");
 
-        let evaluation =
-            existing_token_uri(&premint.metadata(), &RuleContext::new(storage.clone()))
-                .await
-                .expect("Rule execution should not fail");
+        let evaluation = existing_token_uri(
+            &premint.metadata(),
+            &RuleContext::new(storage.clone(), None),
+        )
+        .await
+        .expect("Rule execution should not fail");
 
         // rule should still pass, because it's the same token id
         assert!(matches!(evaluation, Accept));
@@ -399,10 +440,12 @@ mod test {
             premint.metadata().uri,
         );
 
-        let evaluation =
-            existing_token_uri(&premint2.metadata(), &RuleContext::new(storage.clone()))
-                .await
-                .expect("Rule execution should not fail");
+        let evaluation = existing_token_uri(
+            &premint2.metadata(),
+            &RuleContext::new(storage.clone(), None),
+        )
+        .await
+        .expect("Rule execution should not fail");
 
         assert!(matches!(evaluation, Reject(_)));
     }
