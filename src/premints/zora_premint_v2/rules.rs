@@ -6,21 +6,11 @@ use alloy_sol_types::SolStruct;
 
 use crate::chain::contract_call;
 use crate::chain_list::CHAINS;
-use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+use crate::premints::zora_premint_v2::types::{IZoraPremintV2, ZoraPremintV2};
 use crate::rules::Evaluation::{Accept, Reject};
 use crate::rules::{Evaluation, Rule, RuleContext};
 use crate::typed_rule;
-use crate::types::{Premint, PremintTypes};
-
-sol! {
-    contract PremintExecutor {
-        function isAuthorizedToCreatePremint(
-            address signer,
-            address premintContractConfigContractAdmin,
-            address contractAddress
-        ) external view returns (bool isAuthorized);
-    }
-}
+use crate::types::PremintTypes;
 
 // create premint v2 rule implementations here
 
@@ -28,7 +18,7 @@ pub async fn is_authorized_to_create_premint(
     premint: &ZoraPremintV2,
     _context: &RuleContext,
 ) -> eyre::Result<Evaluation> {
-    let call = PremintExecutor::isAuthorizedToCreatePremintCall {
+    let call = IZoraPremintV2::isAuthorizedToCreatePremintCall {
         contractAddress: premint.collection_address,
         signer: premint.collection.contractAdmin,
         premintContractConfigContractAdmin: premint.collection.contractAdmin,
@@ -40,6 +30,24 @@ pub async fn is_authorized_to_create_premint(
     match result.isAuthorized {
         true => Ok(Accept),
         false => Ok(Reject("Unauthorized to create premint".to_string())),
+    }
+}
+
+pub async fn not_minted(
+    premint: &ZoraPremintV2,
+    _context: &RuleContext,
+) -> eyre::Result<Evaluation> {
+    let call = IZoraPremintV2::premintStatusCall {
+        contractAddress: premint.collection_address,
+        uid: premint.premint.uid,
+    };
+
+    let provider = CHAINS.get_rpc(premint.chain_id).await?;
+    let result = contract_call(call, provider).await?;
+
+    match result.contractCreated && !result.tokenIdForPremint.is_zero() {
+        false => Ok(Accept),
+        true => Ok(Reject("Premint already minted".to_string())),
     }
 }
 
@@ -88,6 +96,7 @@ pub fn all_rules() -> Vec<Box<dyn Rule>> {
         typed_rule!(PremintTypes::ZoraV2, is_authorized_to_create_premint),
         typed_rule!(PremintTypes::ZoraV2, is_valid_signature),
         typed_rule!(PremintTypes::ZoraV2, is_chain_supported),
+        typed_rule!(PremintTypes::ZoraV2, not_minted),
     ]
 }
 
