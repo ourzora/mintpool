@@ -57,11 +57,12 @@ impl Results {
 #[derive(Clone)]
 pub struct RuleContext {
     pub storage: PremintStorage,
+    pub existing: Option<PremintTypes>,
 }
 
 impl RuleContext {
-    pub fn new(storage: PremintStorage) -> Self {
-        RuleContext { storage }
+    pub fn new(storage: PremintStorage, existing: Option<PremintTypes>) -> Self {
+        RuleContext { storage, existing }
     }
     #[cfg(test)]
     pub async fn test_default() -> Self {
@@ -69,6 +70,7 @@ impl RuleContext {
 
         RuleContext {
             storage: PremintStorage::new(&config).await,
+            existing: None,
         }
     }
 }
