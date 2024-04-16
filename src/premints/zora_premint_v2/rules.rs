@@ -34,7 +34,7 @@ pub async fn is_authorized_to_create_premint(
         premintContractConfigContractAdmin: premint.collection.contractAdmin,
     };
 
-    let provider = CHAINS.get_rpc(premint.chain_id.to()).await?;
+    let provider = CHAINS.get_rpc(premint.chain_id).await?;
     let result = contract_call(call, provider).await?;
 
     match result.isAuthorized {
@@ -75,7 +75,7 @@ async fn is_chain_supported(
     _context: RuleContext,
 ) -> eyre::Result<Evaluation> {
     let supported_chains: Vec<u64> = vec![7777777, 999999999, 8453];
-    let chain_id = premint.chain_id.to();
+    let chain_id = premint.chain_id;
 
     match supported_chains.contains(&chain_id) {
         true => Ok(Accept),

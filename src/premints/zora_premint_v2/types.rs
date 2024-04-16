@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use crate::premints::zora_premint_v2::types::IZoraPremintV2::PremintedV2;
 use crate::types::{InclusionClaim, Premint, PremintMetadata, PremintName};
 use alloy::rpc::types::eth::{Filter, Log, Transaction};
 use alloy::sol_types::private::U256;
@@ -28,7 +29,7 @@ pub struct ZoraPremintV2 {
     pub collection: ContractCreationConfig,
     pub premint: PremintConfig,
     pub collection_address: Address,
-    pub chain_id: U256,
+    pub chain_id: u64,
     pub signature: String,
 }
 
@@ -58,7 +59,7 @@ impl Default for ZoraPremintV2 {
                 deleted: false,
             },
             collection_address: Address::default(),
-            chain_id: U256::default(),
+            chain_id: 0,
             signature: String::default(),
         }
     }
@@ -71,10 +72,15 @@ impl ZoraPremintV2 {
         Eip712Domain {
             name: Some(Cow::from("Preminter")),
             version: Some(Cow::from("2")),
-            chain_id: Some(self.chain_id),
+            chain_id: Some(U256::from(self.chain_id)),
             verifying_contract: Some(self.collection_address),
             salt: None,
         }
+    }
+
+    /// Recreate a deterministic GUID for a premint
+    fn event_to_guid(chain_id: u64, event: &PremintedV2) -> String {
+        format!("{:?}:{:?}:{:?}", chain_id, event.contractAddress, event.uid)
     }
 }
 
@@ -117,8 +123,10 @@ impl Premint for ZoraPremintV2 {
             true,
         )?;
 
+        let id = Self::event_to_guid(chain_id, &event);
+
         Ok(InclusionClaim {
-            premint_id: event.uid.to_string(),
+            premint_id: id,
             chain_id,
             tx_hash: log.transaction_hash.unwrap_or_default(),
             log_index: log.log_index.unwrap_or_default(),
@@ -136,7 +144,7 @@ impl Premint for ZoraPremintV2 {
                     log.transaction_hash.unwrap_or_default() == tx.hash,
                     claim.tx_hash == tx.hash,
                     claim.log_index == log.log_index.unwrap_or_default(),
-                    claim.premint_id == event.uid.to_string(),
+                    claim.premint_id == Self::event_to_guid(chain_id, &event),
                     claim.kind == *"zora_premint_v2",
                     claim.chain_id == chain_id,
                 ];

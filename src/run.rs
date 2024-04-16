@@ -2,6 +2,7 @@ use libp2p::identity;
 use tracing::{info_span, Instrument};
 
 use crate::chain::MintChecker;
+use crate::chain_list::CHAINS;
 use crate::config::{ChainInclusionMode, Config};
 use crate::controller::{Controller, ControllerInterface};
 use crate::p2p::SwarmController;
@@ -68,7 +69,9 @@ pub async fn start_services(config: &Config) -> eyre::Result<ControllerInterface
 pub async fn start_watch_chain<T: Premint>(config: &Config, controller: ControllerInterface) {
     if config.chain_inclusion_mode == ChainInclusionMode::Check {
         for chain_id in config.supported_chains() {
-            let checker = MintChecker::new(chain_id, controller.clone());
+            let rpc_url = CHAINS.get_rpc_url(chain_id).expect(format!("Failed to get RPC URL for configured chain_id {chain_id}. Set environment variable CHAIN_{chain_id}_RPC_WSS").as_str());
+
+            let checker = MintChecker::new(chain_id, rpc_url, controller.clone());
             tokio::spawn(async move {
                 loop {
                     if let Err(err) = checker.poll_for_new_mints::<T>().await {
