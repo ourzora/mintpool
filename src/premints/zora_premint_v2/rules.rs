@@ -25,8 +25,8 @@ sol! {
 // create premint v2 rule implementations here
 
 pub async fn is_authorized_to_create_premint(
-    premint: ZoraPremintV2,
-    _context: RuleContext,
+    premint: &ZoraPremintV2,
+    _context: &RuleContext,
 ) -> eyre::Result<Evaluation> {
     let call = PremintExecutor::isAuthorizedToCreatePremintCall {
         contractAddress: premint.collection_address,
@@ -48,8 +48,8 @@ pub async fn is_authorized_to_create_premint(
 //   * check if the signature is equal to the proposed contract admin
 
 pub async fn is_valid_signature(
-    premint: ZoraPremintV2,
-    _context: RuleContext,
+    premint: &ZoraPremintV2,
+    _context: &RuleContext,
 ) -> eyre::Result<Evaluation> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
@@ -71,8 +71,8 @@ pub async fn is_valid_signature(
 }
 
 async fn is_chain_supported(
-    premint: ZoraPremintV2,
-    _context: RuleContext,
+    premint: &ZoraPremintV2,
+    _context: &RuleContext,
 ) -> eyre::Result<Evaluation> {
     let supported_chains: Vec<u64> = vec![7777777, 999999999, 8453];
     let chain_id = premint.chain_id;
@@ -105,7 +105,7 @@ mod test {
     async fn test_is_valid_signature() {
         let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
         let context = RuleContext::test_default().await;
-        let result = is_valid_signature(premint, context).await;
+        let result = is_valid_signature(&premint, &context).await;
 
         match result {
             Ok(Accept) => {}
@@ -119,7 +119,7 @@ mod test {
     async fn test_is_authorized_to_create_premint() {
         let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
         let context = RuleContext::test_default().await;
-        let result = is_authorized_to_create_premint(premint, context).await;
+        let result = is_authorized_to_create_premint(&premint, &context).await;
 
         match result {
             Ok(Accept) => {}
