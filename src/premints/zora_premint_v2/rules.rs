@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use alloy_primitives::Signature;
-use alloy_sol_macro::sol;
 use alloy_sol_types::SolStruct;
 
 use crate::chain::contract_call;
@@ -122,8 +121,9 @@ pub fn all_rules() -> Vec<Box<dyn Rule>> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use crate::rules::Evaluation::Ignore;
+
+    use super::*;
 
     const PREMINT_JSON: &str = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
