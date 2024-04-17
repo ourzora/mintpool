@@ -26,7 +26,7 @@ pub async fn start_services(config: &Config) -> eyre::Result<ControllerInterface
     let store = PremintStorage::new(config).await;
 
     // configure rules
-    let mut rules = RulesEngine::new();
+    let mut rules = RulesEngine::new(config);
     rules.add_default_rules();
 
     let mut swarm_controller = SwarmController::new(id_keys, config, swrm_recv, event_send);

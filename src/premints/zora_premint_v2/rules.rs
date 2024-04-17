@@ -4,68 +4,77 @@ use alloy_primitives::Signature;
 use alloy_sol_types::SolStruct;
 
 use crate::chain::contract_call;
-use crate::chain_list::CHAINS;
 use crate::premints::zora_premint_v2::types::{IZoraPremintV2, ZoraPremintV2};
-use crate::rules::Evaluation::{Accept, Reject};
+use crate::rules::Evaluation::Accept;
 use crate::rules::{Evaluation, Rule, RuleContext};
-use crate::typed_rule;
 use crate::types::PremintTypes;
+use crate::{ignore, reject, typed_rule};
 
 // create premint v2 rule implementations here
 
 pub async fn is_authorized_to_create_premint(
     premint: &ZoraPremintV2,
-    _context: &RuleContext,
+    context: &RuleContext,
 ) -> eyre::Result<Evaluation> {
+    let rpc = match context.rpc {
+        None => return ignore!("Rule requires RPC call"),
+        Some(ref rpc) => rpc,
+    };
+
     let call = IZoraPremintV2::isAuthorizedToCreatePremintCall {
         contractAddress: premint.collection_address,
         signer: premint.collection.contractAdmin,
         premintContractConfigContractAdmin: premint.collection.contractAdmin,
     };
 
-    let provider = CHAINS.get_rpc(premint.chain_id).await?;
-    let result = contract_call(call, provider).await?;
+    let result = contract_call(call, rpc).await?;
 
     match result.isAuthorized {
         true => Ok(Accept),
-        false => Ok(Reject("Unauthorized to create premint".to_string())),
+        false => reject!("Unauthorized to create premint"),
     }
 }
 
 pub async fn not_minted(
     premint: &ZoraPremintV2,
-    _context: &RuleContext,
+    context: &RuleContext,
 ) -> eyre::Result<Evaluation> {
+    let rpc = match context.rpc {
+        None => return ignore!("Rule requires RPC provider"),
+        Some(ref rpc) => rpc,
+    };
+
     let call = IZoraPremintV2::premintStatusCall {
         contractAddress: premint.collection_address,
         uid: premint.premint.uid,
     };
 
-    let provider = CHAINS.get_rpc(premint.chain_id).await?;
-    let result = contract_call(call, provider).await?;
+    let result = contract_call(call, rpc).await?;
 
     match result.contractCreated && !result.tokenIdForPremint.is_zero() {
         false => Ok(Accept),
-        true => Ok(Reject("Premint already minted".to_string())),
+        true => reject!("Premint already minted"),
     }
 }
 
 pub async fn premint_version_supported(
     premint: &ZoraPremintV2,
-    _context: &RuleContext,
+    context: &RuleContext,
 ) -> eyre::Result<Evaluation> {
+    let rpc = match context.rpc {
+        None => return ignore!("Rule requires RPC provider"),
+        Some(ref rpc) => rpc,
+    };
+
     let call = IZoraPremintV2::supportedPremintSignatureVersionsCall {
         contractAddress: premint.collection_address,
     };
 
-    let provider = CHAINS.get_rpc(premint.chain_id).await?;
-    let result = contract_call(call, provider).await?;
+    let result = contract_call(call, rpc).await?;
 
     match result.versions.contains(&"2".to_string()) {
         true => Ok(Accept),
-        false => Ok(Reject(
-            "Premint version 2 not supported by contract".to_string(),
-        )),
+        false => reject!("Premint version 2 not supported by contract"),
     }
 }
 
@@ -87,13 +96,13 @@ pub async fn is_valid_signature(
     let signer = signature.recover_address_from_prehash(&hash)?;
 
     if signer != premint.collection.contractAdmin {
-        return Ok(Reject(format!(
+        reject!(
             "Invalid signature for contract admin {}",
             premint.collection.contractAdmin
-        )));
+        )
+    } else {
+        Ok(Accept)
     }
-
-    Ok(Accept)
 }
 
 async fn is_chain_supported(
@@ -105,7 +114,7 @@ async fn is_chain_supported(
 
     match supported_chains.contains(&chain_id) {
         true => Ok(Accept),
-        false => Ok(Reject("Chain not supported".to_string())),
+        false => reject!("Chain not supported"),
     }
 }
 
@@ -121,7 +130,7 @@ pub fn all_rules() -> Vec<Box<dyn Rule>> {
 
 #[cfg(test)]
 mod test {
-    use crate::rules::Evaluation::Ignore;
+    use crate::rules::Evaluation::{Ignore, Reject};
 
     use super::*;
 
@@ -138,7 +147,7 @@ mod test {
 
         match result {
             Ok(Accept) => {}
-            Ok(Ignore) => panic!("Should not be ignored"),
+            Ok(Ignore(reason)) => panic!("Should not be ignored: {}", reason),
             Ok(Reject(reason)) => panic!("Rejected: {}", reason),
             Err(err) => panic!("Error: {:?}", err),
         }
@@ -147,12 +156,12 @@ mod test {
     #[tokio::test]
     async fn test_is_authorized_to_create_premint() {
         let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
-        let context = RuleContext::test_default().await;
+        let context = RuleContext::test_default_rpc(7777777).await;
         let result = is_authorized_to_create_premint(&premint, &context).await;
 
         match result {
             Ok(Accept) => {}
-            Ok(Ignore) => panic!("Should not be ignored"),
+            Ok(Ignore(reason)) => panic!("Should not be ignored: {}", reason),
             Ok(Reject(reason)) => panic!("Rejected: {}", reason),
             Err(err) => panic!("Error: {:?}", err),
         }
