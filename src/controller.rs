@@ -175,7 +175,7 @@ impl Controller {
         let metadata = premint.metadata();
         let existing = match self
             .store
-            .get_for_id_and_kind(metadata.id, metadata.kind)
+            .get_for_id_and_kind(&metadata.id, metadata.kind)
             .await
         {
             Ok(existing) => Some(existing),
