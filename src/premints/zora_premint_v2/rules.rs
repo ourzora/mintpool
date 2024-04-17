@@ -90,7 +90,6 @@ pub async fn is_valid_signature<T: Reader>(
 ) -> eyre::Result<Evaluation> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
-    println!("Checking signature {}", premint.signature);
     let signature = Signature::from_str(premint.signature.as_str())?;
 
     let domain = premint.eip712_domain();
