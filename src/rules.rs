@@ -1,9 +1,9 @@
+use crate::config::Config;
 use async_trait::async_trait;
 use futures::future::join_all;
 
-use crate::config::Config;
-use crate::storage::PremintStorage;
-use crate::types::{Premint, PremintTypes};
+use crate::storage::{PremintStorage, Reader, Writer};
+use crate::types::PremintTypes;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Evaluation {
@@ -54,22 +54,24 @@ impl Results {
     }
 }
 
-#[derive(Clone)]
 pub struct RuleContext {
-    pub storage: PremintStorage,
+    pub storage: Box<dyn Reader>,
     pub existing: Option<PremintTypes>,
 }
 
 impl RuleContext {
     pub fn new(storage: PremintStorage, existing: Option<PremintTypes>) -> Self {
-        RuleContext { storage, existing }
+        RuleContext {
+            storage: Box::new(storage),
+            existing,
+        }
     }
     #[cfg(test)]
     pub async fn test_default() -> Self {
         let config = Config::test_default();
 
         RuleContext {
-            storage: PremintStorage::new(&config).await,
+            storage: Box::new(PremintStorage::new(&config).await),
             existing: None,
         }
     }
@@ -203,6 +205,7 @@ impl RulesEngine {
 mod general {
     use crate::rules::Evaluation::{Accept, Ignore, Reject};
     use crate::rules::{Evaluation, Rule, RuleContext};
+    use crate::storage::Reader;
     use crate::types::PremintMetadata;
 
     pub fn all_rules() -> Vec<Box<dyn Rule>> {
@@ -305,7 +308,8 @@ mod test {
     use crate::premints::zora_premint_v2::types::ZoraPremintV2;
     use crate::rules::general::existing_token_uri;
     use crate::rules::Evaluation::{Accept, Reject};
-    use crate::types::SimplePremint;
+    use crate::storage::Writer;
+    use crate::types::{Premint, SimplePremint};
 
     use super::*;
 

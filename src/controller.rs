@@ -4,7 +4,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::p2p::NetworkState;
 use crate::rules::{RuleContext, RulesEngine};
-use crate::storage::PremintStorage;
+use crate::storage::{PremintStorage, Reader, Writer};
 use crate::types::{InclusionClaim, MintpoolNodeInfo, PremintTypes};
 
 #[derive(Debug)]
@@ -175,7 +175,7 @@ impl Controller {
         let metadata = premint.metadata();
         let existing = match self
             .store
-            .get_for_id_and_kind(metadata.id, metadata.kind)
+            .get_for_id_and_kind(&metadata.id, metadata.kind)
             .await
         {
             Ok(existing) => Some(existing),
