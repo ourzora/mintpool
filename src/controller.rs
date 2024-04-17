@@ -58,7 +58,7 @@ pub struct Controller {
     swarm_event_receiver: mpsc::Receiver<P2PEvent>,
     external_commands: mpsc::Receiver<ControllerCommands>,
     store: PremintStorage,
-    rules: RulesEngine,
+    rules: RulesEngine<PremintStorage>,
 }
 
 impl Controller {
@@ -67,7 +67,7 @@ impl Controller {
         swarm_event_receiver: mpsc::Receiver<P2PEvent>,
         external_commands: mpsc::Receiver<ControllerCommands>,
         store: PremintStorage,
-        rules: RulesEngine,
+        rules: RulesEngine<PremintStorage>,
     ) -> Self {
         Self {
             swarm_command_sender,

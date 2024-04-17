@@ -7,14 +7,15 @@ use crate::chain::contract_call;
 use crate::premints::zora_premint_v2::types::{IZoraPremintV2, ZoraPremintV2};
 use crate::rules::Evaluation::Accept;
 use crate::rules::{Evaluation, Rule, RuleContext};
+use crate::storage::Reader;
 use crate::types::PremintTypes;
 use crate::{ignore, reject, typed_rule};
 
 // create premint v2 rule implementations here
 
-pub async fn is_authorized_to_create_premint(
+pub async fn is_authorized_to_create_premint<T: Reader>(
     premint: &ZoraPremintV2,
-    context: &RuleContext,
+    context: &RuleContext<T>,
 ) -> eyre::Result<Evaluation> {
     let rpc = match context.rpc {
         None => return ignore!("Rule requires RPC call"),
@@ -35,9 +36,9 @@ pub async fn is_authorized_to_create_premint(
     }
 }
 
-pub async fn not_minted(
+pub async fn not_minted<T: Reader>(
     premint: &ZoraPremintV2,
-    context: &RuleContext,
+    context: &RuleContext<T>,
 ) -> eyre::Result<Evaluation> {
     let rpc = match context.rpc {
         None => return ignore!("Rule requires RPC provider"),
@@ -57,9 +58,9 @@ pub async fn not_minted(
     }
 }
 
-pub async fn premint_version_supported(
+pub async fn premint_version_supported<T: Reader>(
     premint: &ZoraPremintV2,
-    context: &RuleContext,
+    context: &RuleContext<T>,
 ) -> eyre::Result<Evaluation> {
     let rpc = match context.rpc {
         None => return ignore!("Rule requires RPC provider"),
@@ -82,9 +83,9 @@ pub async fn premint_version_supported(
 //   * check if the signature is valid
 //   * check if the signature is equal to the proposed contract admin
 
-pub async fn is_valid_signature(
+pub async fn is_valid_signature<T: Reader>(
     premint: &ZoraPremintV2,
-    _context: &RuleContext,
+    _context: &RuleContext<T>,
 ) -> eyre::Result<Evaluation> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
@@ -105,9 +106,9 @@ pub async fn is_valid_signature(
     }
 }
 
-async fn is_chain_supported(
+async fn is_chain_supported<T: Reader>(
     premint: &ZoraPremintV2,
-    _context: &RuleContext,
+    _context: &RuleContext<T>,
 ) -> eyre::Result<Evaluation> {
     let supported_chains: Vec<u64> = vec![7777777, 999999999, 8453];
     let chain_id = premint.chain_id;
@@ -118,7 +119,7 @@ async fn is_chain_supported(
     }
 }
 
-pub fn all_rules() -> Vec<Box<dyn Rule>> {
+pub fn all_rules<T: Reader>() -> Vec<Box<dyn Rule<T>>> {
     vec![
         typed_rule!(PremintTypes::ZoraV2, is_authorized_to_create_premint),
         typed_rule!(PremintTypes::ZoraV2, is_valid_signature),
