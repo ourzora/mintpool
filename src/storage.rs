@@ -1,10 +1,13 @@
-use crate::config::Config;
-use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
+use std::str::FromStr;
+
+use async_trait::async_trait;
 use eyre::WrapErr;
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{ConnectOptions, Row, SqlitePool};
-use std::fs;
-use std::str::FromStr;
+use sqlx::Row;
+use sqlx::SqlitePool;
+
+use crate::config::Config;
+use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
 
 async fn init_db(config: &Config) -> SqlitePool {
     let expect_msg =
@@ -40,6 +43,24 @@ impl Clone for PremintStorage {
     }
 }
 
+#[async_trait]
+pub trait Writer: Reader {
+    async fn store(&self, premint: PremintTypes) -> eyre::Result<()>;
+    async fn mark_seen_on_chain(&self, claim: InclusionClaim) -> eyre::Result<()>;
+}
+
+#[async_trait]
+pub trait Reader: Sync + Send + 'static {
+    async fn list_all(&self) -> eyre::Result<Vec<PremintTypes>>;
+    async fn get_for_id_and_kind(
+        &self,
+        id: &String,
+        kind: PremintName,
+    ) -> eyre::Result<PremintTypes>;
+
+    async fn get_for_token_uri(&self, uri: &String) -> eyre::Result<PremintTypes>;
+}
+
 impl PremintStorage {
     pub async fn new(config: &Config) -> Self {
         let db = init_db(config).await;
@@ -51,7 +72,6 @@ impl PremintStorage {
             prune_minted_premints: config.prune_minted_premints,
         }
     }
-
     async fn create_premint_table(db: &SqlitePool) -> eyre::Result<()> {
         sqlx::migrate!("./migrations")
             .run(db)
@@ -63,8 +83,11 @@ impl PremintStorage {
     pub fn db(&self) -> SqlitePool {
         self.db.clone()
     }
+}
 
-    pub async fn store(&self, premint: PremintTypes) -> eyre::Result<()> {
+#[async_trait]
+impl Writer for PremintStorage {
+    async fn store(&self, premint: PremintTypes) -> eyre::Result<()> {
         let metadata = premint.metadata();
         let json = premint.to_json()?;
         let signer = metadata.signer.to_checksum(None);
@@ -91,9 +114,9 @@ impl PremintStorage {
             token_uri,
             json,
         )
-        .execute(&self.db)
-        .await
-        .map_err(|e| eyre::eyre!("Failed to store premint: {}", e))?;
+            .execute(&self.db)
+            .await
+            .map_err(|e| eyre::eyre!("Failed to store premint: {}", e))?;
 
         // no rows affected means the version was not higher that what's already stored
         if result.rows_affected() == 0 {
@@ -105,7 +128,7 @@ impl PremintStorage {
         Ok(())
     }
 
-    pub async fn mark_seen_on_chain(&self, claim: InclusionClaim) -> eyre::Result<()> {
+    async fn mark_seen_on_chain(&self, claim: InclusionClaim) -> eyre::Result<()> {
         let chain_id = claim.chain_id as i64;
         if self.prune_minted_premints {
             let r = sqlx::query!(
@@ -137,12 +160,15 @@ impl PremintStorage {
 
         Ok(())
     }
+}
 
-    pub async fn list_all(&self) -> eyre::Result<Vec<PremintTypes>> {
+#[async_trait]
+impl Reader for PremintStorage {
+    async fn list_all(&self) -> eyre::Result<Vec<PremintTypes>> {
         list_all(&self.db).await
     }
 
-    pub async fn get_for_id_and_kind(
+    async fn get_for_id_and_kind(
         &self,
         id: &String,
         kind: PremintName,
@@ -160,7 +186,7 @@ impl PremintStorage {
         PremintTypes::from_json(json)
     }
 
-    pub async fn get_for_token_uri(&self, uri: &String) -> eyre::Result<PremintTypes> {
+    async fn get_for_token_uri(&self, uri: &String) -> eyre::Result<PremintTypes> {
         let row = sqlx::query("SELECT json FROM premints WHERE token_uri = ?")
             .bind(uri)
             .fetch_one(&self.db)
@@ -199,12 +225,12 @@ pub async fn list_all(db: &SqlitePool) -> eyre::Result<Vec<PremintTypes>> {
 
 #[cfg(test)]
 mod test {
-    use crate::config::{ChainInclusionMode, Config};
-    use crate::premints::zora_premint_v2::types::ZoraPremintV2;
-    use crate::storage::PremintStorage;
-    use crate::types::{InclusionClaim, Premint, PremintTypes};
-    use alloy_primitives::U256;
     use sqlx::Row;
+
+    use crate::config::Config;
+    use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+    use crate::storage::{PremintStorage, Reader, Writer};
+    use crate::types::{InclusionClaim, Premint, PremintTypes};
 
     #[tokio::test]
     async fn test_insert_and_get() {

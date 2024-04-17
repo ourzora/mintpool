@@ -4,7 +4,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::p2p::NetworkState;
 use crate::rules::{RuleContext, RulesEngine};
-use crate::storage::PremintStorage;
+use crate::storage::{PremintStorage, Reader, Writer};
 use crate::types::{InclusionClaim, MintpoolNodeInfo, PremintTypes};
 
 #[derive(Debug)]
