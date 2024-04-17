@@ -2,7 +2,7 @@ use crate::config::Config;
 use async_trait::async_trait;
 use futures::future::join_all;
 
-use crate::storage::PremintStorage;
+use crate::storage::{PremintStorage, Reader, Writer};
 use crate::types::PremintTypes;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -54,22 +54,24 @@ impl Results {
     }
 }
 
-#[derive(Clone)]
 pub struct RuleContext {
-    pub storage: PremintStorage,
+    pub storage: Box<dyn Reader>,
     pub existing: Option<PremintTypes>,
 }
 
 impl RuleContext {
     pub fn new(storage: PremintStorage, existing: Option<PremintTypes>) -> Self {
-        RuleContext { storage, existing }
+        RuleContext {
+            storage: Box::new(storage),
+            existing,
+        }
     }
     #[cfg(test)]
     pub async fn test_default() -> Self {
         let config = Config::test_default();
 
         RuleContext {
-            storage: PremintStorage::new(&config).await,
+            storage: Box::new(PremintStorage::new(&config).await),
             existing: None,
         }
     }

@@ -50,7 +50,7 @@ pub trait Writer: Reader {
 }
 
 #[async_trait]
-pub trait Reader: Sync + Send + 'static {
+pub trait Reader: Sync + Send {
     async fn list_all(&self) -> eyre::Result<Vec<PremintTypes>>;
     async fn get_for_id_and_kind(
         &self,
