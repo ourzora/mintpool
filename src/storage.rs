@@ -144,7 +144,7 @@ impl PremintStorage {
 
     pub async fn get_for_id_and_kind(
         &self,
-        id: String,
+        id: &String,
         kind: PremintName,
     ) -> eyre::Result<PremintTypes> {
         let row = sqlx::query(
@@ -215,7 +215,7 @@ mod test {
 
         store.store(premint.clone()).await.unwrap();
         let retrieved = store
-            .get_for_id_and_kind(premint.metadata().id, premint.metadata().kind)
+            .get_for_id_and_kind(&premint.metadata().id, premint.metadata().kind)
             .await
             .unwrap();
         assert_eq!(premint, retrieved);
@@ -248,7 +248,7 @@ mod test {
         store.store(premint.clone()).await.unwrap();
 
         let retrieved = store
-            .get_for_id_and_kind(premint.metadata().id.clone(), premint.metadata().kind)
+            .get_for_id_and_kind(&premint.metadata().id.clone(), premint.metadata().kind)
             .await
             .unwrap();
         assert_eq!(premint, retrieved);
