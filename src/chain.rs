@@ -11,7 +11,7 @@ use crate::controller::{ControllerCommands, ControllerInterface};
 use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
 use crate::types::Premint;
 
-pub async fn contract_call<T>(call: T, provider: Arc<ChainListProvider>) -> eyre::Result<T::Return>
+pub async fn contract_call<T>(call: T, provider: &Arc<ChainListProvider>) -> eyre::Result<T::Return>
 where
     T: SolCall,
 {

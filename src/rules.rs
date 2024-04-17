@@ -102,6 +102,14 @@ impl RuleContext {
             rpc: None,
         }
     }
+
+    #[cfg(test)]
+    pub async fn test_default_rpc(chain_id: u64) -> Self {
+        RuleContext {
+            rpc: Some(CHAINS.get_rpc(chain_id).await.unwrap()),
+            ..Self::test_default().await
+        }
+    }
 }
 
 #[async_trait]
