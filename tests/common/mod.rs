@@ -41,6 +41,7 @@ pub mod mintpool_build {
             external_address: None,
             peer_port: port,
             interactive: false,
+            enable_rpc: true,
         }
     }
 

@@ -1,8 +1,12 @@
-use crate::config::Config;
+use std::sync::Arc;
+
+use alloy::network::Ethereum;
 use async_trait::async_trait;
 use futures::future::join_all;
 
-use crate::storage::{PremintStorage, Reader, Writer};
+use crate::chain_list::{ChainListProvider, CHAINS};
+use crate::config::Config;
+use crate::storage::{PremintStorage, Reader};
 use crate::types::PremintTypes;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -57,13 +61,19 @@ impl Results {
 pub struct RuleContext {
     pub storage: Box<dyn Reader>,
     pub existing: Option<PremintTypes>,
+    pub rpc: Option<Arc<ChainListProvider<Ethereum>>>,
 }
 
 impl RuleContext {
-    pub fn new(storage: PremintStorage, existing: Option<PremintTypes>) -> Self {
+    fn new(
+        storage: PremintStorage,
+        existing: Option<PremintTypes>,
+        rpc: Option<Arc<ChainListProvider<Ethereum>>>,
+    ) -> Self {
         RuleContext {
             storage: Box::new(storage),
             existing,
+            rpc,
         }
     }
     #[cfg(test)]
@@ -73,6 +83,7 @@ impl RuleContext {
         RuleContext {
             storage: Box::new(PremintStorage::new(&config).await),
             existing: None,
+            rpc: None,
         }
     }
 }
@@ -160,6 +171,7 @@ macro_rules! typed_rule {
 
 pub struct RulesEngine {
     rules: Vec<Box<dyn Rule>>,
+    use_rpc: bool,
 }
 
 pub fn all_rules() -> Vec<Box<dyn Rule>> {
@@ -172,8 +184,11 @@ pub fn all_rules() -> Vec<Box<dyn Rule>> {
 }
 
 impl RulesEngine {
-    pub fn new() -> Self {
-        RulesEngine { rules: vec![] }
+    pub fn new(config: &Config) -> Self {
+        RulesEngine {
+            rules: vec![],
+            use_rpc: config.enable_rpc,
+        }
     }
     pub fn add_rule(&mut self, rule: Box<dyn Rule>) {
         self.rules.push(rule);
@@ -181,7 +196,39 @@ impl RulesEngine {
     pub fn add_default_rules(&mut self) {
         self.rules.extend(all_rules());
     }
-    pub async fn evaluate(&self, item: &PremintTypes, context: &RuleContext) -> Results {
+    pub async fn evaluate(
+        &self,
+        item: &PremintTypes,
+        store: PremintStorage,
+    ) -> eyre::Result<Results> {
+        let metadata = item.metadata();
+        let existing = match store.get_for_id_and_kind(&metadata.id, metadata.kind).await {
+            Ok(existing) => Some(existing),
+            Err(report) => match report.downcast_ref::<sqlx::Error>() {
+                Some(sqlx::Error::RowNotFound) => None,
+                _ => return Err(report),
+            },
+        };
+
+        let context = RuleContext::new(
+            store,
+            existing,
+            // TODO: check global/per-rule configuration to determine whether to add rpc access
+            match self.use_rpc && metadata.chain_id != 0 {
+                true => match CHAINS.get_rpc(metadata.chain_id).await {
+                    Ok(rpc) => Some(rpc),
+                    Err(_) => {
+                        tracing::warn!(
+                            "No RPC provider for chain {} during rule evaluation",
+                            metadata.chain_id
+                        );
+                        None
+                    }
+                },
+                false => None,
+            },
+        );
+
         let results: Vec<_> = self
             .rules
             .iter()
@@ -189,7 +236,7 @@ impl RulesEngine {
             .collect();
         let all_checks = join_all(results).await;
 
-        Results(
+        Ok(Results(
             all_checks
                 .into_iter()
                 .zip(self.rules.iter())
@@ -198,7 +245,7 @@ impl RulesEngine {
                     result,
                 })
                 .collect(),
-        )
+        ))
     }
 }
 
@@ -316,7 +363,7 @@ mod test {
     async fn test_rules_engine() -> (RulesEngine, PremintStorage) {
         let config = Config::test_default();
         let storage = PremintStorage::new(&config).await;
-        let re = RulesEngine::new();
+        let re = RulesEngine::new(&config);
 
         (re, storage)
     }
@@ -369,14 +416,13 @@ mod test {
     #[tokio::test]
     async fn test_simple_rules_engine() {
         let (mut engine, storage) = test_rules_engine().await;
-
-        let context = RuleContext::test_default().await;
         engine.add_rule(rule!(simple_rule));
         engine.add_rule(rule!(conditional_rule));
 
         let result = engine
-            .evaluate(&PremintTypes::Simple(Default::default()), &context)
-            .await;
+            .evaluate(&PremintTypes::Simple(Default::default()), storage.clone())
+            .await
+            .expect("Evaluation should not fail");
 
         assert!(result.is_accept());
     }
@@ -399,8 +445,9 @@ mod test {
         engine.add_rule(rule2);
 
         let result = engine
-            .evaluate(&PremintTypes::Simple(Default::default()), &context)
-            .await;
+            .evaluate(&PremintTypes::Simple(Default::default()), storage)
+            .await
+            .expect("Evaluation should not fail");
 
         assert!(result.is_accept());
     }
@@ -408,14 +455,16 @@ mod test {
     #[tokio::test]
     async fn test_token_uri_exists_rule() {
         let storage = PremintStorage::new(&Config::test_default()).await;
+        let context = RuleContext {
+            storage: Box::new(storage.clone()),
+            existing: None,
+            rpc: None,
+        };
         let premint = PremintTypes::Simple(SimplePremint::default());
 
-        let evaluation = existing_token_uri(
-            &premint.metadata(),
-            &RuleContext::new(storage.clone(), None),
-        )
-        .await
-        .expect("Rule execution should not fail");
+        let evaluation = existing_token_uri(&premint.metadata(), &context)
+            .await
+            .expect("Rule execution should not fail");
 
         assert!(matches!(evaluation, Accept));
 
@@ -425,12 +474,9 @@ mod test {
             .await
             .expect("Simple premint should be stored");
 
-        let evaluation = existing_token_uri(
-            &premint.metadata(),
-            &RuleContext::new(storage.clone(), None),
-        )
-        .await
-        .expect("Rule execution should not fail");
+        let evaluation = existing_token_uri(&premint.metadata(), &context)
+            .await
+            .expect("Rule execution should not fail");
 
         // rule should still pass, because it's the same token id
         assert!(matches!(evaluation, Accept));
@@ -444,12 +490,9 @@ mod test {
             premint.metadata().uri,
         );
 
-        let evaluation = existing_token_uri(
-            &premint2.metadata(),
-            &RuleContext::new(storage.clone(), None),
-        )
-        .await
-        .expect("Rule execution should not fail");
+        let evaluation = existing_token_uri(&premint2.metadata(), &context)
+            .await
+            .expect("Rule execution should not fail");
 
         assert!(matches!(evaluation, Reject(_)));
     }

@@ -57,6 +57,9 @@ pub struct Config {
 
     #[envconfig(from = "INTERACTIVE", default = "false")]
     pub interactive: bool,
+
+    #[envconfig(from = "ENABLE_RPC", default = "true")]
+    pub enable_rpc: bool,
 }
 
 impl Config {
@@ -78,6 +81,7 @@ impl Config {
             node_id: None,
             external_address: None,
             interactive: false,
+            enable_rpc: true,
         }
     }
 }
@@ -177,6 +181,7 @@ mod test {
             node_id: None,
             external_address: None,
             interactive: false,
+            enable_rpc: true,
         };
 
         let names = config.premint_names();
@@ -200,6 +205,7 @@ mod test {
             node_id: None,
             external_address: None,
             interactive: false,
+            enable_rpc: true,
         };
 
         let names = config.premint_names();
