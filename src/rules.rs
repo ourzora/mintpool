@@ -74,36 +74,38 @@ impl Results {
     }
 }
 
-pub struct RuleContext {
-    pub storage: Box<dyn Reader>,
+pub struct RuleContext<T: Reader> {
+    pub storage: T,
     pub existing: Option<PremintTypes>,
     pub rpc: Option<Arc<ChainListProvider<Ethereum>>>,
 }
 
-impl RuleContext {
-    fn new(
-        storage: PremintStorage,
+impl<T: Reader> RuleContext<T> {
+    pub fn new(
+        storage: T,
         existing: Option<PremintTypes>,
         rpc: Option<Arc<ChainListProvider<Ethereum>>>,
     ) -> Self {
-        RuleContext {
-            storage: Box::new(storage),
+        Self {
+            storage,
             existing,
             rpc,
         }
     }
-    #[cfg(test)]
+}
+
+#[cfg(test)]
+impl RuleContext<PremintStorage> {
     pub async fn test_default() -> Self {
         let config = Config::test_default();
 
-        RuleContext {
-            storage: Box::new(PremintStorage::new(&config).await),
+        Self {
+            storage: PremintStorage::new(&config).await,
             existing: None,
             rpc: None,
         }
     }
 
-    #[cfg(test)]
     pub async fn test_default_rpc(chain_id: u64) -> Self {
         RuleContext {
             rpc: Some(CHAINS.get_rpc(chain_id).await.unwrap()),
@@ -113,8 +115,12 @@ impl RuleContext {
 }
 
 #[async_trait]
-pub trait Rule: Send + Sync {
-    async fn check(&self, item: &PremintTypes, context: &RuleContext) -> eyre::Result<Evaluation>;
+pub trait Rule<T: Reader>: Send + Sync {
+    async fn check(
+        &self,
+        item: &PremintTypes,
+        context: &RuleContext<T>,
+    ) -> eyre::Result<Evaluation>;
     fn rule_name(&self) -> &'static str;
 }
 
@@ -124,11 +130,11 @@ macro_rules! rule {
         struct SimpleRule;
 
         #[async_trait::async_trait]
-        impl $crate::rules::Rule for SimpleRule {
+        impl<T: Reader> $crate::rules::Rule<T> for SimpleRule {
             async fn check(
                 &self,
                 item: &$crate::types::PremintTypes,
-                context: &$crate::rules::RuleContext,
+                context: &$crate::rules::RuleContext<T>,
             ) -> eyre::Result<crate::rules::Evaluation> {
                 $fn(item, context).await
             }
@@ -148,11 +154,11 @@ macro_rules! metadata_rule {
         struct MetadataRule;
 
         #[async_trait::async_trait]
-        impl $crate::rules::Rule for MetadataRule {
+        impl<T: Reader> $crate::rules::Rule<T> for MetadataRule {
             async fn check(
                 &self,
                 item: &$crate::types::PremintTypes,
-                context: &$crate::rules::RuleContext,
+                context: &$crate::rules::RuleContext<T>,
             ) -> eyre::Result<crate::rules::Evaluation> {
                 $fn(&item.metadata(), context).await
             }
@@ -172,11 +178,11 @@ macro_rules! typed_rule {
         struct TypedRule;
 
         #[async_trait::async_trait]
-        impl $crate::rules::Rule for TypedRule {
+        impl<T: Reader> $crate::rules::Rule<T> for TypedRule {
             async fn check(
                 &self,
                 item: &$crate::types::PremintTypes,
-                context: &$crate::rules::RuleContext,
+                context: &$crate::rules::RuleContext<T>,
             ) -> eyre::Result<$crate::rules::Evaluation> {
                 match item {
                     $t(premint) => $fn(&premint, context).await,
@@ -193,13 +199,13 @@ macro_rules! typed_rule {
     }};
 }
 
-pub struct RulesEngine {
-    rules: Vec<Box<dyn Rule>>,
+pub struct RulesEngine<T: Reader> {
+    rules: Vec<Box<dyn Rule<T>>>,
     use_rpc: bool,
 }
 
-pub fn all_rules() -> Vec<Box<dyn Rule>> {
-    let mut rules: Vec<Box<dyn Rule>> = Vec::new();
+pub fn all_rules<T: Reader>() -> Vec<Box<dyn Rule<T>>> {
+    let mut rules: Vec<Box<dyn Rule<T>>> = Vec::new();
 
     rules.append(&mut general::all_rules());
     rules.append(&mut crate::premints::zora_premint_v2::rules::all_rules());
@@ -207,24 +213,20 @@ pub fn all_rules() -> Vec<Box<dyn Rule>> {
     rules
 }
 
-impl RulesEngine {
+impl<T: Reader> RulesEngine<T> {
     pub fn new(config: &Config) -> Self {
         RulesEngine {
             rules: vec![],
             use_rpc: config.enable_rpc,
         }
     }
-    pub fn add_rule(&mut self, rule: Box<dyn Rule>) {
+    pub fn add_rule(&mut self, rule: Box<dyn Rule<T>>) {
         self.rules.push(rule);
     }
     pub fn add_default_rules(&mut self) {
         self.rules.extend(all_rules());
     }
-    pub async fn evaluate(
-        &self,
-        item: &PremintTypes,
-        store: PremintStorage,
-    ) -> eyre::Result<Results> {
+    pub async fn evaluate(&self, item: &PremintTypes, store: T) -> eyre::Result<Results> {
         let metadata = item.metadata();
         let existing = match store.get_for_id_and_kind(&metadata.id, metadata.kind).await {
             Ok(existing) => Some(existing),
@@ -279,7 +281,7 @@ mod general {
     use crate::storage::Reader;
     use crate::types::PremintMetadata;
 
-    pub fn all_rules() -> Vec<Box<dyn Rule>> {
+    pub fn all_rules<T: Reader>() -> Vec<Box<dyn Rule<T>>> {
         vec![
             metadata_rule!(token_uri_length),
             metadata_rule!(existing_token_uri),
@@ -288,9 +290,9 @@ mod general {
         ]
     }
 
-    pub async fn token_uri_length(
+    pub async fn token_uri_length<T: Reader>(
         meta: &PremintMetadata,
-        _context: &RuleContext,
+        _context: &RuleContext<T>,
     ) -> eyre::Result<Evaluation> {
         let max_allowed = if meta.uri.starts_with("data:") {
             // allow some more data for data uris
@@ -310,9 +312,9 @@ mod general {
         }
     }
 
-    pub async fn existing_token_uri(
+    pub async fn existing_token_uri<T: Reader>(
         meta: &PremintMetadata,
-        context: &RuleContext,
+        context: &RuleContext<T>,
     ) -> eyre::Result<Evaluation> {
         let existing = context.storage.get_for_token_uri(&meta.uri).await;
 
@@ -338,9 +340,9 @@ mod general {
         }
     }
 
-    pub async fn signer_matches(
+    pub async fn signer_matches<T: Reader>(
         meta: &PremintMetadata,
-        context: &RuleContext,
+        context: &RuleContext<T>,
     ) -> eyre::Result<Evaluation> {
         match &context.existing {
             None => ignore!("No existing premint"),
@@ -354,9 +356,9 @@ mod general {
         }
     }
 
-    pub async fn version_is_higher(
+    pub async fn version_is_higher<T: Reader>(
         meta: &PremintMetadata,
-        context: &RuleContext,
+        context: &RuleContext<T>,
     ) -> eyre::Result<Evaluation> {
         match &context.existing {
             None => ignore!("No existing premint"),
@@ -384,7 +386,7 @@ mod test {
 
     use super::*;
 
-    async fn test_rules_engine() -> (RulesEngine, PremintStorage) {
+    async fn test_rules_engine() -> (RulesEngine<PremintStorage>, PremintStorage) {
         let config = Config::test_default();
         let storage = PremintStorage::new(&config).await;
         let re = RulesEngine::new(&config);
@@ -392,13 +394,16 @@ mod test {
         (re, storage)
     }
 
-    async fn simple_rule(item: &PremintTypes, context: &RuleContext) -> eyre::Result<Evaluation> {
+    async fn simple_rule<T: Reader>(
+        item: &PremintTypes,
+        context: &RuleContext<T>,
+    ) -> eyre::Result<Evaluation> {
         Ok(Accept)
     }
 
-    async fn conditional_rule(
+    async fn conditional_rule<T: Reader>(
         item: &PremintTypes,
-        _context: &RuleContext,
+        _context: &RuleContext<T>,
     ) -> eyre::Result<Evaluation> {
         match item {
             PremintTypes::Simple(s) => {
@@ -412,16 +417,16 @@ mod test {
         }
     }
 
-    async fn simple_typed_rule(
+    async fn simple_typed_rule<T: Reader>(
         _item: &SimplePremint,
-        _context: &RuleContext,
+        _context: &RuleContext<T>,
     ) -> eyre::Result<Evaluation> {
         Ok(Accept)
     }
 
-    async fn simple_typed_zora_rule(
+    async fn simple_typed_zora_rule<T: Reader>(
         _item: &ZoraPremintV2,
-        _context: &RuleContext,
+        _context: &RuleContext<T>,
     ) -> eyre::Result<Evaluation> {
         Ok(Accept)
     }
@@ -456,8 +461,10 @@ mod test {
         let (mut engine, storage) = test_rules_engine().await;
         let context = RuleContext::test_default().await;
 
-        let rule = typed_rule!(PremintTypes::Simple, simple_typed_rule);
-        let rule2 = typed_rule!(PremintTypes::ZoraV2, simple_typed_zora_rule);
+        let rule: Box<dyn Rule<PremintStorage>> =
+            typed_rule!(PremintTypes::Simple, simple_typed_rule);
+        let rule2: Box<dyn Rule<PremintStorage>> =
+            typed_rule!(PremintTypes::ZoraV2, simple_typed_zora_rule);
 
         assert_eq!(rule.rule_name(), "PremintTypes::Simple::simple_typed_rule");
         assert_eq!(
@@ -480,7 +487,7 @@ mod test {
     async fn test_token_uri_exists_rule() {
         let storage = PremintStorage::new(&Config::test_default()).await;
         let context = RuleContext {
-            storage: Box::new(storage.clone()),
+            storage: storage.clone(),
             existing: None,
             rpc: None,
         };
