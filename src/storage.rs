@@ -160,7 +160,7 @@ impl PremintStorage {
         PremintTypes::from_json(json)
     }
 
-    pub async fn get_for_token_uri(&self, uri: String) -> eyre::Result<PremintTypes> {
+    pub async fn get_for_token_uri(&self, uri: &String) -> eyre::Result<PremintTypes> {
         let row = sqlx::query("SELECT json FROM premints WHERE token_uri = ?")
             .bind(uri)
             .fetch_one(&self.db)

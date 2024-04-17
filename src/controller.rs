@@ -172,9 +172,22 @@ impl Controller {
     }
 
     async fn validate_and_insert(&self, premint: PremintTypes) -> eyre::Result<()> {
+        let metadata = premint.metadata();
+        let existing = match self
+            .store
+            .get_for_id_and_kind(metadata.id, metadata.kind)
+            .await
+        {
+            Ok(existing) => Some(existing),
+            Err(report) => match report.downcast_ref::<sqlx::Error>() {
+                Some(sqlx::Error::RowNotFound) => None,
+                _ => return Err(report),
+            },
+        };
+
         let evaluation = self
             .rules
-            .evaluate(premint.clone(), RuleContext::new(self.store.clone()))
+            .evaluate(&premint, &RuleContext::new(self.store.clone(), existing))
             .await;
 
         if evaluation.is_accept() {

@@ -57,11 +57,12 @@ impl Results {
 #[derive(Clone)]
 pub struct RuleContext {
     pub storage: PremintStorage,
+    pub existing: Option<PremintTypes>,
 }
 
 impl RuleContext {
-    pub fn new(storage: PremintStorage) -> Self {
-        RuleContext { storage }
+    pub fn new(storage: PremintStorage, existing: Option<PremintTypes>) -> Self {
+        RuleContext { storage, existing }
     }
     #[cfg(test)]
     pub async fn test_default() -> Self {
@@ -69,38 +70,39 @@ impl RuleContext {
 
         RuleContext {
             storage: PremintStorage::new(&config).await,
+            existing: None,
         }
     }
 }
 
 #[async_trait]
 pub trait Rule: Send + Sync {
-    async fn check(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<Evaluation>;
+    async fn check(&self, item: &PremintTypes, context: &RuleContext) -> eyre::Result<Evaluation>;
     fn rule_name(&self) -> &'static str;
-}
-
-pub struct FnRule<T>(pub &'static str, pub T);
-
-#[async_trait]
-impl<T, Fut> Rule for FnRule<T>
-where
-    T: Fn(PremintTypes, RuleContext) -> Fut + Send + Sync + 'static,
-    Fut: std::future::Future<Output = eyre::Result<Evaluation>> + Send,
-{
-    async fn check(&self, item: PremintTypes, context: RuleContext) -> eyre::Result<Evaluation> {
-        self.1(item, context).await
-    }
-
-    fn rule_name(&self) -> &'static str {
-        self.0
-    }
 }
 
 #[macro_export]
 macro_rules! rule {
-    ($fn:tt) => {
-        std::boxed::Box::new($crate::rules::FnRule(stringify!($fn), $fn))
-    };
+    ($fn:tt) => {{
+        struct SimpleRule;
+
+        #[async_trait::async_trait]
+        impl $crate::rules::Rule for SimpleRule {
+            async fn check(
+                &self,
+                item: &$crate::types::PremintTypes,
+                context: &$crate::rules::RuleContext,
+            ) -> eyre::Result<crate::rules::Evaluation> {
+                $fn(item, context).await
+            }
+
+            fn rule_name(&self) -> &'static str {
+                concat!(stringify!($fn))
+            }
+        }
+
+        std::boxed::Box::new(SimpleRule {})
+    }};
 }
 
 #[macro_export]
@@ -112,10 +114,10 @@ macro_rules! metadata_rule {
         impl $crate::rules::Rule for MetadataRule {
             async fn check(
                 &self,
-                item: $crate::types::PremintTypes,
-                context: $crate::rules::RuleContext,
+                item: &$crate::types::PremintTypes,
+                context: &$crate::rules::RuleContext,
             ) -> eyre::Result<crate::rules::Evaluation> {
-                $fn(item.metadata(), context).await
+                $fn(&item.metadata(), context).await
             }
 
             fn rule_name(&self) -> &'static str {
@@ -136,11 +138,11 @@ macro_rules! typed_rule {
         impl $crate::rules::Rule for TypedRule {
             async fn check(
                 &self,
-                item: $crate::types::PremintTypes,
-                context: $crate::rules::RuleContext,
+                item: &$crate::types::PremintTypes,
+                context: &$crate::rules::RuleContext,
             ) -> eyre::Result<$crate::rules::Evaluation> {
                 match item {
-                    $t(premint) => $fn(premint, context).await,
+                    $t(premint) => $fn(&premint, context).await,
                     _ => Ok($crate::rules::Evaluation::Ignore),
                 }
             }
@@ -177,11 +179,11 @@ impl RulesEngine {
     pub fn add_default_rules(&mut self) {
         self.rules.extend(all_rules());
     }
-    pub async fn evaluate(&self, item: PremintTypes, context: RuleContext) -> Results {
+    pub async fn evaluate(&self, item: &PremintTypes, context: &RuleContext) -> Results {
         let results: Vec<_> = self
             .rules
             .iter()
-            .map(|rule| rule.check(item.clone(), context.clone()))
+            .map(|rule| rule.check(&item, &context))
             .collect();
         let all_checks = join_all(results).await;
 
@@ -199,7 +201,7 @@ impl RulesEngine {
 }
 
 mod general {
-    use crate::rules::Evaluation::{Accept, Reject};
+    use crate::rules::Evaluation::{Accept, Ignore, Reject};
     use crate::rules::{Evaluation, Rule, RuleContext};
     use crate::types::PremintMetadata;
 
@@ -207,12 +209,14 @@ mod general {
         vec![
             metadata_rule!(token_uri_length),
             metadata_rule!(existing_token_uri),
+            metadata_rule!(signer_matches),
+            metadata_rule!(version_is_higher),
         ]
     }
 
     pub async fn token_uri_length(
-        meta: PremintMetadata,
-        _context: RuleContext,
+        meta: &PremintMetadata,
+        _context: &RuleContext,
     ) -> eyre::Result<Evaluation> {
         let max_allowed = if meta.uri.starts_with("data:") {
             // allow some more data for data uris
@@ -233,10 +237,10 @@ mod general {
     }
 
     pub async fn existing_token_uri(
-        meta: PremintMetadata,
-        context: RuleContext,
+        meta: &PremintMetadata,
+        context: &RuleContext,
     ) -> eyre::Result<Evaluation> {
-        let existing = context.storage.get_for_token_uri(meta.uri).await;
+        let existing = context.storage.get_for_token_uri(&meta.uri).await;
 
         match existing {
             Err(report) => match report.downcast_ref::<sqlx::Error>() {
@@ -259,12 +263,45 @@ mod general {
             }
         }
     }
+
+    pub async fn signer_matches(
+        meta: &PremintMetadata,
+        context: &RuleContext,
+    ) -> eyre::Result<Evaluation> {
+        match &context.existing {
+            None => Ok(Ignore),
+            Some(existing) => {
+                if existing.metadata().signer == meta.signer {
+                    Ok(Accept)
+                } else {
+                    Ok(Reject("Signer does not match".to_string()))
+                }
+            }
+        }
+    }
+
+    pub async fn version_is_higher(
+        meta: &PremintMetadata,
+        context: &RuleContext,
+    ) -> eyre::Result<Evaluation> {
+        match &context.existing {
+            None => Ok(Ignore),
+            Some(existing) => {
+                if meta.version > existing.metadata().version {
+                    Ok(Accept)
+                } else {
+                    Ok(Reject(format!(
+                        "Existing premint with higher version {} exists",
+                        existing.metadata().version
+                    )))
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use alloy_primitives::U256;
-
     use crate::premints::zora_premint_v2::types::ZoraPremintV2;
     use crate::rules::general::existing_token_uri;
     use crate::rules::Evaluation::{Accept, Reject};
@@ -280,13 +317,13 @@ mod test {
         (re, storage)
     }
 
-    async fn simple_rule(item: PremintTypes, context: RuleContext) -> eyre::Result<Evaluation> {
+    async fn simple_rule(item: &PremintTypes, context: &RuleContext) -> eyre::Result<Evaluation> {
         Ok(Accept)
     }
 
     async fn conditional_rule(
-        item: PremintTypes,
-        _context: RuleContext,
+        item: &PremintTypes,
+        _context: &RuleContext,
     ) -> eyre::Result<Evaluation> {
         match item {
             PremintTypes::Simple(s) => {
@@ -301,15 +338,15 @@ mod test {
     }
 
     async fn simple_typed_rule(
-        _item: SimplePremint,
-        _context: RuleContext,
+        _item: &SimplePremint,
+        _context: &RuleContext,
     ) -> eyre::Result<Evaluation> {
         Ok(Accept)
     }
 
     async fn simple_typed_zora_rule(
-        _item: ZoraPremintV2,
-        _context: RuleContext,
+        _item: &ZoraPremintV2,
+        _context: &RuleContext,
     ) -> eyre::Result<Evaluation> {
         Ok(Accept)
     }
@@ -319,7 +356,7 @@ mod test {
         let context = RuleContext::test_default().await;
         let rule = rule!(simple_rule);
         let result = rule
-            .check(PremintTypes::Simple(Default::default()), context)
+            .check(&PremintTypes::Simple(Default::default()), &context)
             .await
             .unwrap();
         assert!(matches!(result, Accept));
@@ -334,7 +371,7 @@ mod test {
         engine.add_rule(rule!(conditional_rule));
 
         let result = engine
-            .evaluate(PremintTypes::Simple(Default::default()), context)
+            .evaluate(&PremintTypes::Simple(Default::default()), &context)
             .await;
 
         assert!(result.is_accept());
@@ -358,7 +395,7 @@ mod test {
         engine.add_rule(rule2);
 
         let result = engine
-            .evaluate(PremintTypes::Simple(Default::default()), context)
+            .evaluate(&PremintTypes::Simple(Default::default()), &context)
             .await;
 
         assert!(result.is_accept());
@@ -369,9 +406,12 @@ mod test {
         let storage = PremintStorage::new(&Config::test_default()).await;
         let premint = PremintTypes::Simple(SimplePremint::default());
 
-        let evaluation = existing_token_uri(premint.metadata(), RuleContext::new(storage.clone()))
-            .await
-            .expect("Rule execution should not fail");
+        let evaluation = existing_token_uri(
+            &premint.metadata(),
+            &RuleContext::new(storage.clone(), None),
+        )
+        .await
+        .expect("Rule execution should not fail");
 
         assert!(matches!(evaluation, Accept));
 
@@ -381,9 +421,12 @@ mod test {
             .await
             .expect("Simple premint should be stored");
 
-        let evaluation = existing_token_uri(premint.metadata(), RuleContext::new(storage.clone()))
-            .await
-            .expect("Rule execution should not fail");
+        let evaluation = existing_token_uri(
+            &premint.metadata(),
+            &RuleContext::new(storage.clone(), None),
+        )
+        .await
+        .expect("Rule execution should not fail");
 
         // rule should still pass, because it's the same token id
         assert!(matches!(evaluation, Accept));
@@ -397,9 +440,12 @@ mod test {
             premint.metadata().uri,
         );
 
-        let evaluation = existing_token_uri(premint2.metadata(), RuleContext::new(storage.clone()))
-            .await
-            .expect("Rule execution should not fail");
+        let evaluation = existing_token_uri(
+            &premint2.metadata(),
+            &RuleContext::new(storage.clone(), None),
+        )
+        .await
+        .expect("Rule execution should not fail");
 
         assert!(matches!(evaluation, Reject(_)));
     }
