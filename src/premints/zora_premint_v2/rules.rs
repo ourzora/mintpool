@@ -5,7 +5,7 @@ use alloy_sol_types::SolStruct;
 
 use crate::chain::contract_call;
 use crate::premints::zora_premint_v2::types::{IZoraPremintV2, ZoraPremintV2};
-use crate::rules::Evaluation::{Accept, Ignore, Reject};
+use crate::rules::Evaluation::Accept;
 use crate::rules::{Evaluation, Rule, RuleContext};
 use crate::types::PremintTypes;
 use crate::{ignore, reject, typed_rule};
@@ -130,7 +130,7 @@ pub fn all_rules() -> Vec<Box<dyn Rule>> {
 
 #[cfg(test)]
 mod test {
-    use crate::rules::Evaluation::Ignore;
+    use crate::rules::Evaluation::{Ignore, Reject};
 
     use super::*;
 

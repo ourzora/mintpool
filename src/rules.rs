@@ -19,14 +19,14 @@ pub enum Evaluation {
 #[macro_export]
 macro_rules! reject {
     ($($arg:tt)*) => {{
-        Ok(Evaluation::Reject(format!($($arg)*).to_string()))
+        Ok($crate::rules::Evaluation::Reject(format!($($arg)*).to_string()))
     }};
 }
 
 #[macro_export]
 macro_rules! ignore {
     ($($arg:tt)*) => {{
-        Ok(Evaluation::Ignore(format!($($arg)*).to_string()))
+        Ok($crate::rules::Evaluation::Ignore(format!($($arg)*).to_string()))
     }};
 }
 
