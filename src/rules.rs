@@ -12,8 +12,22 @@ use crate::types::PremintTypes;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Evaluation {
     Accept,
-    Ignore,
+    Ignore(String),
     Reject(String),
+}
+
+#[macro_export]
+macro_rules! reject {
+    ($($arg:tt)*) => {{
+        Ok(Evaluation::Reject(format!($($arg)*).to_string()))
+    }};
+}
+
+#[macro_export]
+macro_rules! ignore {
+    ($($arg:tt)*) => {{
+        Ok(Evaluation::Ignore(format!($($arg)*).to_string()))
+    }};
 }
 
 #[derive(Debug)]
@@ -47,7 +61,9 @@ impl Results {
             .iter()
             .map(|r| match r.result {
                 Ok(Evaluation::Accept) => format!("{}: Accept", r.rule_name),
-                Ok(Evaluation::Ignore) => format!("{}: Ignore", r.rule_name),
+                Ok(Evaluation::Ignore(ref reason)) => {
+                    format!("{}: Ignore ({})", r.rule_name, reason)
+                }
                 Ok(Evaluation::Reject(ref reason)) => {
                     format!("{}: Reject ({})", r.rule_name, reason)
                 }
@@ -156,7 +172,7 @@ macro_rules! typed_rule {
             ) -> eyre::Result<$crate::rules::Evaluation> {
                 match item {
                     $t(premint) => $fn(&premint, context).await,
-                    _ => Ok($crate::rules::Evaluation::Ignore),
+                    _ => $crate::ignore!("Wrong type"),
                 }
             }
 
@@ -275,15 +291,15 @@ mod general {
             2 * 1024
         };
 
-        Ok(match meta.uri.len() {
-            0 => Reject("Token URI is empty".to_string()),
-            _ if meta.uri.len() > max_allowed => Reject(format!(
+        match meta.uri.len() {
+            0 => reject!("Token URI is empty"),
+            _ if meta.uri.len() > max_allowed => reject!(
                 "Token URI is too long: {} > {}",
                 meta.uri.len(),
                 max_allowed
-            )),
-            _ => Accept,
-        })
+            ),
+            _ => Ok(Accept),
+        }
     }
 
     pub async fn existing_token_uri(
@@ -308,7 +324,7 @@ mod general {
                     // other rules should ensure that we're only overwriting it if signer matches
                     Ok(Accept)
                 } else {
-                    Ok(Reject("Token URI already exists".to_string()))
+                    reject!("Token URI already exists")
                 }
             }
         }
@@ -319,12 +335,12 @@ mod general {
         context: &RuleContext,
     ) -> eyre::Result<Evaluation> {
         match &context.existing {
-            None => Ok(Ignore),
+            None => ignore!("No existing premint"),
             Some(existing) => {
                 if existing.metadata().signer == meta.signer {
                     Ok(Accept)
                 } else {
-                    Ok(Reject("Signer does not match".to_string()))
+                    reject!("Signer does not match")
                 }
             }
         }
@@ -335,15 +351,15 @@ mod general {
         context: &RuleContext,
     ) -> eyre::Result<Evaluation> {
         match &context.existing {
-            None => Ok(Ignore),
+            None => ignore!("No existing premint"),
             Some(existing) => {
                 if meta.version > existing.metadata().version {
                     Ok(Accept)
                 } else {
-                    Ok(Reject(format!(
+                    reject!(
                         "Existing premint with higher version {} exists",
                         existing.metadata().version
-                    )))
+                    )
                 }
             }
         }
@@ -381,7 +397,7 @@ mod test {
                 if s.metadata().chain_id == 0 {
                     Ok(Accept)
                 } else {
-                    Ok(Reject("Chain ID is not default".to_string()))
+                    reject!("Chain ID is not default")
                 }
             }
             _ => Ok(Accept),

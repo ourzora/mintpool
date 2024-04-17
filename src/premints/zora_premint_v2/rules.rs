@@ -6,10 +6,10 @@ use alloy_sol_types::SolStruct;
 use crate::chain::contract_call;
 use crate::chain_list::CHAINS;
 use crate::premints::zora_premint_v2::types::{IZoraPremintV2, ZoraPremintV2};
-use crate::rules::Evaluation::{Accept, Reject};
+use crate::rules::Evaluation::{Accept, Ignore, Reject};
 use crate::rules::{Evaluation, Rule, RuleContext};
-use crate::typed_rule;
 use crate::types::PremintTypes;
+use crate::{ignore, reject, typed_rule};
 
 // create premint v2 rule implementations here
 
@@ -28,7 +28,7 @@ pub async fn is_authorized_to_create_premint(
 
     match result.isAuthorized {
         true => Ok(Accept),
-        false => Ok(Reject("Unauthorized to create premint".to_string())),
+        false => reject!("Unauthorized to create premint"),
     }
 }
 
@@ -63,9 +63,7 @@ pub async fn premint_version_supported(
 
     match result.versions.contains(&"2".to_string()) {
         true => Ok(Accept),
-        false => Ok(Reject(
-            "Premint version 2 not supported by contract".to_string(),
-        )),
+        false => reject!("Premint version 2 not supported by contract"),
     }
 }
 
@@ -138,7 +136,7 @@ mod test {
 
         match result {
             Ok(Accept) => {}
-            Ok(Ignore) => panic!("Should not be ignored"),
+            Ok(Ignore(reason)) => panic!("Should not be ignored: {}", reason),
             Ok(Reject(reason)) => panic!("Rejected: {}", reason),
             Err(err) => panic!("Error: {:?}", err),
         }
@@ -152,7 +150,7 @@ mod test {
 
         match result {
             Ok(Accept) => {}
-            Ok(Ignore) => panic!("Should not be ignored"),
+            Ok(Ignore(reason)) => panic!("Should not be ignored: {}", reason),
             Ok(Reject(reason)) => panic!("Rejected: {}", reason),
             Err(err) => panic!("Error: {:?}", err),
         }
