@@ -10,10 +10,10 @@ use serde::{Serialize, Serializer};
 
 use crate::chain_list::{ChainListProvider, CHAINS};
 use crate::config::Config;
-use crate::storage::{PremintStorage, Reader};
+use crate::storage::Reader;
 use crate::types::PremintTypes;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Evaluation {
     Accept,
     Ignore(String),
@@ -67,6 +67,18 @@ pub struct RuleResult {
     pub result: eyre::Result<Evaluation>,
 }
 
+impl Clone for RuleResult {
+    fn clone(&self) -> Self {
+        Self {
+            rule_name: self.rule_name,
+            result: match &self.result {
+                Ok(e) => Ok(e.clone()),
+                Err(e) => Err(eyre::eyre!(e.to_string())),
+            },
+        }
+    }
+}
+
 impl Serialize for RuleResult {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -91,7 +103,7 @@ impl Serialize for RuleResult {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Results(Vec<RuleResult>);
 
 impl Results {
