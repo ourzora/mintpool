@@ -10,6 +10,7 @@ Supported commands:
     /peers - list all connected peers
     /node - shows node info
     /announce - announce self to the network to connect to all available peers
+    /list - list all premints in the database
     <premint json> - send a premint to the network
 "#;
 

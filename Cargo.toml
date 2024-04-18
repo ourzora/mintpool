@@ -73,6 +73,7 @@ alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", 
 alloy-sol-macro = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["json"] }
 url = "2.5.0"
 futures = "0.3.30"
+sha256 = "1.5.0"
 
 
 [patch.crates-io]

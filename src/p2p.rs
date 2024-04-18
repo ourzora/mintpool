@@ -11,6 +11,7 @@ use libp2p::kad::Addresses;
 use libp2p::multiaddr::Protocol;
 use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
 use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr, PeerId};
+use sha256::digest;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::Duration;
 use tokio::select;
@@ -85,12 +86,6 @@ impl SwarmController {
             )?
             .with_dns()?
             .with_behaviour(|key| {
-                let message_id_fn = |message: &gossipsub::Message| {
-                    let mut s = DefaultHasher::new();
-                    message.data.hash(&mut s);
-                    gossipsub::MessageId::from(s.finish().to_string())
-                };
-
                 let mut b =
                     kad::Behaviour::new(peer_id, MemoryStore::new(key.public().to_peer_id()));
                 b.set_mode(Some(kad::Mode::Server));
@@ -98,7 +93,7 @@ impl SwarmController {
                     .heartbeat_interval(Duration::from_secs(10))
                     .validation_mode(gossipsub::ValidationMode::Strict)
                     .protocol_id("/mintpool/0.1.0", Version::V1_1)
-                    .message_id_fn(message_id_fn)
+                    .message_id_fn(gossipsub_message_id)
                     .build()
                     .expect("valid config");
 
@@ -156,7 +151,7 @@ impl SwarmController {
     }
 
     async fn handle_command(&mut self, command: SwarmCommand) {
-        tracing::info!("Received command: {:?}", command);
+        tracing::debug!("Received command: {:?}", command);
         match command {
             SwarmCommand::ConnectToPeer { address } => match address.parse() {
                 Ok(addr) => {
@@ -428,6 +423,24 @@ impl SwarmController {
             dht_peers,
             gossipsub_peers,
             all_external_addresses: self.swarm.external_addresses().cloned().collect(),
+        }
+    }
+}
+
+fn gossipsub_message_id(message: &gossipsub::Message) -> gossipsub::MessageId {
+    if message.topic == announce_topic().hash() {
+        let s = String::from_utf8_lossy(&message.data);
+        let hash = digest(s.to_string());
+        gossipsub::MessageId::from(hash)
+    } else {
+        let s = String::from_utf8_lossy(&message.data);
+        match PremintTypes::from_json(s.to_string()) {
+            Ok(premint) => {
+                let metadata = premint.metadata();
+                let hash = digest(metadata.id);
+                gossipsub::MessageId::from(hash)
+            }
+            Err(_) => gossipsub::MessageId::from("likely_spam".to_string()),
         }
     }
 }

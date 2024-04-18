@@ -12,7 +12,7 @@ pub struct PremintName(pub String);
 
 impl PremintName {
     pub fn msg_topic(&self) -> gossipsub::IdentTopic {
-        gossipsub::IdentTopic::new(format!("mintpool::{:?}", self))
+        gossipsub::IdentTopic::new(format!("mintpool::premint::{:?}", self))
     }
 }
 

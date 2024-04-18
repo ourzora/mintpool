@@ -15,13 +15,10 @@ use alloy_sol_types::{SolCall, SolValue};
 use alloy_transport::TransportErrorKind;
 use mintpool::config::{ChainInclusionMode, Config};
 use mintpool::controller::{ControllerCommands, DBQuery};
-use mintpool::premints::zora_premint_v2::rules::is_valid_signature;
 use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
 use mintpool::premints::zora_premint_v2::types::{
     IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
 };
-use mintpool::rules::Evaluation::Accept;
-use mintpool::rules::RuleContext;
 use mintpool::run;
 use mintpool::types::PremintTypes;
 use std::env;

@@ -1,3 +1,4 @@
+use alloy::hex;
 use std::str::FromStr;
 
 use alloy_primitives::Signature;
@@ -89,7 +90,6 @@ pub async fn is_valid_signature<T: Reader>(
 ) -> eyre::Result<Evaluation> {
     //   * if contract exists, check if the signer is the contract admin
     //   * if contract does not exist, check if the signer is the proposed contract admin
-
     let signature = Signature::from_str(premint.signature.as_str())?;
 
     let domain = premint.eip712_domain();
@@ -98,8 +98,9 @@ pub async fn is_valid_signature<T: Reader>(
 
     if signer != premint.collection.contractAdmin {
         reject!(
-            "Invalid signature for contract admin {}",
-            premint.collection.contractAdmin
+            "Invalid signature for contract admin {} vs recovered {}",
+            premint.collection.contractAdmin,
+            signer
         )
     } else {
         Ok(Accept)
