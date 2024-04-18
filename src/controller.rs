@@ -1,9 +1,10 @@
+use eyre::WrapErr;
 use sqlx::SqlitePool;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::p2p::NetworkState;
-use crate::rules::{RuleContext, RulesEngine};
+use crate::rules::{Evaluation, Results, RuleContext, RulesEngine};
 use crate::storage::{PremintStorage, Reader, Writer};
 use crate::types::{InclusionClaim, MintpoolNodeInfo, PremintTypes};
 
@@ -171,18 +172,19 @@ impl Controller {
         Ok(())
     }
 
-    async fn validate_and_insert(&self, premint: PremintTypes) -> eyre::Result<()> {
+    async fn validate_and_insert(&self, premint: PremintTypes) -> eyre::Result<Results> {
         let evaluation = self.rules.evaluate(&premint, self.store.clone()).await?;
 
         if evaluation.is_accept() {
-            self.store.store(premint).await
+            self.store
+                .store(premint)
+                .await
+                .map(|_r| evaluation)
+                .wrap_err("Failed to store premint")
         } else {
-            tracing::warn!(
-                "Premint failed validation: {:?}, evaluation: {:?}",
-                premint,
-                evaluation.summary()
-            );
-            Err(eyre::eyre!(evaluation.summary()))
+            tracing::info!("Premint failed validation: {:?}", premint);
+
+            Err(evaluation).wrap_err("Premint failed validation")
         }
     }
 }

@@ -1,8 +1,12 @@
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 use alloy::network::Ethereum;
 use async_trait::async_trait;
 use futures::future::join_all;
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 
 use crate::chain_list::{ChainListProvider, CHAINS};
 use crate::config::Config;
@@ -14,6 +18,33 @@ pub enum Evaluation {
     Accept,
     Ignore(String),
     Reject(String),
+}
+
+impl Display for Evaluation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Evaluation::Accept => f.write_str("Accept"),
+            Evaluation::Ignore(reason) => write!(f, "Ignore ({})", reason),
+            Evaluation::Reject(reason) => write!(f, "Reject ({})", reason),
+        }
+    }
+}
+
+impl Evaluation {
+    fn variant(&self) -> &'static str {
+        match self {
+            Evaluation::Accept => "accept",
+            Evaluation::Ignore(_) => "ignore",
+            Evaluation::Reject(_) => "reject",
+        }
+    }
+
+    fn reason(&self) -> Option<&str> {
+        match self {
+            Evaluation::Ignore(reason) | Evaluation::Reject(reason) => Some(reason),
+            _ => None,
+        }
+    }
 }
 
 #[macro_export]
@@ -36,7 +67,31 @@ pub struct RuleResult {
     pub result: eyre::Result<Evaluation>,
 }
 
-#[derive(Debug)]
+impl Serialize for RuleResult {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer
+            .serialize_struct("RuleResult", 3)
+            .and_then(|mut s| {
+                match self.result {
+                    Ok(ref result) => {
+                        s.serialize_field("result", result.variant())?;
+                        s.serialize_field("reason", &result.reason())?;
+                    }
+                    Err(ref e) => {
+                        s.serialize_field("result", "error")?;
+                        s.serialize_field("reason", &e.to_string())?;
+                    }
+                }
+                s.serialize_field("rule_name", &self.rule_name)?;
+                s.end()
+            })
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct Results(Vec<RuleResult>);
 
 impl Results {
@@ -55,22 +110,23 @@ impl Results {
     pub fn is_err(&self) -> bool {
         self.0.iter().any(|r| r.result.is_err())
     }
+}
 
-    pub fn summary(&self) -> String {
-        self.0
-            .iter()
-            .map(|r| match r.result {
-                Ok(Evaluation::Accept) => format!("{}: Accept", r.rule_name),
-                Ok(Evaluation::Ignore(ref reason)) => {
-                    format!("{}: Ignore ({})", r.rule_name, reason)
-                }
-                Ok(Evaluation::Reject(ref reason)) => {
-                    format!("{}: Reject ({})", r.rule_name, reason)
-                }
-                Err(ref e) => format!("{}: Error ({})", r.rule_name, e),
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
+impl Error for Results {}
+
+impl Display for Results {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            self.0
+                .iter()
+                .map(|r| match r.result {
+                    Ok(ref e) => format!("{}: {}", r.rule_name, e),
+                    Err(ref e) => format!("{}: Error ({})", r.rule_name, e),
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+                .as_str(),
+        )
     }
 }
 
@@ -276,7 +332,7 @@ impl<T: Reader> RulesEngine<T> {
 }
 
 mod general {
-    use crate::rules::Evaluation::{Accept, Ignore, Reject};
+    use crate::rules::Evaluation::Accept;
     use crate::rules::{Evaluation, Rule, RuleContext};
     use crate::storage::Reader;
     use crate::types::PremintMetadata;
