@@ -436,7 +436,8 @@ fn gossipsub_message_id(message: &gossipsub::Message) -> gossipsub::MessageId {
         let s = String::from_utf8_lossy(&message.data);
         match PremintTypes::from_json(s.to_string()) {
             Ok(premint) => {
-                let hash = digest(premint.metadata().uri);
+                let metadata = premint.metadata();
+                let hash = digest(metadata.id);
                 gossipsub::MessageId::from(hash)
             }
             Err(_) => gossipsub::MessageId::from("likely_spam".to_string()),
