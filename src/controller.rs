@@ -128,7 +128,7 @@ impl Controller {
             }
             ControllerCommands::Broadcast { message, channel } => {
                 match self.validate_and_insert(message.clone()).await {
-                    Ok(result) => {
+                    Ok(_result) => {
                         if let Err(err) = self
                             .swarm_command_sender
                             .send(SwarmCommand::Broadcast { message })
