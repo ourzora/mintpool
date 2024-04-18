@@ -10,7 +10,7 @@ use serde::{Serialize, Serializer};
 
 use crate::chain_list::{ChainListProvider, CHAINS};
 use crate::config::Config;
-use crate::storage::Reader;
+use crate::storage::{PremintStorage, Reader};
 use crate::types::PremintTypes;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -449,7 +449,7 @@ mod test {
     use crate::premints::zora_premint_v2::types::ZoraPremintV2;
     use crate::rules::general::existing_token_uri;
     use crate::rules::Evaluation::{Accept, Reject};
-    use crate::storage::Writer;
+    use crate::storage::{PremintStorage, Writer};
     use crate::types::{Premint, SimplePremint};
 
     use super::*;

@@ -55,17 +55,20 @@ async fn test_list_all_premints() {
 
     let nodes = mintpool_build::gen_fully_connected_swarm(2310, num_nodes).await;
     let (first, nodes) = mintpool_build::split_first_rest(nodes).await;
-
+    let (snd, rcv) = tokio::sync::oneshot::channel();
     first
         .send_command(Broadcast {
             message: PremintTypes::ZoraV2(Default::default()),
+            channel: snd,
         })
         .await
         .unwrap();
+    let (snd, rcv) = tokio::sync::oneshot::channel();
 
     first
         .send_command(Broadcast {
             message: PremintTypes::Simple(SimplePremint::build_default()),
+            channel: snd,
         })
         .await
         .unwrap();
