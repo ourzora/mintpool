@@ -7,7 +7,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::middleware::from_fn_with_state;
 use axum::routing::{get, post};
-use axum::{Extension, Json, Router};
+use axum::{Json, Router};
 use serde::Serialize;
 use sqlx::SqlitePool;
 use tokio::net::TcpListener;
@@ -164,10 +164,9 @@ pub mod admin {
     use axum::extract::{Request, State};
     use axum::http::StatusCode;
     use axum::middleware::Next;
-    use axum::response::{IntoResponse, Response};
+    use axum::response::Response;
     use axum::Json;
-    use libp2p::swarm::NetworkInfo;
-    use serde::{Deserialize, Serialize};
+    use serde::Serialize;
 
     pub async fn auth_middleware(
         State(state): State<AppState>,
