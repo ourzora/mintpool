@@ -59,3 +59,28 @@ jobs:
         with:
           command: fmt
           args: -- --check
+
+  examples-compile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: seed
+        run: cargo install just && just ci
+
+      - name: Build
+        run: cargo build --examples

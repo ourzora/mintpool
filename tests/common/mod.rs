@@ -2,6 +2,7 @@ pub mod factories;
 pub mod mintpool_build {
     use mintpool::config::{ChainInclusionMode, Config};
     use mintpool::controller::{ControllerCommands, ControllerInterface};
+    use mintpool::rules::RulesEngine;
     use tokio::time;
 
     pub async fn announce_all(nodes: Vec<ControllerInterface>) {
@@ -53,7 +54,13 @@ pub mod mintpool_build {
         let mut nodes = Vec::new();
         for i in 0..num_nodes {
             let config = make_config(start_port + i, peer_limit);
-            let ctl = mintpool::run::start_services(&config).await.unwrap();
+
+            let ctl = mintpool::run::start_p2p_services(
+                &config,
+                RulesEngine::new_with_default_rules(&config),
+            )
+            .await
+            .unwrap();
             nodes.push(ctl);
         }
         nodes

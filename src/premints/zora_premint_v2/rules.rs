@@ -1,4 +1,3 @@
-use alloy::hex;
 use std::str::FromStr;
 
 use alloy_primitives::Signature;
