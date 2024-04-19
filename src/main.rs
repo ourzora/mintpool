@@ -25,8 +25,8 @@ async fn main() -> eyre::Result<()> {
     rules.add_default_rules();
     let ctl = start_p2p_services(&config, rules).await?;
 
-    let router = api::router_with_defaults().await;
-    api::start_api(&config, ctl.clone(), router).await?;
+    let router = api::router_with_defaults();
+    api::start_api(&config, ctl.clone(), router, true).await?;
 
     start_watch_chain::<ZoraPremintV2>(&config, ctl.clone()).await;
     if config.interactive {

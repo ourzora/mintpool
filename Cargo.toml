@@ -74,6 +74,7 @@ alloy-sol-macro = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", f
 url = "2.5.0"
 futures = "0.3.30"
 sha256 = "1.5.0"
+tower = "0.4.13"
 
 
 [patch.crates-io]

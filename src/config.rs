@@ -55,11 +55,17 @@ pub struct Config {
     #[envconfig(from = "EXTERNAL_ADDRESS")]
     pub external_address: Option<String>,
 
+    // if true interactive repl will run with node
     #[envconfig(from = "INTERACTIVE", default = "false")]
     pub interactive: bool,
 
+    // dictates if rpc will be used for rules evaluation
     #[envconfig(from = "ENABLE_RPC", default = "true")]
     pub enable_rpc: bool,
+
+    // secret key used to access admin api routes
+    #[envconfig(from = "ADMIN_API_SECRET")]
+    pub admin_api_secret: Option<String>,
 }
 
 impl Config {
@@ -82,6 +88,7 @@ impl Config {
             external_address: None,
             interactive: false,
             enable_rpc: true,
+            admin_api_secret: None,
         }
     }
 }
