@@ -227,7 +227,7 @@ macro_rules! metadata_rule {
                 &self,
                 item: &$crate::types::PremintTypes,
                 context: &$crate::rules::RuleContext<T>,
-            ) -> eyre::Result<crate::rules::Evaluation> {
+            ) -> eyre::Result<$crate::rules::Evaluation> {
                 $fn(&item.metadata(), context).await
             }
 
@@ -288,12 +288,21 @@ impl<T: Reader> RulesEngine<T> {
             use_rpc: config.enable_rpc,
         }
     }
+
     pub fn add_rule(&mut self, rule: Box<dyn Rule<T>>) {
         self.rules.push(rule);
     }
+
     pub fn add_default_rules(&mut self) {
         self.rules.extend(all_rules());
     }
+
+    pub fn new_with_default_rules(config: &Config) -> Self {
+        let mut engine = Self::new(config);
+        engine.add_default_rules();
+        engine
+    }
+
     pub async fn evaluate(&self, item: &PremintTypes, store: T) -> eyre::Result<Results> {
         let metadata = item.metadata();
         let existing = match store.get_for_id_and_kind(&metadata.id, metadata.kind).await {

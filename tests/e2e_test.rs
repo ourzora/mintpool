@@ -19,6 +19,7 @@ use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
 use mintpool::premints::zora_premint_v2::types::{
     IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
 };
+use mintpool::rules::RulesEngine;
 use mintpool::run;
 use mintpool::types::PremintTypes;
 use std::env;
@@ -66,7 +67,9 @@ async fn test_zora_premint_v2_e2e() {
     // set this so CHAINS will use the anvil rpc rather than the one in chains.json
     env::set_var("CHAIN_7777777_RPC_WSS", anvil.ws_endpoint());
 
-    let ctl = run::start_services(&config).await.unwrap();
+    let ctl = run::start_p2p_services(&config, RulesEngine::new_with_default_rules(&config))
+        .await
+        .unwrap();
     run::start_watch_chain::<ZoraPremintV2>(&config, ctl.clone()).await;
 
     // ============================================================================================

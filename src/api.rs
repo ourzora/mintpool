@@ -16,21 +16,34 @@ pub struct AppState {
     pub db: SqlitePool,
     pub controller: ControllerInterface,
 }
-pub async fn make_router(_config: &Config, controller: ControllerInterface) -> Router {
-    let (snd, recv) = tokio::sync::oneshot::channel();
-    controller
-        .send_command(ControllerCommands::Query(DBQuery::Direct(snd)))
-        .await
-        .unwrap();
-    let db = recv.await.unwrap().expect("Failed to get db");
+
+impl AppState {
+    pub async fn from(controller: ControllerInterface) -> Self {
+        let (snd, recv) = tokio::sync::oneshot::channel();
+        controller
+            .send_command(ControllerCommands::Query(DBQuery::Direct(snd)))
+            .await
+            .unwrap();
+        let db = recv.await.unwrap().expect("Failed to get db");
+        Self { db, controller }
+    }
+}
+
+pub async fn router_with_defaults() -> Router<AppState> {
     Router::new()
         .route("/health", get(health))
         .route("/list-all", get(list_all))
         .route("/submit-premint", post(submit_premint))
-        .with_state(AppState { db, controller })
+        .route("/submit-premintz", post(submit_premint))
 }
 
-pub async fn start_api(config: &Config, router: Router) -> eyre::Result<()> {
+pub async fn start_api(
+    config: &Config,
+    controller: ControllerInterface,
+    router: Router<AppState>,
+) -> eyre::Result<()> {
+    let app_state = AppState::from(controller).await;
+    let router = router.with_state(app_state);
     let addr = format!("{}:{}", config.initial_network_ip(), config.api_port);
     let listener = TcpListener::bind(addr.clone()).await.unwrap();
 

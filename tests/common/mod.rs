@@ -53,7 +53,7 @@ pub mod mintpool_build {
         let mut nodes = Vec::new();
         for i in 0..num_nodes {
             let config = make_config(start_port + i, peer_limit);
-            let ctl = mintpool::run::start_services(&config).await.unwrap();
+            let ctl = mintpool::run::start_p2p_services(&config).await.unwrap();
             nodes.push(ctl);
         }
         nodes
