@@ -43,6 +43,8 @@ pub mod mintpool_build {
             peer_port: port,
             interactive: false,
             enable_rpc: true,
+            admin_api_secret: None,
+            rate_limit_rps: 1,
         }
     }
 

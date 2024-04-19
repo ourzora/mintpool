@@ -92,6 +92,7 @@ impl Config {
             interactive: false,
             enable_rpc: true,
             admin_api_secret: None,
+            rate_limit_rps: 1,
         }
     }
 }
@@ -192,6 +193,8 @@ mod test {
             external_address: None,
             interactive: false,
             enable_rpc: true,
+            admin_api_secret: None,
+            rate_limit_rps: 1,
         };
 
         let names = config.premint_names();
@@ -216,6 +219,8 @@ mod test {
             external_address: None,
             interactive: false,
             enable_rpc: true,
+            admin_api_secret: None,
+            rate_limit_rps: 1,
         };
 
         let names = config.premint_names();

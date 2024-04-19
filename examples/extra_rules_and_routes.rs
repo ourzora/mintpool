@@ -35,7 +35,7 @@ async fn main() -> eyre::Result<()> {
         .route("/simple", get(my_simple_route))
         .route("/count", get(query_route));
 
-    start_api(&config, ctl.clone(), router).await?;
+    start_api(&config, ctl.clone(), router, true).await?;
 
     let mut sigint = signal(SignalKind::interrupt())?;
     let mut sigterm = signal(SignalKind::terminate())?;
