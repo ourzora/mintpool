@@ -34,7 +34,6 @@ pub async fn router_with_defaults() -> Router<AppState> {
         .route("/health", get(health))
         .route("/list-all", get(list_all))
         .route("/submit-premint", post(submit_premint))
-        .route("/submit-premintz", post(submit_premint))
 }
 
 pub async fn start_api(
