@@ -76,8 +76,10 @@ async fn test_zora_premint_v2_e2e() {
     // Push a message to the mintpool
     let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
 
+    let (send, _recv) = tokio::sync::oneshot::channel();
     ctl.send_command(ControllerCommands::Broadcast {
         message: PremintTypes::ZoraV2(premint),
+        channel: send,
     })
     .await
     .unwrap();

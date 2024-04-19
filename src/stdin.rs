@@ -122,12 +122,27 @@ async fn process_stdin_line(ctl: ControllerInterface, line: String) {
     } else {
         match PremintTypes::from_json(line) {
             Ok(premint) => {
+                let (snd, recv) = tokio::sync::oneshot::channel();
                 if let Err(err) = ctl
-                    .send_command(ControllerCommands::Broadcast { message: premint })
+                    .send_command(ControllerCommands::Broadcast {
+                        message: premint,
+                        channel: snd,
+                    })
                     .await
                 {
                     tracing::error!(error = err.to_string(), "Error sending broadcast command");
                 };
+                match recv.await {
+                    Ok(Ok(())) => {
+                        tracing::info!("Premint broadcasted successfully");
+                    }
+                    Ok(Err(e)) => {
+                        tracing::warn!("Error broadcasting premint: {:?}", e);
+                    }
+                    Err(e) => {
+                        tracing::error!("Error broadcasting premint: {:?}", e);
+                    }
+                }
             }
 
             Err(e) => {

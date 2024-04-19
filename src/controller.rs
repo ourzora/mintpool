@@ -41,6 +41,7 @@ pub enum ControllerCommands {
     AnnounceSelf,
     Broadcast {
         message: PremintTypes,
+        channel: oneshot::Sender<eyre::Result<()>>,
     },
     ReturnNodeInfo {
         channel: oneshot::Sender<MintpoolNodeInfo>,
@@ -125,16 +126,28 @@ impl Controller {
                     .send(SwarmCommand::AnnounceSelf)
                     .await?;
             }
-            ControllerCommands::Broadcast { message } => {
+            ControllerCommands::Broadcast { message, channel } => {
                 match self.validate_and_insert(message.clone()).await {
-                    Ok(_) => {
-                        self.swarm_command_sender
+                    Ok(_result) => {
+                        if let Err(err) = self
+                            .swarm_command_sender
                             .send(SwarmCommand::Broadcast { message })
-                            .await?;
+                            .await
+                        {
+                            channel
+                                .send(Err(eyre::eyre!("Error broadcasing premint: {:?}", err)))
+                                .map_err(|err| {
+                                    eyre::eyre!("error broadcasting via channel: {:?}", err)
+                                })?;
+                        } else {
+                            channel.send(Ok(())).map_err(|err| {
+                                eyre::eyre!("error broadcasting via channel: {:?}", err)
+                            })?;
+                        }
                     }
-                    Err(err) => {
-                        tracing::warn!("Invalid premint, not broadcasting: {:?}", err);
-                    }
+                    Err(err) => channel
+                        .send(Err(err))
+                        .map_err(|err| eyre::eyre!("error broadcasting via channel: {:?}", err))?,
                 }
             }
             ControllerCommands::ReturnNodeInfo { channel } => {

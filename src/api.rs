@@ -1,11 +1,13 @@
 use crate::config::Config;
 use crate::controller::{ControllerCommands, ControllerInterface, DBQuery};
+use crate::rules::Results;
 use crate::storage;
 use crate::types::PremintTypes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use serde::Serialize;
 use sqlx::SqlitePool;
 use tokio::net::TcpListener;
 
@@ -64,13 +66,59 @@ async fn health() -> &'static str {
 async fn submit_premint(
     State(state): State<AppState>,
     Json(premint): Json<PremintTypes>,
-) -> (StatusCode, String) {
+) -> (StatusCode, Json<APIResponse>) {
+    let (snd, recv) = tokio::sync::oneshot::channel();
     match state
         .controller
-        .send_command(ControllerCommands::Broadcast { message: premint })
+        .send_command(ControllerCommands::Broadcast {
+            message: premint,
+            channel: snd,
+        })
         .await
     {
-        Ok(()) => (StatusCode::OK, "Premint submitted".to_string()),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+        Ok(()) => match recv.await {
+            Ok(Ok(_)) => (
+                StatusCode::OK,
+                Json(APIResponse::Success {
+                    message: "Premint submitted".to_string(),
+                }),
+            ),
+            Ok(Err(e)) => match e.downcast_ref::<Results>() {
+                Some(res) => (
+                    StatusCode::BAD_REQUEST,
+                    Json(APIResponse::RulesError {
+                        evaluation: res.clone(),
+                    }),
+                ),
+                None => (
+                    StatusCode::BAD_REQUEST,
+                    Json(APIResponse::Error {
+                        message: e.to_string(),
+                    }),
+                ),
+            },
+            Err(e) => {
+                tracing::warn!("Failed to submit premint: {:?}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(APIResponse::Error {
+                        message: e.to_string(),
+                    }),
+                )
+            }
+        },
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(APIResponse::Error {
+                message: e.to_string(),
+            }),
+        ),
     }
+}
+
+#[derive(Serialize)]
+pub enum APIResponse {
+    RulesError { evaluation: Results },
+    Error { message: String },
+    Success { message: String },
 }

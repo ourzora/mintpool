@@ -315,6 +315,8 @@ impl SwarmController {
                 } else {
                     match serde_json::from_str::<PremintTypes>(&msg) {
                         Ok(premint) => {
+                            let id = premint.metadata().id;
+                            tracing::info!(id = id, "Received new premint");
                             self.event_sender
                                 .send(P2PEvent::PremintReceived(premint.clone()))
                                 .await
