@@ -9,17 +9,13 @@ use axum::http::StatusCode;
 use axum::middleware::from_fn_with_state;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use eyre::OptionExt;
 use serde::Serialize;
 use sqlx::SqlitePool;
-use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tower::{BoxError, ServiceBuilder};
-use tower_governor::governor::{GovernorConfig, GovernorConfigBuilder};
-use tower_governor::key_extractor::PeerIpKeyExtractor;
+use tower_governor::governor::GovernorConfigBuilder;
 use tower_governor::GovernorLayer;
-use tracing_subscriber::fmt::layer;
 
 #[derive(Clone)]
 pub struct AppState {
