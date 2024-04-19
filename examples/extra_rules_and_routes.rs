@@ -30,7 +30,7 @@ async fn main() -> eyre::Result<()> {
     let ctl = mintpool::run::start_p2p_services(&config, rules).await?;
 
     // Add some custom routes in addition to the defaults. You could also add middleware or anything else you can do with axum.
-    let mut router = mintpool::api::router_with_defaults();
+    let mut router = mintpool::api::router_with_defaults(&config);
     router = router
         .route("/simple", get(my_simple_route))
         .route("/count", get(query_route));

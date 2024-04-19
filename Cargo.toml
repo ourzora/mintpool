@@ -44,6 +44,13 @@ futures-util = "0.3"
 mini-moka = "0.10.3"
 axum = "0.7.5"
 reqwest = "0.12.3"
+url = "2.5.0"
+futures = "0.3.30"
+sha256 = "1.5.0"
+tower = { version = "0.4.13", features = ["full"] }
+tower_governor = { version = "0.3.2", features = ["axum"] }
+governor = { version = "0.6.0" }
+tower-http = { version = "0.5.2", features = ["cors", "compression-full", "trace"] }
 alloy = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", features = [
     "sol-types",
     "network",
@@ -71,10 +78,6 @@ alloy-core = { git = "https://github.com/alloy-rs/core", rev = "7574bfc" }
 alloy-sol-types = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["eip712-serde"] }
 alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["serde"] }
 alloy-sol-macro = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["json"] }
-url = "2.5.0"
-futures = "0.3.30"
-sha256 = "1.5.0"
-tower = "0.4.13"
 
 
 [patch.crates-io]

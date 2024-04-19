@@ -66,6 +66,9 @@ pub struct Config {
     // secret key used to access admin api routes
     #[envconfig(from = "ADMIN_API_SECRET")]
     pub admin_api_secret: Option<String>,
+
+    #[envconfig(from = "RATE_LIMIT_RPS", default = "2")]
+    pub rate_limit_rps: u32,
 }
 
 impl Config {

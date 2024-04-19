@@ -3,14 +3,23 @@ use crate::controller::{ControllerCommands, ControllerInterface, DBQuery};
 use crate::rules::Results;
 use crate::storage;
 use crate::types::PremintTypes;
+use axum::error_handling::HandleErrorLayer;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::middleware::from_fn_with_state;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use eyre::OptionExt;
 use serde::Serialize;
 use sqlx::SqlitePool;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::TcpListener;
+use tower::{BoxError, ServiceBuilder};
+use tower_governor::governor::{GovernorConfig, GovernorConfigBuilder};
+use tower_governor::key_extractor::PeerIpKeyExtractor;
+use tower_governor::GovernorLayer;
+use tracing_subscriber::fmt::layer;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -35,17 +44,52 @@ impl AppState {
     }
 }
 
-pub fn router_with_defaults() -> Router<AppState> {
+pub fn router_with_defaults(config: &Config) -> Router<AppState> {
+    let governor_conf = Box::new(
+        GovernorConfigBuilder::default()
+            .per_second(1)
+            .burst_size(config.rate_limit_rps)
+            .finish()
+            .unwrap(),
+    );
+    // rate limiter annoyingly needs a process to clean up the state
+    // a separate background task to clean up
+    let governor_limiter = governor_conf.limiter().clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            governor_limiter.retain_recent();
+        }
+    });
+
     Router::new()
         .route("/health", get(health))
         .route("/list-all", get(list_all))
         .route("/submit-premint", post(submit_premint))
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(|error: BoxError| async move {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Unhandled error: {:?}", error),
+                    )
+                }))
+                .layer(tower_http::trace::TraceLayer::new_for_http())
+                .layer(tower::timeout::TimeoutLayer::new(Duration::from_secs(10)))
+                .layer(tower_http::cors::CorsLayer::new().allow_origin(tower_http::cors::Any))
+                .layer(tower_http::compression::CompressionLayer::new().gzip(true)),
+        )
+        .layer(GovernorLayer {
+            config: Box::leak(governor_conf),
+        })
 }
 
 fn with_admin_routes(state: AppState, router: Router<AppState>) -> Router<AppState> {
     let admin = Router::new()
         .route("/admin/node", get(admin::node_info))
         .route("/admin/add-peer", post(admin::add_peer))
+        // admin submit premint route is not rate limited (allows for operator to send high volume of premints)
+        .route("/admin/submit-premint", post(submit_premint))
         .layer(from_fn_with_state(state, admin::auth_middleware));
 
     router.merge(admin)
