@@ -66,6 +66,9 @@ pub struct Config {
     // secret key used to access admin api routes
     #[envconfig(from = "ADMIN_API_SECRET")]
     pub admin_api_secret: Option<String>,
+
+    #[envconfig(from = "RATE_LIMIT_RPS", default = "2")]
+    pub rate_limit_rps: u32,
 }
 
 impl Config {
@@ -89,6 +92,7 @@ impl Config {
             interactive: false,
             enable_rpc: true,
             admin_api_secret: None,
+            rate_limit_rps: 1,
         }
     }
 }
@@ -189,6 +193,8 @@ mod test {
             external_address: None,
             interactive: false,
             enable_rpc: true,
+            admin_api_secret: None,
+            rate_limit_rps: 1,
         };
 
         let names = config.premint_names();
@@ -213,6 +219,8 @@ mod test {
             external_address: None,
             interactive: false,
             enable_rpc: true,
+            admin_api_secret: None,
+            rate_limit_rps: 1,
         };
 
         let names = config.premint_names();

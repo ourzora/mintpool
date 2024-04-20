@@ -62,6 +62,8 @@ async fn test_zora_premint_v2_e2e() {
         external_address: None,
         interactive: false,
         enable_rpc: true,
+        admin_api_secret: None,
+        rate_limit_rps: 1,
     };
 
     // set this so CHAINS will use the anvil rpc rather than the one in chains.json
