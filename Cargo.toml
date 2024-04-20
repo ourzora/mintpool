@@ -48,8 +48,6 @@ url = "2.5.0"
 futures = "0.3.30"
 sha256 = "1.5.0"
 tower = { version = "0.4.13", features = ["full"] }
-tower_governor = { version = "0.3.2", features = ["axum"] }
-governor = { version = "0.6.0" }
 tower-http = { version = "0.5.2", features = ["cors", "compression-full", "trace"] }
 alloy = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", features = [
     "sol-types",

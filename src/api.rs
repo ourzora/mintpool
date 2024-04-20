@@ -14,8 +14,6 @@ use sqlx::SqlitePool;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tower::{BoxError, ServiceBuilder};
-use tower_governor::governor::GovernorConfigBuilder;
-use tower_governor::GovernorLayer;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -32,6 +30,7 @@ impl AppState {
             .await
             .unwrap();
         let db = recv.await.unwrap().expect("Failed to get db");
+
         Self {
             db,
             controller,
@@ -41,23 +40,6 @@ impl AppState {
 }
 
 pub fn router_with_defaults(config: &Config) -> Router<AppState> {
-    let governor_conf = Box::new(
-        GovernorConfigBuilder::default()
-            .per_second(1)
-            .burst_size(config.rate_limit_rps)
-            .finish()
-            .unwrap(),
-    );
-    // rate limiter annoyingly needs a process to clean up the state
-    // a separate background task to clean up
-    let governor_limiter = governor_conf.limiter().clone();
-    tokio::spawn(async move {
-        loop {
-            tokio::time::sleep(Duration::from_secs(60)).await;
-            governor_limiter.retain_recent();
-        }
-    });
-
     Router::new()
         .route("/health", get(health))
         .route("/list-all", get(list_all))
@@ -75,12 +57,9 @@ pub fn router_with_defaults(config: &Config) -> Router<AppState> {
                 .layer(tower_http::cors::CorsLayer::new().allow_origin(tower_http::cors::Any))
                 .layer(tower_http::compression::CompressionLayer::new().gzip(true)),
         )
-        .layer(GovernorLayer {
-            config: Box::leak(governor_conf),
-        })
 }
 
-fn with_admin_routes(state: AppState, router: Router<AppState>) -> Router<AppState> {
+pub fn with_admin_routes(state: AppState, router: Router<AppState>) -> Router<AppState> {
     let admin = Router::new()
         .route("/admin/node", get(admin::node_info))
         .route("/admin/add-peer", post(admin::add_peer))
