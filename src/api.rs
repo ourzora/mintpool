@@ -5,6 +5,7 @@ use crate::storage;
 use crate::types::PremintTypes;
 use axum::error_handling::HandleErrorLayer;
 use axum::extract::State;
+use axum::handler::Handler;
 use axum::http::StatusCode;
 use axum::middleware::from_fn_with_state;
 use axum::routing::{get, post};
@@ -13,6 +14,8 @@ use serde::Serialize;
 use sqlx::SqlitePool;
 use std::time::Duration;
 use tokio::net::TcpListener;
+use tower::buffer::BufferLayer;
+use tower::limit::RateLimitLayer;
 use tower::{BoxError, ServiceBuilder};
 
 #[derive(Clone)]
@@ -44,6 +47,17 @@ pub fn router_with_defaults(config: &Config) -> Router<AppState> {
         .route("/health", get(health))
         .route("/list-all", get(list_all))
         .route("/submit-premint", post(submit_premint))
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(|error: BoxError| async move {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Unhandled error: {:?}", error),
+                    )
+                }))
+                .layer(BufferLayer::new(10000))
+                .layer(RateLimitLayer::new(60, Duration::from_secs(60))),
+        )
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(|error: BoxError| async move {
