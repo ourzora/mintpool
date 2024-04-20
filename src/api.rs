@@ -179,20 +179,6 @@ pub enum APIResponse {
     Success { message: String },
 }
 
-pub mod middleware {
-    use crate::api::AppState;
-    use axum::extract::{Request, State};
-    use axum::middleware::Next;
-    use axum::response::Response;
-
-    pub async fn rate_limiter(
-        State(state): State<AppState>,
-        request: Request,
-        next: Next,
-    ) -> Response {
-    }
-}
-
 pub mod admin {
     use crate::api::{APIResponse, AppState};
     use crate::controller::ControllerCommands;
