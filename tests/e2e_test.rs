@@ -426,6 +426,7 @@ async fn test_verify_e2e() {
     // ============================================================================================
     // Confirm is either marked as pruned or removed from both DB
     // node2 should have pruned using verify
+    // node3 should have pruned using check
     // ============================================================================================
     let (send, recv) = tokio::sync::oneshot::channel();
     ctl1.send_command(ControllerCommands::Query(DBQuery::ListAll(send)))
