@@ -80,6 +80,7 @@ alloy-sol-types = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", f
 alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["serde"] }
 alloy-sol-macro = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["json"] }
 chrono = { version = "0.4.38", features = ["serde"] }
+paste = "1.0.14"
 
 
 

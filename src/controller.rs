@@ -1,4 +1,4 @@
-use crate::config::ChainInclusionMode;
+use crate::config::{ChainInclusionMode, Config};
 use eyre::WrapErr;
 use sqlx::SqlitePool;
 use tokio::select;
@@ -7,7 +7,7 @@ use tokio::sync::{mpsc, oneshot};
 use crate::p2p::NetworkState;
 use crate::rules::{Evaluation, Results, RuleContext, RulesEngine};
 use crate::storage::{PremintStorage, Reader, Writer};
-use crate::types::{InclusionClaim, MintpoolNodeInfo, PremintTypes};
+use crate::types::{InclusionClaim, MintpoolNodeInfo, PremintName, PremintTypes};
 
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
@@ -70,6 +70,7 @@ pub struct Controller {
 
 impl Controller {
     pub fn new(
+        config: &Config,
         swarm_command_sender: mpsc::Sender<SwarmCommand>,
         swarm_event_receiver: mpsc::Receiver<P2PEvent>,
         external_commands: mpsc::Receiver<ControllerCommands>,
@@ -82,6 +83,8 @@ impl Controller {
             external_commands,
             store,
             rules,
+            trusted_peers: config.trusted_peers(),
+            inclusion_mode: config.chain_inclusion_mode,
         }
     }
 
@@ -113,7 +116,24 @@ impl Controller {
             }
             P2PEvent::MintSeenOnchain(claim) => {
                 // Check or trust
-                self
+                match self.inclusion_mode {
+                    ChainInclusionMode::Check | ChainInclusionMode::Verify => {
+                        match self
+                            .store
+                            .get_for_id_and_kind(&claim.premint_id, PremintName(claim.kind))
+                            .await
+                        {
+                            Ok(premint) => premint,
+                            Err(err) => {
+                                tracing::warn!(
+                                    "Error getting premint for onchain claim: {:?}",
+                                    err
+                                );
+                            }
+                        }
+                    }
+                    ChainInclusionMode::Trust => {}
+                }
             }
         }
     }

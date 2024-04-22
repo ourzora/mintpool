@@ -3427,6 +3427,7 @@ dependencies = [
  "libp2p",
  "mini-moka",
  "once_cell",
+ "paste",
  "rand",
  "regex",
  "reqwest",

@@ -9,7 +9,7 @@ use futures_util::StreamExt;
 use crate::chain_list::{ChainListProvider, CHAINS};
 use crate::controller::{ControllerCommands, ControllerInterface};
 use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
-use crate::types::Premint;
+use crate::types::{InclusionClaim, Premint};
 
 pub async fn contract_call<T>(call: T, provider: &Arc<ChainListProvider>) -> eyre::Result<T::Return>
 where
@@ -114,4 +114,21 @@ impl MintChecker {
     async fn make_provider(&self) -> eyre::Result<Arc<ChainListProvider>> {
         CHAINS.get_rpc(self.chain_id).await
     }
+}
+
+/// checks the chain to ensure an inclusion claim actually does exist so we can safely prune
+pub async fn inclusion_claim_correct(claim: InclusionClaim) -> eyre::Result<bool> {
+    let chain = CHAINS.get_rpc(claim.chain_id).await?;
+    let tx = chain
+        .get_transaction_receipt(claim.tx_hash)
+        .await?
+        .ok_or(eyre::eyre!("transaction not found"))?;
+
+    let log = tx
+        .inner
+        .logs()
+        .get(claim.log_index as usize)
+        .ok_or(eyre::eyre!("log index not found: {}", claim.log_index))?;
+
+    todo!();
 }

@@ -1,8 +1,9 @@
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
-use alloy::rpc::types::eth::{Filter, Log, Transaction};
+use alloy::rpc::types::eth::{Filter, Log, Transaction, TransactionReceipt};
 use alloy_primitives::{Address, B256, U256};
 use async_trait::async_trait;
 use libp2p::{gossipsub, Multiaddr, PeerId};
+use paste::paste;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -39,7 +40,13 @@ pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
     fn check_filter(chain_id: u64) -> Option<Filter>;
     fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim>;
-    async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool;
+    async fn verify_claim(
+        &self,
+        chain_id: u64,
+        tx: TransactionReceipt,
+        log: Log,
+        claim: InclusionClaim,
+    ) -> bool;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -62,14 +69,33 @@ impl PremintTypes {
     }
 }
 
-impl PremintTypes {
-    pub fn metadata(&self) -> PremintMetadata {
-        match self {
-            PremintTypes::Simple(p) => p.metadata(),
-            PremintTypes::ZoraV2(p) => p.metadata(),
+macro_rules! every_arm_fn {
+
+    (PremintTypes, fn $fn:ident($($arg:ident: $arg_type:ty),*) -> $return:ty) => {
+        impl PremintTypes {
+            pub async fn $fn(&self, $($arg: $arg_type),*) -> $return {
+                match self {
+                    PremintTypes::Simple(p) => p.$fn($($arg),*),
+                    PremintTypes::ZoraV2(p) => p.$fn($($arg),*),
+                }
+            }
         }
-    }
+    };
+
+    (PremintTypes, async fn $fn:ident($($arg:ident: $arg_type:ty),*) -> $return:ty) => {
+        impl PremintTypes {
+            pub async fn $fn(&self, $($arg: $arg_type),*) -> $return {
+                match self {
+                    PremintTypes::Simple(p) => p.$fn($($arg),*).await,
+                    PremintTypes::ZoraV2(p) => p.$fn($($arg),*).await,
+                }
+            }
+        }
+    };
 }
+
+every_arm_fn!(PremintTypes, fn metadata() -> PremintMetadata);
+every_arm_fn!(PremintTypes, async fn verify_claim(chain_id: u64, tx: TransactionReceipt, log: Log, claim: InclusionClaim) -> bool);
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct SimplePremint {
@@ -117,7 +143,7 @@ impl Premint for SimplePremint {
 
     async fn verify_claim(
         _chain_id: u64,
-        _tx: Transaction,
+        _tx: TransactionReceipt,
         _log: Log,
         _claim: InclusionClaim,
     ) -> bool {
