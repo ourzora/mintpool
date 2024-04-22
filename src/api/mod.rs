@@ -81,14 +81,20 @@ pub fn with_admin_routes(state: AppState, router: Router<AppState>) -> Router<Ap
         .route("/admin/add-peer", post(admin::add_peer))
         // admin submit premint route is not rate limited (allows for operator to send high volume of premints)
         .route("/admin/submit-premint", post(routes::submit_premint))
-        .layer(from_fn_with_state(state, admin::auth_middleware));
-    // .layer(
-    //     ServiceBuilder::new()
-    //         .layer(tower_http::trace::TraceLayer::new_for_http())
-    //         .layer(tower::timeout::TimeoutLayer::new(Duration::from_secs(10)))
-    //         .layer(tower_http::cors::CorsLayer::new().allow_origin(tower_http::cors::Any))
-    //         .layer(tower_http::compression::CompressionLayer::new().gzip(true)),
-    // );
+        .layer(from_fn_with_state(state, admin::auth_middleware))
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(|error: BoxError| async move {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Unhandled error: {:?}", error),
+                    )
+                }))
+                .layer(tower_http::trace::TraceLayer::new_for_http())
+                .layer(tower::timeout::TimeoutLayer::new(Duration::from_secs(10)))
+                .layer(tower_http::cors::CorsLayer::new().allow_origin(tower_http::cors::Any))
+                .layer(tower_http::compression::CompressionLayer::new().gzip(true)),
+        );
 
     router.merge(admin)
 }
