@@ -313,6 +313,7 @@ fn build_query(options: &QueryOptions) -> QueryBuilder<Sqlite> {
 #[cfg(test)]
 mod test {
     use alloy_primitives::Address;
+    use chrono::Utc;
     use sqlx::Row;
 
     use crate::config::Config;
@@ -466,6 +467,8 @@ mod test {
                 kind: Some("simple".to_string()),
                 collection_address: None,
                 creator_address: None,
+                from: None,
+                to: Some(Utc::now()),
             },
         )
         .await
