@@ -2,12 +2,14 @@ use crate::config::Config;
 use crate::controller::{P2PEvent, SwarmCommand};
 use crate::types::{MintpoolNodeInfo, Premint, PremintName, PremintTypes};
 use eyre::WrapErr;
+use futures_ticker::Ticker;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
 use libp2p::gossipsub::Version;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::MemoryStore;
-use libp2p::kad::Addresses;
+use libp2p::kad::GetProvidersOk::FoundProviders;
+use libp2p::kad::{Addresses, GetProvidersOk, QueryResult, RecordKey};
 use libp2p::multiaddr::Protocol;
 use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
 use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr, PeerId};
@@ -31,6 +33,7 @@ pub struct SwarmController {
     max_peers: u64,
     local_mode: bool,
     premint_names: Vec<PremintName>,
+    discover_ticker: Ticker,
 }
 
 impl SwarmController {
@@ -66,6 +69,7 @@ impl SwarmController {
             max_peers: config.peer_limit,
             local_mode: !config.connect_external,
             premint_names: config.premint_names(),
+            discover_ticker: Ticker::new(Duration::from_secs(60)),
         }
     }
 
@@ -148,6 +152,9 @@ impl SwarmController {
                     }
                 }
                 event = self.swarm.select_next_some() => self.handle_swarm_event(event).await,
+                _tick = self.discover_ticker.next() => {
+                    self.swarm.behaviour_mut().kad.get_providers(RecordKey::new(&"mintpool::gossip"));
+                },
             }
         }
     }
@@ -263,6 +270,27 @@ impl SwarmController {
             SwarmEvent::Dialing { peer_id, .. } => {
                 tracing::info!("Dialing: {:?}", peer_id)
             }
+
+            SwarmEvent::ExternalAddrConfirmed { address } => {
+                match self
+                    .swarm
+                    .behaviour_mut()
+                    .kad
+                    .start_providing(RecordKey::new(&"mintpool::gossip"))
+                {
+                    Ok(id) => {
+                        tracing::info!(
+                            "Providing external address: {:?} (QueryID: {:?})",
+                            address,
+                            id
+                        );
+                    }
+                    Err(err) => {
+                        tracing::error!("Error providing external address: {:?}", err);
+                    }
+                }
+            }
+
             other => {
                 tracing::debug!("Unhandled swarm event: {:?}", other)
             }
@@ -366,6 +394,40 @@ impl SwarmController {
                     addresses
                 );
             }
+            kad::Event::OutboundQueryProgressed {
+                result: QueryResult::GetProviders(Ok(providers)),
+                ..
+            } => match providers {
+                FoundProviders { providers, .. } => {
+                    for peer in providers {
+                        tracing::info!("Found provider: {:?}", peer);
+
+                        // lookup address in kad routing table
+                        let addresses =
+                            self.swarm
+                                .behaviour_mut()
+                                .kad
+                                .kbuckets()
+                                .find_map(|bucket| {
+                                    bucket.iter().find_map(|entry| {
+                                        if entry.node.key.preimage() == &peer {
+                                            Some(entry.node.value.clone())
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                });
+
+                        // try to connect all known addresses
+                        if let Some(addresses) = addresses {
+                            for address in addresses.iter() {
+                                self.safe_dial(address.clone()).await;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            },
             other => {
                 tracing::info!("Kad event: {:?}", other);
             }
