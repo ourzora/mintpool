@@ -403,6 +403,8 @@ mod test {
                 kind: Some("zora_premint_v2".to_string()),
                 collection_address: Some(Address::default()),
                 creator_address: None,
+                from: None,
+                to: None,
             },
         )
         .await
@@ -419,6 +421,8 @@ mod test {
                 kind: None,
                 collection_address: None,
                 creator_address: None,
+                from: None,
+                to: None,
             },
         )
         .await
@@ -432,6 +436,8 @@ mod test {
                 kind: Some("simple".to_string()),
                 collection_address: None,
                 creator_address: None,
+                from: None,
+                to: None,
             },
         )
         .await
