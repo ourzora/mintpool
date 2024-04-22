@@ -1,3 +1,6 @@
+// pub mod admin;
+pub mod routes;
+
 use crate::config::Config;
 use crate::controller::{ControllerCommands, ControllerInterface, DBQuery};
 use crate::rules::Results;
@@ -43,9 +46,9 @@ impl AppState {
 
 pub fn router_with_defaults(config: &Config) -> Router<AppState> {
     Router::new()
-        .route("/health", get(health))
-        .route("/list-all", get(list_all))
-        .route("/submit-premint", post(submit_premint))
+        .route("/health", get(routes::health))
+        .route("/list-all", get(routes::list_all))
+        .route("/submit-premint", post(routes::submit_premint))
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(|error: BoxError| async move {
@@ -77,8 +80,15 @@ pub fn with_admin_routes(state: AppState, router: Router<AppState>) -> Router<Ap
         .route("/admin/node", get(admin::node_info))
         .route("/admin/add-peer", post(admin::add_peer))
         // admin submit premint route is not rate limited (allows for operator to send high volume of premints)
-        .route("/admin/submit-premint", post(submit_premint))
+        .route("/admin/submit-premint", post(routes::submit_premint))
         .layer(from_fn_with_state(state, admin::auth_middleware));
+    // .layer(
+    //     ServiceBuilder::new()
+    //         .layer(tower_http::trace::TraceLayer::new_for_http())
+    //         .layer(tower::timeout::TimeoutLayer::new(Duration::from_secs(10)))
+    //         .layer(tower_http::cors::CorsLayer::new().allow_origin(tower_http::cors::Any))
+    //         .layer(tower_http::compression::CompressionLayer::new().gzip(true)),
+    // );
 
     router.merge(admin)
 }
@@ -108,88 +118,10 @@ pub async fn start_api(
     Ok(())
 }
 
-async fn list_all(
-    State(state): State<AppState>,
-) -> Result<Json<Vec<PremintTypes>>, (StatusCode, String)> {
-    match storage::list_all(&state.db).await {
-        Ok(premints) => Ok(Json(premints)),
-        Err(_e) => {
-            tracing::warn!("Failed to list all premints: {:?}", _e);
-
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to list all premints".to_string(),
-            ))
-        }
-    }
-}
-
-async fn health() -> &'static str {
-    "OK"
-}
-
-async fn submit_premint(
-    State(state): State<AppState>,
-    Json(premint): Json<PremintTypes>,
-) -> (StatusCode, Json<APIResponse>) {
-    let (snd, recv) = tokio::sync::oneshot::channel();
-    match state
-        .controller
-        .send_command(ControllerCommands::Broadcast {
-            message: premint,
-            channel: snd,
-        })
-        .await
-    {
-        Ok(()) => match recv.await {
-            Ok(Ok(_)) => (
-                StatusCode::OK,
-                Json(APIResponse::Success {
-                    message: "Premint submitted".to_string(),
-                }),
-            ),
-            Ok(Err(e)) => match e.downcast_ref::<Results>() {
-                Some(res) => (
-                    StatusCode::BAD_REQUEST,
-                    Json(APIResponse::RulesError {
-                        evaluation: res.clone(),
-                    }),
-                ),
-                None => (
-                    StatusCode::BAD_REQUEST,
-                    Json(APIResponse::Error {
-                        message: e.to_string(),
-                    }),
-                ),
-            },
-            Err(e) => {
-                tracing::warn!("Failed to submit premint: {:?}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(APIResponse::Error {
-                        message: e.to_string(),
-                    }),
-                )
-            }
-        },
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(APIResponse::Error {
-                message: e.to_string(),
-            }),
-        ),
-    }
-}
-
-#[derive(Serialize)]
-pub enum APIResponse {
-    RulesError { evaluation: Results },
-    Error { message: String },
-    Success { message: String },
-}
-
 pub mod admin {
-    use crate::api::{APIResponse, AppState};
+
+    use crate::api::routes::APIResponse;
+    use crate::api::AppState;
     use crate::controller::ControllerCommands;
     use crate::p2p::NetworkState;
     use axum::body::Body;

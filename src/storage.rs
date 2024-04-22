@@ -1,13 +1,13 @@
-use std::str::FromStr;
-
-use async_trait::async_trait;
-use eyre::WrapErr;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::Row;
-use sqlx::SqlitePool;
-
 use crate::config::Config;
 use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
+use alloy_primitives::Address;
+use async_trait::async_trait;
+use eyre::WrapErr;
+use serde::Deserialize;
+use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::Row;
+use sqlx::{Encode, QueryBuilder, Sqlite, SqlitePool};
+use std::str::FromStr;
 
 async fn init_db(config: &Config) -> SqlitePool {
     let expect_msg =
@@ -223,13 +223,104 @@ pub async fn list_all(db: &SqlitePool) -> eyre::Result<Vec<PremintTypes>> {
     Ok(premints)
 }
 
+#[derive(Deserialize)]
+pub struct QueryOptions {
+    pub chain_id: Option<u64>,
+    pub kind: Option<String>,
+    pub collection_address: Option<Address>,
+    pub creator_address: Option<Address>,
+    pub from: Option<chrono::DateTime<chrono::Utc>>,
+    pub to: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+pub async fn list_all_with_options(
+    db: &SqlitePool,
+    options: &QueryOptions,
+) -> eyre::Result<Vec<PremintTypes>> {
+    let mut query = build_query(options);
+
+    let rows = query
+        .build()
+        .fetch_all(db)
+        .await
+        .map_err(|e| eyre::eyre!("Failed to list all premints: {}", e))?;
+
+    let premints = rows
+        .iter()
+        .map(|row| {
+            let json: String = row.get("json");
+            PremintTypes::from_json(json)
+        })
+        .filter_map(|i| match i {
+            Ok(p) => Some(p),
+            Err(e) => {
+                tracing::warn!("Failed to deserialize premint in db: {}", e);
+                None
+            }
+        })
+        .collect();
+
+    Ok(premints)
+}
+
+pub async fn get_one(db: &SqlitePool, options: &QueryOptions) -> eyre::Result<PremintTypes> {
+    let mut query = build_query(options);
+
+    let row = query
+        .build()
+        .fetch_one(db)
+        .await
+        .map_err(|e| eyre::eyre!("Failed to list all premints: {}", e))?;
+
+    let json = row.get("json");
+    let premint = PremintTypes::from_json(json)?;
+
+    Ok(premint)
+}
+
+fn build_query(options: &QueryOptions) -> QueryBuilder<Sqlite> {
+    let mut query_build =
+        QueryBuilder::<Sqlite>::new("SELECT json FROM premints WHERE seen_on_chain = false");
+
+    if let Some(kind) = options.kind.clone() {
+        query_build.push(" AND kind = ");
+        query_build.push_bind(kind);
+    }
+    if let Some(chain_id) = options.chain_id {
+        query_build.push(" AND chain_id = ");
+        query_build.push_bind(chain_id as i64);
+    }
+    if let Some(collection_address) = options.collection_address {
+        query_build.push(" AND collection_address = ");
+        query_build.push_bind(collection_address.to_string());
+    }
+    if let Some(creator_address) = options.creator_address {
+        query_build.push(" AND signer = ");
+        query_build.push_bind(creator_address.to_string());
+    }
+    if let Some(from) = options.from {
+        query_build.push(" AND created_at >= ");
+        query_build.push_bind(from);
+    }
+    if let Some(to) = options.to {
+        query_build.push(" AND created_at <= ");
+        query_build.push_bind(to);
+    }
+
+    query_build
+}
+
 #[cfg(test)]
 mod test {
+    use alloy_primitives::Address;
     use sqlx::Row;
 
     use crate::config::Config;
     use crate::premints::zora_premint_v2::types::ZoraPremintV2;
-    use crate::storage::{PremintStorage, Reader, Writer};
+    use crate::storage;
+    use crate::storage::{
+        list_all, list_all_with_options, PremintStorage, QueryOptions, Reader, Writer,
+    };
     use crate::types::{InclusionClaim, Premint, PremintTypes};
 
     #[tokio::test]
@@ -261,9 +352,8 @@ mod test {
         }
 
         // second should fail
-        match store.store(premint.clone()).await {
-            Ok(_) => panic!("Should not have been able to store premint with same ID"),
-            Err(_) => {}
+        if let Ok(_) = store.store(premint.clone()).await {
+            panic!("Should not have been able to store premint with same ID")
         }
 
         // now let's try to update
@@ -293,6 +383,88 @@ mod test {
 
         let all = store.list_all().await.unwrap();
         assert_eq!(vec![premint_v2, premint_simple], all);
+    }
+
+    #[tokio::test]
+    async fn test_list_all_with_options() {
+        let config = Config::test_default();
+
+        let store = PremintStorage::new(&config).await;
+
+        let premint_v2 = PremintTypes::ZoraV2(Default::default());
+        store.store(premint_v2.clone()).await.unwrap();
+        let premint_simple = PremintTypes::Simple(Default::default());
+        store.store(premint_simple.clone()).await.unwrap();
+
+        let all = list_all_with_options(
+            &store.db,
+            &QueryOptions {
+                chain_id: Some(0),
+                kind: Some("zora_premint_v2".to_string()),
+                collection_address: Some(Address::default()),
+                creator_address: None,
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(vec![premint_v2.clone()], all);
+
+        let res = list_all(&store.db).await.unwrap();
+        assert_eq!(res.len(), 2);
+
+        let all = list_all_with_options(
+            &store.db,
+            &QueryOptions {
+                chain_id: Some(0),
+                kind: None,
+                collection_address: None,
+                creator_address: None,
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(vec![premint_v2.clone(), premint_simple.clone()], all);
+
+        let all = list_all_with_options(
+            &store.db,
+            &QueryOptions {
+                chain_id: None,
+                kind: Some("simple".to_string()),
+                collection_address: None,
+                creator_address: None,
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(vec![premint_simple.clone()], all);
+    }
+
+    #[tokio::test]
+    async fn test_get_one() {
+        let config = Config::test_default();
+
+        let store = PremintStorage::new(&config).await;
+
+        let premint_v2 = PremintTypes::ZoraV2(Default::default());
+        store.store(premint_v2.clone()).await.unwrap();
+        let premint_simple = PremintTypes::Simple(Default::default());
+        store.store(premint_simple.clone()).await.unwrap();
+
+        let all = store.list_all().await.unwrap();
+        assert_eq!(all.len(), 2);
+
+        let retrieved = storage::get_one(
+            &store.db,
+            &QueryOptions {
+                chain_id: Some(0),
+                kind: Some("simple".to_string()),
+                collection_address: None,
+                creator_address: None,
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(retrieved, premint_simple);
     }
 
     #[tokio::test]
