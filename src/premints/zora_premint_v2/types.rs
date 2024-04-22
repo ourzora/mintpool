@@ -135,6 +135,7 @@ impl Premint for ZoraPremintV2 {
     }
 
     async fn verify_claim(
+        &self,
         chain_id: u64,
         tx: TransactionReceipt,
         log: Log,
@@ -152,6 +153,8 @@ impl Premint for ZoraPremintV2 {
                     claim.premint_id == Self::event_to_guid(chain_id, &event),
                     claim.kind == *"zora_premint_v2",
                     claim.chain_id == chain_id,
+                    self.collection_address == event.contractAddress,
+                    self.premint.uid == event.uid,
                 ];
 
                 // confirm all conditions are true

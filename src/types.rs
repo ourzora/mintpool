@@ -2,19 +2,27 @@ use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 use alloy::rpc::types::eth::{Filter, Log, Transaction, TransactionReceipt};
 use alloy_primitives::{Address, B256, U256};
 use async_trait::async_trait;
+use libp2p::gossipsub::TopicHash;
 use libp2p::{gossipsub, Multiaddr, PeerId};
-use paste::paste;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PremintName(pub String);
 
 impl PremintName {
     pub fn msg_topic(&self) -> gossipsub::IdentTopic {
         gossipsub::IdentTopic::new(format!("mintpool::premint::{:?}", self))
     }
+
+    pub fn claims_topic(&self) -> gossipsub::IdentTopic {
+        gossipsub::IdentTopic::new(format!("chain::claims::{:?}", self))
+    }
+}
+
+pub fn claims_topic_hashes(names: Vec<PremintName>) -> Vec<TopicHash> {
+    names.iter().map(|n| n.claims_topic().hash()).collect()
 }
 
 #[derive(Debug)]
@@ -73,7 +81,7 @@ macro_rules! every_arm_fn {
 
     (PremintTypes, fn $fn:ident($($arg:ident: $arg_type:ty),*) -> $return:ty) => {
         impl PremintTypes {
-            pub async fn $fn(&self, $($arg: $arg_type),*) -> $return {
+            pub fn $fn(&self, $($arg: $arg_type),*) -> $return {
                 match self {
                     PremintTypes::Simple(p) => p.$fn($($arg),*),
                     PremintTypes::ZoraV2(p) => p.$fn($($arg),*),
@@ -142,6 +150,7 @@ impl Premint for SimplePremint {
     }
 
     async fn verify_claim(
+        &self,
         _chain_id: u64,
         _tx: TransactionReceipt,
         _log: Log,
@@ -158,6 +167,12 @@ pub struct InclusionClaim {
     pub tx_hash: B256,
     pub log_index: u64,
     pub kind: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PeerInclusionClaim {
+    pub claim: InclusionClaim,
+    pub from_peer_id: PeerId,
 }
 
 #[cfg(test)]

@@ -29,7 +29,14 @@ pub async fn start_p2p_services(
     let store = PremintStorage::new(config).await;
 
     let mut swarm_controller = SwarmController::new(id_keys, config, swrm_recv, event_send);
-    let mut controller = Controller::new(swrm_cmd_send, event_recv, ext_cmd_recv, store, rules);
+    let mut controller = Controller::new(
+        &config,
+        swrm_cmd_send,
+        event_recv,
+        ext_cmd_recv,
+        store,
+        rules,
+    );
     let controller_interface = ControllerInterface::new(ext_cmd_send);
 
     let node_info = swarm_controller.node_info();

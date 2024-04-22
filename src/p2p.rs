@@ -1,6 +1,9 @@
 use crate::config::Config;
 use crate::controller::{P2PEvent, SwarmCommand};
-use crate::types::{MintpoolNodeInfo, Premint, PremintName, PremintTypes};
+use crate::types::{
+    claims_topic_hashes, InclusionClaim, MintpoolNodeInfo, PeerInclusionClaim, Premint,
+    PremintName, PremintTypes,
+};
 use eyre::WrapErr;
 use futures_ticker::Ticker;
 use libp2p::core::ConnectedPoint;
@@ -124,6 +127,7 @@ impl SwarmController {
         Ok(swarm)
     }
 
+    /// Starts the swarm controller listening and runs the run_loop awaiting incoming actions
     pub async fn run(&mut self, port: u64, listen_ip: String) -> eyre::Result<()> {
         self.swarm
             .listen_on(format!("/ip4/{listen_ip}/tcp/{port}").parse()?)?;
@@ -137,12 +141,18 @@ impl SwarmController {
         for premint_name in self.premint_names.iter() {
             let topic = premint_name.msg_topic();
             self.swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
+            let claim_topic = premint_name.claims_topic();
+            self.swarm
+                .behaviour_mut()
+                .gossipsub
+                .subscribe(&claim_topic)?;
         }
 
         self.run_loop().await;
         Ok(())
     }
 
+    /// Core run loop for the swarm controller, should run forever in a thread
     async fn run_loop(&mut self) {
         loop {
             select! {
@@ -159,6 +169,7 @@ impl SwarmController {
         }
     }
 
+    /// Handles swarm actions sent by the controller
     async fn handle_command(&mut self, command: SwarmCommand) {
         tracing::debug!("Received command: {:?}", command);
         match command {
@@ -187,6 +198,11 @@ impl SwarmController {
             SwarmCommand::ReturnNodeInfo { channel } => {
                 if channel.send(self.node_info()).is_err() {
                     tracing::error!("Error sending node info from swarm",);
+                }
+            }
+            SwarmCommand::SendOnchainMintFound(claim) => {
+                if let Err(err) = self.broadcast_claim(claim) {
+                    tracing::error!("Error broadcasting claim: {:?}", err);
                 }
             }
         }
@@ -309,6 +325,20 @@ impl SwarmController {
         Ok(())
     }
 
+    fn broadcast_claim(&mut self, claim: InclusionClaim) -> eyre::Result<()> {
+        let topic = PremintName(claim.kind.clone()).claims_topic();
+        let msg = serde_json::to_string(&claim).wrap_err("failed to serialize claim")?;
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .publish(topic, msg.as_bytes())
+            .wrap_err(format!(
+                "failed to publish claim message to topic {:?}",
+                claim
+            ))?;
+        Ok(())
+    }
+
     fn announce_self(&mut self) {
         let peer_id = *self.swarm.local_peer_id();
         let listening_on = self.swarm.listeners().collect::<Vec<_>>();
@@ -336,8 +366,13 @@ impl SwarmController {
         tracing::debug!("Gossipsub event: {:?}", event);
         let registry_topic = announce_topic();
         match event {
-            gossipsub::Event::Message { message, .. } => {
+            gossipsub::Event::Message {
+                message,
+                propagation_source,
+                ..
+            } => {
                 let msg = String::from_utf8_lossy(&message.data);
+                // Handle announcements
                 if message.topic == registry_topic.hash() {
                     tracing::info!("New peer: {:?}", msg);
                     let addr: Multiaddr = msg
@@ -346,6 +381,19 @@ impl SwarmController {
                         .wrap_err(format!("invalid address found from announce: {}", msg))?;
 
                     self.safe_dial(addr).await;
+                // Handle inclusion claims
+                } else if claims_topic_hashes(self.premint_names.clone()).contains(&message.topic) {
+                    let claim = serde_json::from_str::<InclusionClaim>(&msg)
+                        .wrap_err("Error parsing inclusion claim")?;
+
+                    self.event_sender
+                        .send(P2PEvent::MintSeenOnchain(PeerInclusionClaim {
+                            claim,
+                            from_peer_id: propagation_source,
+                        }))
+                        .await
+                        .wrap_err("failed to send mint seen onchain event")?;
+                // Handle premints
                 } else {
                     match serde_json::from_str::<PremintTypes>(&msg) {
                         Ok(premint) => {
