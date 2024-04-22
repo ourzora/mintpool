@@ -21,6 +21,7 @@ pub struct MintpoolBehaviour {
     gossipsub: gossipsub::Behaviour,
     kad: kad::Behaviour<MemoryStore>,
     identify: libp2p::identify::Behaviour,
+    ping: libp2p::ping::Behaviour,
 }
 
 pub struct SwarmController {
@@ -110,6 +111,7 @@ impl SwarmController {
                         "mintpool/0.1.0".to_string(),
                         public_key,
                     )),
+                    ping: libp2p::ping::Behaviour::new(libp2p::ping::Config::new()),
                 }
             })?
             .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
@@ -225,6 +227,10 @@ impl SwarmController {
                 }
 
                 tracing::info!("Connection established with peer: {:?}", peer_id);
+            }
+
+            SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
+                tracing::info!("Connection closed: {:?}, cause: {:?}", peer_id, cause);
             }
 
             SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
