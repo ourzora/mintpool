@@ -1,3 +1,4 @@
+use crate::config::ChainInclusionMode;
 use eyre::WrapErr;
 use sqlx::SqlitePool;
 use tokio::select;
@@ -24,11 +25,13 @@ pub enum SwarmCommand {
     ReturnNodeInfo {
         channel: oneshot::Sender<MintpoolNodeInfo>,
     },
+    SendOnchainMintFound(InclusionClaim),
 }
 
 pub enum P2PEvent {
     NetworkState(NetworkState),
     PremintReceived(PremintTypes),
+    MintSeenOnchain(InclusionClaim),
 }
 
 pub enum ControllerCommands {
@@ -61,6 +64,8 @@ pub struct Controller {
     external_commands: mpsc::Receiver<ControllerCommands>,
     store: PremintStorage,
     rules: RulesEngine<PremintStorage>,
+    trusted_peers: Vec<String>,
+    inclusion_mode: ChainInclusionMode,
 }
 
 impl Controller {
@@ -105,6 +110,10 @@ impl Controller {
 
                 // TODO: handle error? respond with error summary?
                 let _ = self.validate_and_insert(premint).await;
+            }
+            P2PEvent::MintSeenOnchain(claim) => {
+                // Check or trust
+                self
             }
         }
     }
