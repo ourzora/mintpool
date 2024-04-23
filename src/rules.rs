@@ -276,7 +276,7 @@ pub fn all_rules<T: Reader>() -> Vec<Box<dyn Rule<T>>> {
     let mut rules: Vec<Box<dyn Rule<T>>> = Vec::new();
 
     rules.append(&mut general::all_rules());
-    rules.append(&mut crate::premints::zora_premint_v2::rules::all_rules());
+    rules.append(&mut crate::premints::zora_premint::rules::all_rules());
 
     rules
 }
@@ -455,7 +455,7 @@ mod general {
 
 #[cfg(test)]
 mod test {
-    use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+    use crate::premints::zora_premint::types::ZoraPremintV2;
     use crate::rules::general::existing_token_uri;
     use crate::rules::Evaluation::{Accept, Reject};
     use crate::storage::{PremintStorage, Writer};
