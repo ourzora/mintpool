@@ -10,11 +10,9 @@ import "./Owned.sol";
 contract MintpoolTrustedNodeRegistry is Owned {
     mapping(bytes32 => bool) _trustedNodeMap;
     uint256 public trustedNodeCount;
-    bool initialized;
 
     event TrustedNodeAdded(string node);
     event TrustedNodeRemoved(string node);
-
 
     function initialize(string[] memory trustedNodes, address _owner) public {
         require(trustedNodeCount == 0, "ALREADY_INITIALIZED");

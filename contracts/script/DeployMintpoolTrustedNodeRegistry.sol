@@ -26,8 +26,8 @@ interface ImmutableCreate2Factory {
 contract DeployScript is Script {
     // Generated using https://github.com/iainnash/create2crunch/tree/use_prefix_matching_instead
     address zora = 0xd1d1D4e36117aB794ec5d4c78cBD3a8904E691D0;
-    bytes32 salt = 0x000000000000000000000000000000000000000004debe9873087003b05925fc;
-    address expectedAddress = 0x777777bAE7A2628598AB9FAcc367f42C957E06a7;
+    bytes32 salt = 0x00000000000000000000000000000000000000008458466a1f4eac03a4d2ba6c;
+    address expectedAddress = 0x7777777748Bc44D8FD1DDB63d6C0A802d9c03588;
 
     ImmutableCreate2Factory constant IMMUTABLE_CREATE2_FACTORY =
         ImmutableCreate2Factory(0x0000000000FFe8B47B3e2130213B802212439497);
