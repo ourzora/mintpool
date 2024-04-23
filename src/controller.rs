@@ -1,6 +1,7 @@
 use crate::chain::inclusion_claim_correct;
 use crate::config::{ChainInclusionMode, Config};
 use eyre::WrapErr;
+use libp2p::PeerId;
 use sqlx::SqlitePool;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
@@ -67,7 +68,7 @@ pub struct Controller {
     external_commands: mpsc::Receiver<ControllerCommands>,
     store: PremintStorage,
     rules: RulesEngine<PremintStorage>,
-    trusted_peers: Vec<String>,
+    trusted_peers: Vec<PeerId>,
     inclusion_mode: ChainInclusionMode,
 }
 
@@ -251,10 +252,7 @@ impl Controller {
                 }
             }
             ChainInclusionMode::Trust => {
-                if self
-                    .trusted_peers
-                    .contains(&peer_claim.from_peer_id.to_string())
-                {
+                if self.trusted_peers.contains(&peer_claim.from_peer_id) {
                     self.store
                         .mark_seen_on_chain(peer_claim.claim.clone())
                         .await?;

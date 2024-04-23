@@ -3,6 +3,7 @@ use std::env;
 use std::str::FromStr;
 
 use envconfig::Envconfig;
+use libp2p::PeerId;
 use rand::Rng;
 
 use crate::chain_list::CHAINS;
@@ -139,10 +140,13 @@ impl Config {
             .collect()
     }
 
-    pub fn trusted_peers(&self) -> Vec<String> {
+    pub fn trusted_peers(&self) -> Vec<PeerId> {
         match &self.trusted_peers {
             None => vec![],
-            Some(peers) => peers.split(',').map(|s| s.to_string()).collect(),
+            Some(peers) => peers
+                .split(',')
+                .filter_map(|s| PeerId::from_str(s).ok())
+                .collect(),
         }
     }
 
