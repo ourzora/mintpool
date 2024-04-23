@@ -18,6 +18,18 @@ sol! {
     "src/premints/zora_premint/zora1155PremintExecutor_erc20v1.json"
 }
 
+sol! {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    IZoraPremintV2,
+    "src/premints/zora_premint/zora1155PremintExecutor_v2.json"
+}
+
+pub trait ZoraPremint {
+    fn collection_address(&self) -> Address;
+    fn chain_id(&self) -> u64;
+    fn signature(&self) -> String;
+}
+
 pub async fn contract_call<T>(call: T, provider: &Arc<ChainListProvider>) -> eyre::Result<T::Return>
 where
     T: SolCall,
