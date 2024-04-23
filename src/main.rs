@@ -1,7 +1,7 @@
 use clap::Parser;
 use mintpool::api;
 use mintpool::metrics::init_metrics_and_logging;
-use mintpool::premints::zora_premint_v2::types::ZoraPremintV2;
+use mintpool::premints::zora_premint::types::ZoraPremintV2;
 use mintpool::rules::RulesEngine;
 use mintpool::run::{start_p2p_services, start_watch_chain};
 use mintpool::stdin::watch_stdin;

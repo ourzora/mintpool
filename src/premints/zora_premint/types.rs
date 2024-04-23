@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::premints::zora_premint_v2::types::IZoraPremintV2::PremintedV2;
+use crate::premints::zora_premint::types::IZoraPremintV2::PremintedV2;
 use crate::types::{InclusionClaim, Premint, PremintMetadata, PremintName};
 use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
 use alloy::sol_types::private::U256;
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 sol! {
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     IZoraPremintV2,
-    "src/premints/zora_premint_v2/zora1155PremintExecutor.json"
+    "src/premints/zora_premint/zora1155PremintExecutor.json"
 }
 
 // aliasing the types here for readability. the original name need to stay

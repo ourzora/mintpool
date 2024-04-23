@@ -4,7 +4,7 @@ use alloy_primitives::Signature;
 use alloy_sol_types::SolStruct;
 
 use crate::chain::view_contract_call;
-use crate::premints::zora_premint_v2::types::{
+use crate::premints::zora_premint::types::{
     IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
 };
 use crate::rules::Evaluation::Accept;

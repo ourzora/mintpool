@@ -19,8 +19,8 @@ use alloy_transport::TransportErrorKind;
 use mintpool::api::admin::node_info;
 use mintpool::config::{BootNodes, ChainInclusionMode, Config};
 use mintpool::controller::{ControllerCommands, DBQuery};
-use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
-use mintpool::premints::zora_premint_v2::types::{
+use mintpool::premints::zora_premint::types::IZoraPremintV2::MintArguments;
+use mintpool::premints::zora_premint::types::{
     IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
 };
 use mintpool::rules::RulesEngine;
