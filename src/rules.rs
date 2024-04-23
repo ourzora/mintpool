@@ -455,7 +455,7 @@ mod general {
 
 #[cfg(test)]
 mod test {
-    use crate::premints::zora_premint::types::ZoraPremintV2;
+    use crate::premints::zora_premint::v2::ZoraPremintV2;
     use crate::rules::general::existing_token_uri;
     use crate::rules::Evaluation::{Accept, Reject};
     use crate::storage::{PremintStorage, Writer};

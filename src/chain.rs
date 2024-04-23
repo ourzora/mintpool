@@ -9,7 +9,6 @@ use futures_util::StreamExt;
 
 use crate::chain_list::{ChainListProvider, CHAINS};
 use crate::controller::{ControllerCommands, ControllerInterface};
-use crate::premints::zora_premint::types::PREMINT_FACTORY_ADDR;
 use crate::types::{InclusionClaim, Premint, PremintTypes};
 
 /// Helper function for calling view functions for SolCall types

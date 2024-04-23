@@ -1,4 +1,4 @@
-use crate::premints::zora_premint::types::ZoraPremintV2;
+use crate::premints::zora_premint::v2::ZoraPremintV2;
 use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
 use alloy_primitives::{Address, B256, U256};
 use async_trait::async_trait;
@@ -178,10 +178,10 @@ pub struct PeerInclusionClaim {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::premints::zora_premint::types::IZoraPremintV2::{
+    use crate::premints::zora_premint::contract::IZoraPremintV2::{
         ContractCreationConfig, CreatorAttribution, TokenCreationConfig,
     };
-    use crate::premints::zora_premint::types::{IZoraPremintV2, PREMINT_FACTORY_ADDR};
+    use crate::premints::zora_premint::contract::{IZoraPremintV2, PREMINT_FACTORY_ADDR};
     use alloy::rpc::types::eth::ReceiptEnvelope;
     use alloy_primitives::{Bytes, LogData};
     use alloy_sol_types::SolEvent;
