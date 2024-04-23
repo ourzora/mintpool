@@ -9,6 +9,7 @@ use alloy::rpc::types::eth::TransactionRequest;
 use alloy_json_rpc::RpcError;
 use alloy_node_bindings::Anvil;
 use alloy_primitives::{Bytes, U256};
+use alloy_provider::admin::AdminApi;
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_rpc_client::RpcClient;
 use alloy_signer::Signer;
@@ -209,7 +210,7 @@ async fn test_verify_e2e() {
 
     let config1 = Config {
         seed: 0,
-        peer_port: 7778,
+        peer_port: 5778,
         connect_external: false,
         db_url: None,
         persist_state: false,
@@ -230,7 +231,7 @@ async fn test_verify_e2e() {
 
     let config2 = Config {
         seed: 1,
-        peer_port: 7779,
+        peer_port: 5779,
         connect_external: false,
         db_url: None,
         persist_state: false,
@@ -264,15 +265,11 @@ async fn test_verify_e2e() {
         .await
         .unwrap();
 
-    let (snd, rcv) = tokio::sync::oneshot::channel();
-    ctl1.send_command(ControllerCommands::ReturnNetworkState { channel: snd })
-        .await
-        .unwrap();
-    let node_info = rcv.await.unwrap();
+    let node_info = ctl1.get_node_info().await.unwrap();
 
     let config3 = Config {
         seed: 2,
-        peer_port: 7776,
+        peer_port: 5776,
         connect_external: false,
         db_url: None,
         persist_state: false,
@@ -282,7 +279,7 @@ async fn test_verify_e2e() {
         supported_premint_types: "zora_premint_v2".to_string(),
         chain_inclusion_mode: ChainInclusionMode::Verify,
         supported_chain_ids: "7777777".to_string(),
-        trusted_peers: Some(node_info.local_peer_id.to_string()),
+        trusted_peers: Some(node_info.peer_id.to_string()),
         node_id: None,
         external_address: None,
         interactive: false,

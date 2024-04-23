@@ -1,5 +1,5 @@
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
-use alloy::rpc::types::eth::{Filter, Log, Transaction, TransactionReceipt};
+use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
 use alloy_primitives::{Address, B256, U256};
 use async_trait::async_trait;
 use libp2p::gossipsub::TopicHash;
@@ -178,8 +178,13 @@ pub struct PeerInclusionClaim {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
+    use crate::premints::zora_premint_v2::types::IZoraPremintV2::{
+        ContractCreationConfig, CreatorAttribution, TokenCreationConfig,
+    };
+    use crate::premints::zora_premint_v2::types::{IZoraPremintV2, PREMINT_FACTORY_ADDR};
+    use alloy::rpc::types::eth::ReceiptEnvelope;
     use alloy_primitives::{Bytes, LogData};
+    use alloy_sol_types::SolEvent;
     use std::str::FromStr;
 
     #[test]
@@ -247,12 +252,12 @@ mod test {
 
     #[tokio::test]
     async fn test_verify_premintv2_claim() {
-        let tx = Transaction {
-            hash: B256::from_str(
+        let tx = TransactionReceipt {
+            inner: ReceiptEnvelope::Eip4844(Default::default()),
+            transaction_hash: B256::from_str(
                 "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
             )
             .unwrap(),
-            nonce: 1,
             block_hash: Some(
                 B256::from_str(
                     "0x0e918f6a5cfda90ce33ac5117880f6db97849a095379acdc162d038aaee56757",
@@ -260,11 +265,16 @@ mod test {
                 .unwrap(),
             ),
             block_number: Some(12387768),
-            transaction_index: Some(4),
+            gas_used: None,
+            effective_gas_price: 0,
+            blob_gas_used: None,
+            transaction_index: 4,
             from: Address::from_str("0xeDB81aFaecC2379635B25A752b787f821a46644c").unwrap(),
             to: Some(PREMINT_FACTORY_ADDR.clone()),
-            value: U256::from(777_000_000_000_000_i64),
-            ..Default::default()
+
+            contract_address: None,
+            blob_gas_price: None,
+            state_root: None,
         };
 
         let log = Log {
@@ -291,7 +301,43 @@ mod test {
             ..Default::default()
         };
 
+        let event =
+            IZoraPremintV2::PremintedV2::decode_raw_log(log.topics(), &log.data().data, true)
+                .unwrap();
+
         let claim = ZoraPremintV2::map_claim(7777777, log.clone()).unwrap();
-        assert!(ZoraPremintV2::verify_claim(7777777, tx.clone(), log.clone(), claim).await);
+        let premint = ZoraPremintV2 {
+            collection: ContractCreationConfig {
+                contractAdmin: Default::default(),
+                contractURI: "".to_string(),
+                contractName: "".to_string(),
+            },
+            premint: CreatorAttribution {
+                tokenConfig: TokenCreationConfig {
+                    tokenURI: "".to_string(),
+                    maxSupply: Default::default(),
+                    maxTokensPerAddress: 0,
+                    pricePerToken: 0,
+                    mintStart: 0,
+                    mintDuration: 0,
+                    royaltyBPS: 0,
+                    payoutRecipient: Default::default(),
+                    fixedPriceMinter: Default::default(),
+                    createReferral: Default::default(),
+                },
+                uid: event.uid,
+                version: 1,
+                deleted: false,
+            },
+            collection_address: event.contractAddress,
+            chain_id: 0,
+            signature: "".to_string(),
+        };
+
+        assert!(
+            premint
+                .verify_claim(7777777, tx.clone(), log.clone(), claim)
+                .await
+        );
     }
 }
