@@ -3,8 +3,5 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc = "0.8.17"
-remappings = [
-    "solmate/=lib/solmate/src/"
-]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
