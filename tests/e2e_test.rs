@@ -214,11 +214,11 @@ async fn test_verify_e2e() {
         connect_external: false,
         db_url: None,
         persist_state: false,
-        prune_minted_premints: false, // important so we can query table
+        prune_minted_premints: false,
         api_port: 0,
         peer_limit: 10,
         supported_premint_types: "zora_premint_v2".to_string(),
-        chain_inclusion_mode: ChainInclusionMode::Check,
+        chain_inclusion_mode: ChainInclusionMode::Check, // <- this is the key
         supported_chain_ids: "7777777".to_string(),
         trusted_peers: None,
         node_id: None,
@@ -239,7 +239,7 @@ async fn test_verify_e2e() {
         api_port: 0,
         peer_limit: 10,
         supported_premint_types: "zora_premint_v2".to_string(),
-        chain_inclusion_mode: ChainInclusionMode::Verify,
+        chain_inclusion_mode: ChainInclusionMode::Verify, // <- this is the key
         supported_chain_ids: "7777777".to_string(),
         trusted_peers: None,
         node_id: None,
@@ -273,11 +273,11 @@ async fn test_verify_e2e() {
         connect_external: false,
         db_url: None,
         persist_state: false,
-        prune_minted_premints: false, // important so we can query table
+        prune_minted_premints: false,
         api_port: 0,
         peer_limit: 10,
         supported_premint_types: "zora_premint_v2".to_string(),
-        chain_inclusion_mode: ChainInclusionMode::Verify,
+        chain_inclusion_mode: ChainInclusionMode::Trust, // <- this is the key
         supported_chain_ids: "7777777".to_string(),
         trusted_peers: Some(node_info.peer_id.to_string()),
         node_id: None,
