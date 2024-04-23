@@ -1,19 +1,28 @@
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
-use alloy::rpc::types::eth::{Filter, Log, Transaction};
+use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
 use alloy_primitives::{Address, B256, U256};
 use async_trait::async_trait;
+use libp2p::gossipsub::TopicHash;
 use libp2p::{gossipsub, Multiaddr, PeerId};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PremintName(pub String);
 
 impl PremintName {
     pub fn msg_topic(&self) -> gossipsub::IdentTopic {
         gossipsub::IdentTopic::new(format!("mintpool::premint::{:?}", self))
     }
+
+    pub fn claims_topic(&self) -> gossipsub::IdentTopic {
+        gossipsub::IdentTopic::new(format!("chain::claims::{:?}", self))
+    }
+}
+
+pub fn claims_topic_hashes(names: Vec<PremintName>) -> Vec<TopicHash> {
+    names.iter().map(|n| n.claims_topic().hash()).collect()
 }
 
 #[derive(Debug)]
@@ -39,7 +48,13 @@ pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
     fn metadata(&self) -> PremintMetadata;
     fn check_filter(chain_id: u64) -> Option<Filter>;
     fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim>;
-    async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool;
+    async fn verify_claim(
+        &self,
+        chain_id: u64,
+        tx: TransactionReceipt,
+        log: Log,
+        claim: InclusionClaim,
+    ) -> bool;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -62,14 +77,33 @@ impl PremintTypes {
     }
 }
 
-impl PremintTypes {
-    pub fn metadata(&self) -> PremintMetadata {
-        match self {
-            PremintTypes::Simple(p) => p.metadata(),
-            PremintTypes::ZoraV2(p) => p.metadata(),
+macro_rules! every_arm_fn {
+
+    (PremintTypes, fn $fn:ident($($arg:ident: $arg_type:ty),*) -> $return:ty) => {
+        impl PremintTypes {
+            pub fn $fn(&self, $($arg: $arg_type),*) -> $return {
+                match self {
+                    PremintTypes::Simple(p) => p.$fn($($arg),*),
+                    PremintTypes::ZoraV2(p) => p.$fn($($arg),*),
+                }
+            }
         }
-    }
+    };
+
+    (PremintTypes, async fn $fn:ident($($arg:ident: $arg_type:ty),*) -> $return:ty) => {
+        impl PremintTypes {
+            pub async fn $fn(&self, $($arg: $arg_type),*) -> $return {
+                match self {
+                    PremintTypes::Simple(p) => p.$fn($($arg),*).await,
+                    PremintTypes::ZoraV2(p) => p.$fn($($arg),*).await,
+                }
+            }
+        }
+    };
 }
+
+every_arm_fn!(PremintTypes, fn metadata() -> PremintMetadata);
+every_arm_fn!(PremintTypes, async fn verify_claim(chain_id: u64, tx: TransactionReceipt, log: Log, claim: InclusionClaim) -> bool);
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct SimplePremint {
@@ -116,8 +150,9 @@ impl Premint for SimplePremint {
     }
 
     async fn verify_claim(
+        &self,
         _chain_id: u64,
-        _tx: Transaction,
+        _tx: TransactionReceipt,
         _log: Log,
         _claim: InclusionClaim,
     ) -> bool {
@@ -134,11 +169,22 @@ pub struct InclusionClaim {
     pub kind: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PeerInclusionClaim {
+    pub claim: InclusionClaim,
+    pub from_peer_id: PeerId,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
+    use crate::premints::zora_premint_v2::types::IZoraPremintV2::{
+        ContractCreationConfig, CreatorAttribution, TokenCreationConfig,
+    };
+    use crate::premints::zora_premint_v2::types::{IZoraPremintV2, PREMINT_FACTORY_ADDR};
+    use alloy::rpc::types::eth::ReceiptEnvelope;
     use alloy_primitives::{Bytes, LogData};
+    use alloy_sol_types::SolEvent;
     use std::str::FromStr;
 
     #[test]
@@ -206,12 +252,12 @@ mod test {
 
     #[tokio::test]
     async fn test_verify_premintv2_claim() {
-        let tx = Transaction {
-            hash: B256::from_str(
+        let tx = TransactionReceipt {
+            inner: ReceiptEnvelope::Eip4844(Default::default()),
+            transaction_hash: B256::from_str(
                 "0xb28c6c91fc5c79490c0bf2e8b26ec7ea5ca66065e14436bf5798a9feaad6e617",
             )
             .unwrap(),
-            nonce: 1,
             block_hash: Some(
                 B256::from_str(
                     "0x0e918f6a5cfda90ce33ac5117880f6db97849a095379acdc162d038aaee56757",
@@ -219,11 +265,16 @@ mod test {
                 .unwrap(),
             ),
             block_number: Some(12387768),
-            transaction_index: Some(4),
+            gas_used: None,
+            effective_gas_price: 0,
+            blob_gas_used: None,
+            transaction_index: 4,
             from: Address::from_str("0xeDB81aFaecC2379635B25A752b787f821a46644c").unwrap(),
             to: Some(PREMINT_FACTORY_ADDR.clone()),
-            value: U256::from(777_000_000_000_000_i64),
-            ..Default::default()
+
+            contract_address: None,
+            blob_gas_price: None,
+            state_root: None,
         };
 
         let log = Log {
@@ -250,7 +301,43 @@ mod test {
             ..Default::default()
         };
 
+        let event =
+            IZoraPremintV2::PremintedV2::decode_raw_log(log.topics(), &log.data().data, true)
+                .unwrap();
+
         let claim = ZoraPremintV2::map_claim(7777777, log.clone()).unwrap();
-        assert!(ZoraPremintV2::verify_claim(7777777, tx.clone(), log.clone(), claim).await);
+        let premint = ZoraPremintV2 {
+            collection: ContractCreationConfig {
+                contractAdmin: Default::default(),
+                contractURI: "".to_string(),
+                contractName: "".to_string(),
+            },
+            premint: CreatorAttribution {
+                tokenConfig: TokenCreationConfig {
+                    tokenURI: "".to_string(),
+                    maxSupply: Default::default(),
+                    maxTokensPerAddress: 0,
+                    pricePerToken: 0,
+                    mintStart: 0,
+                    mintDuration: 0,
+                    royaltyBPS: 0,
+                    payoutRecipient: Default::default(),
+                    fixedPriceMinter: Default::default(),
+                    createReferral: Default::default(),
+                },
+                uid: event.uid,
+                version: 1,
+                deleted: false,
+            },
+            collection_address: event.contractAddress,
+            chain_id: 0,
+            signature: "".to_string(),
+        };
+
+        assert!(
+            premint
+                .verify_claim(7777777, tx.clone(), log.clone(), claim)
+                .await
+        );
     }
 }

@@ -1,12 +1,17 @@
+use crate::chain::inclusion_claim_correct;
+use crate::config::{ChainInclusionMode, Config};
 use eyre::WrapErr;
+use libp2p::PeerId;
 use sqlx::SqlitePool;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::p2p::NetworkState;
-use crate::rules::{Evaluation, Results, RuleContext, RulesEngine};
+use crate::rules::{Results, RulesEngine};
 use crate::storage::{PremintStorage, Reader, Writer};
-use crate::types::{InclusionClaim, MintpoolNodeInfo, PremintTypes};
+use crate::types::{
+    InclusionClaim, MintpoolNodeInfo, PeerInclusionClaim, PremintName, PremintTypes,
+};
 
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
@@ -24,11 +29,13 @@ pub enum SwarmCommand {
     ReturnNodeInfo {
         channel: oneshot::Sender<MintpoolNodeInfo>,
     },
+    SendOnchainMintFound(InclusionClaim),
 }
 
 pub enum P2PEvent {
     NetworkState(NetworkState),
     PremintReceived(PremintTypes),
+    MintSeenOnchain(PeerInclusionClaim),
 }
 
 pub enum ControllerCommands {
@@ -61,10 +68,13 @@ pub struct Controller {
     external_commands: mpsc::Receiver<ControllerCommands>,
     store: PremintStorage,
     rules: RulesEngine<PremintStorage>,
+    trusted_peers: Vec<PeerId>,
+    inclusion_mode: ChainInclusionMode,
 }
 
 impl Controller {
     pub fn new(
+        config: &Config,
         swarm_command_sender: mpsc::Sender<SwarmCommand>,
         swarm_event_receiver: mpsc::Receiver<P2PEvent>,
         external_commands: mpsc::Receiver<ControllerCommands>,
@@ -77,6 +87,8 @@ impl Controller {
             external_commands,
             store,
             rules,
+            trusted_peers: config.trusted_peers(),
+            inclusion_mode: config.chain_inclusion_mode,
         }
     }
 
@@ -105,6 +117,11 @@ impl Controller {
 
                 // TODO: handle error? respond with error summary?
                 let _ = self.validate_and_insert(premint).await;
+            }
+            P2PEvent::MintSeenOnchain(claim) => {
+                if let Err(err) = self.handle_event_onchain_claim(claim).await {
+                    tracing::error!("Error handling onchain claim: {:?}", err);
+                }
             }
         }
     }
@@ -180,6 +197,16 @@ impl Controller {
                 } else {
                     tracing::debug!("Marked as seen onchain {:?}", claim.clone());
                 }
+
+                if self.inclusion_mode == ChainInclusionMode::Check {
+                    if let Err(err) = self
+                        .swarm_command_sender
+                        .send(SwarmCommand::SendOnchainMintFound(claim))
+                        .await
+                    {
+                        tracing::error!("Error sending onchain mint found to swarm: {:?}", err);
+                    }
+                }
             }
         }
         Ok(())
@@ -198,6 +225,49 @@ impl Controller {
             tracing::info!("Premint failed validation: {:?}", premint);
 
             Err(evaluation).wrap_err("Premint failed validation")
+        }
+    }
+
+    async fn handle_event_onchain_claim(&self, peer_claim: PeerInclusionClaim) -> eyre::Result<()> {
+        match self.inclusion_mode {
+            ChainInclusionMode::Check | ChainInclusionMode::Verify => {
+                let claim = peer_claim.claim;
+                let premint = self
+                    .store
+                    .get_for_id_and_kind(&claim.premint_id, PremintName(claim.kind.clone()))
+                    .await
+                    .map_err(|err| {
+                        eyre::eyre!("Error getting premint for onchain claim: {:?}", err)
+                    })?;
+
+                match inclusion_claim_correct(&premint, &claim).await {
+                    Ok(true) => {
+                        self.store.mark_seen_on_chain(claim.clone()).await?;
+                        Ok(())
+                    }
+                    _ => {
+                        tracing::info!("Ignoring inclusion claim received from peer");
+                        Ok(())
+                    }
+                }
+            }
+            ChainInclusionMode::Trust => {
+                if self.trusted_peers.contains(&peer_claim.from_peer_id) {
+                    self.store
+                        .mark_seen_on_chain(peer_claim.claim.clone())
+                        .await?;
+                    tracing::info!(
+                        "Marked premint as seen via claim from trusted peer {:?}",
+                        peer_claim
+                    )
+                } else {
+                    tracing::debug!(
+                        "Ignoring inclusion claim received from peer {:?}",
+                        peer_claim
+                    );
+                }
+                Ok(())
+            }
         }
     }
 }

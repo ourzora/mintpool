@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::premints::zora_premint_v2::types::IZoraPremintV2::PremintedV2;
 use crate::types::{InclusionClaim, Premint, PremintMetadata, PremintName};
-use alloy::rpc::types::eth::{Filter, Log, Transaction};
+use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
 use alloy::sol_types::private::U256;
 use alloy_primitives::{address, Address};
 use alloy_sol_macro::sol;
@@ -134,19 +134,27 @@ impl Premint for ZoraPremintV2 {
         })
     }
 
-    async fn verify_claim(chain_id: u64, tx: Transaction, log: Log, claim: InclusionClaim) -> bool {
+    async fn verify_claim(
+        &self,
+        chain_id: u64,
+        tx: TransactionReceipt,
+        log: Log,
+        claim: InclusionClaim,
+    ) -> bool {
         let event =
             IZoraPremintV2::PremintedV2::decode_raw_log(log.topics(), &log.data().data, true);
         match event {
             Ok(event) => {
                 let conditions = vec![
                     log.address() == PREMINT_FACTORY_ADDR,
-                    log.transaction_hash.unwrap_or_default() == tx.hash,
-                    claim.tx_hash == tx.hash,
+                    log.transaction_hash.unwrap_or_default() == tx.transaction_hash,
+                    claim.tx_hash == tx.transaction_hash,
                     claim.log_index == log.log_index.unwrap_or_default(),
                     claim.premint_id == Self::event_to_guid(chain_id, &event),
                     claim.kind == *"zora_premint_v2",
                     claim.chain_id == chain_id,
+                    self.collection_address == event.contractAddress,
+                    self.premint.uid == event.uid,
                 ];
 
                 // confirm all conditions are true
