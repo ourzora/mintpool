@@ -1,33 +1,32 @@
 use std::borrow::Cow;
 
-use crate::premints::zora_premint::types::IZoraPremintV2::PremintedV2;
+use crate::premints::zora_premint::v2::ZoraPremintV2::PremintedV2;
 use crate::types::{InclusionClaim, Premint, PremintMetadata, PremintName};
 use alloy::primitives::{address, Address, U256};
 use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
 use alloy::sol;
+use alloy::sol_types::private::U256;
 use alloy::sol_types::{Eip712Domain, SolEvent};
 // use alloy_sol_types::SolEvent;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-sol! {
-    #[derive(Debug, Serialize, Deserialize, PartialEq)]
-    IZoraPremintV2,
-    "src/premints/zora_premint/zora1155PremintExecutor.json"
-}
+use crate::premints::zora_premint::contract::ZoraPremintV2::PremintedV2;
+use crate::premints::zora_premint::contract::{ZoraPremint, ZoraPremintV2, PREMINT_FACTORY_ADDR};
+use crate::types::{InclusionClaim, Premint, PremintMetadata, PremintName};
 
 // aliasing the types here for readability. the original name need to stay
 // because they impact signature generation
-pub type PremintConfig = IZoraPremintV2::CreatorAttribution;
-pub type TokenCreationConfig = IZoraPremintV2::TokenCreationConfig;
-pub type ContractCreationConfig = IZoraPremintV2::ContractCreationConfig;
+pub type PremintConfigV2 = ZoraPremintV2::CreatorAttribution;
+pub type TokenCreationConfigV2 = ZoraPremintV2::TokenCreationConfig;
+pub type ContractCreationConfigV2 = ZoraPremintV2::ContractCreationConfig;
 
 // modelled after the PremintRequest API type
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ZoraPremintV2 {
-    pub collection: ContractCreationConfig,
-    pub premint: PremintConfig,
+    pub collection: ContractCreationConfigV2,
+    pub premint: PremintConfigV2,
     pub collection_address: Address,
     pub chain_id: u64,
     pub signature: String,
@@ -36,13 +35,13 @@ pub struct ZoraPremintV2 {
 impl Default for ZoraPremintV2 {
     fn default() -> Self {
         Self {
-            collection: ContractCreationConfig {
+            collection: ContractCreationConfigV2 {
                 contractAdmin: Default::default(),
                 contractURI: "".to_string(),
                 contractName: "".to_string(),
             },
-            premint: PremintConfig {
-                tokenConfig: TokenCreationConfig {
+            premint: PremintConfigV2 {
+                tokenConfig: TokenCreationConfigV2 {
                     tokenURI: "".to_string(),
                     maxSupply: Default::default(),
                     maxTokensPerAddress: 0,
@@ -64,8 +63,6 @@ impl Default for ZoraPremintV2 {
         }
     }
 }
-
-pub static PREMINT_FACTORY_ADDR: Address = address!("7777773606e7e46C8Ba8B98C08f5cD218e31d340");
 
 impl ZoraPremintV2 {
     pub fn eip712_domain(&self) -> Eip712Domain {
@@ -112,12 +109,12 @@ impl Premint for ZoraPremintV2 {
         Some(
             Filter::new()
                 .address(PREMINT_FACTORY_ADDR)
-                .event(IZoraPremintV2::PremintedV2::SIGNATURE),
+                .event(ZoraPremintV2::PremintedV2::SIGNATURE),
         )
     }
 
     fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim> {
-        let event = IZoraPremintV2::PremintedV2::decode_raw_log(
+        let event = ZoraPremintV2::PremintedV2::decode_raw_log(
             log.topics(),
             log.data().data.as_ref(),
             true,
@@ -142,7 +139,7 @@ impl Premint for ZoraPremintV2 {
         claim: InclusionClaim,
     ) -> bool {
         let event =
-            IZoraPremintV2::PremintedV2::decode_raw_log(log.topics(), &log.data().data, true);
+            ZoraPremintV2::PremintedV2::decode_raw_log(log.topics(), &log.data().data, true);
         match event {
             Ok(event) => {
                 let conditions = vec![
@@ -165,5 +162,19 @@ impl Premint for ZoraPremintV2 {
                 false
             }
         }
+    }
+}
+
+impl ZoraPremint for ZoraPremintV2 {
+    fn collection_address(&self) -> Address {
+        self.collection_address
+    }
+
+    fn chain_id(&self) -> u64 {
+        self.chain_id
+    }
+
+    fn signature(&self) -> String {
+        self.signature.clone()
     }
 }

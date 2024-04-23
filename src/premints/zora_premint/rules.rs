@@ -1,7 +1,8 @@
+use std::str::FromStr;
+
 use crate::chain::view_contract_call;
-use crate::premints::zora_premint::types::{
-    IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
-};
+use crate::premints::zora_premint::contract::PREMINT_FACTORY_ADDR;
+use crate::premints::zora_premint::v2::ZoraPremintV2;
 use crate::rules::Evaluation::Accept;
 use crate::rules::{Evaluation, Rule, RuleContext};
 use crate::storage::Reader;
@@ -9,7 +10,6 @@ use crate::types::PremintTypes;
 use crate::{ignore, reject, typed_rule};
 use alloy::primitives::Signature;
 use alloy::sol_types::SolStruct;
-use std::str::FromStr;
 
 // create premint v2 rule implementations here
 
@@ -22,7 +22,7 @@ pub async fn is_authorized_to_create_premint<T: Reader>(
         Some(ref rpc) => rpc,
     };
 
-    let call = IZoraPremintV2::isAuthorizedToCreatePremintCall {
+    let call = ZoraPremintV2::isAuthorizedToCreatePremintCall {
         contractAddress: premint.collection_address,
         signer: premint.collection.contractAdmin,
         premintContractConfigContractAdmin: premint.collection.contractAdmin,
@@ -45,7 +45,7 @@ pub async fn not_minted<T: Reader>(
         Some(ref rpc) => rpc,
     };
 
-    let call = IZoraPremintV2::premintStatusCall {
+    let call = ZoraPremintV2::premintStatusCall {
         contractAddress: premint.collection_address,
         uid: premint.premint.uid,
     };
@@ -67,7 +67,7 @@ pub async fn premint_version_supported<T: Reader>(
         Some(ref rpc) => rpc,
     };
 
-    let call = IZoraPremintV2::supportedPremintSignatureVersionsCall {
+    let call = ZoraPremintV2::supportedPremintSignatureVersionsCall {
         contractAddress: premint.collection_address,
     };
 

@@ -1,6 +1,5 @@
 use crate::chain_list::{ChainListProvider, CHAINS};
 use crate::controller::{ControllerCommands, ControllerInterface};
-use crate::premints::zora_premint::types::PREMINT_FACTORY_ADDR;
 use crate::types::{InclusionClaim, Premint, PremintTypes};
 use alloy::primitives::{address, Address, Bytes, TxKind};
 use alloy::providers::Provider;

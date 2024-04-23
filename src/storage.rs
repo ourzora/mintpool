@@ -326,7 +326,7 @@ mod test {
     use std::ops::Sub;
 
     use crate::config::Config;
-    use crate::premints::zora_premint::types::ZoraPremintV2;
+    use crate::premints::zora_premint::v2::ZoraPremintV2;
     use crate::storage;
     use crate::storage::{
         list_all, list_all_with_options, PremintStorage, QueryOptions, Reader, Writer,
