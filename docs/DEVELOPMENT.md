@@ -24,4 +24,6 @@ they will blow up you metrics cardinality and cost a lot of money if you use Dat
 Metrics are also controlled by the `RUST_LOG` environment variable. This makes it easy to have debug
 metrics, just use `tracing::debug!(histogram.debug_thing = 42.1)`.
 
-In the mintpool default binary metrics are exported via Prometheus on `/metrics`.
+In the mintpool default binary metrics are exported via Prometheus on `/metrics`, and has count and
+latency metrics
+on api routes. (`mintpool.api_request_count`, `mintpool.api_request_duration`).
