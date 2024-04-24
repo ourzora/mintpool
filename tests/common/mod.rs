@@ -1,6 +1,6 @@
 pub mod factories;
 pub mod mintpool_build {
-    use mintpool::config::{ChainInclusionMode, Config};
+    use mintpool::config::{BootNodes, ChainInclusionMode, Config};
     use mintpool::controller::{ControllerCommands, ControllerInterface};
     use mintpool::rules::RulesEngine;
     use tokio::time;
@@ -45,6 +45,7 @@ pub mod mintpool_build {
             enable_rpc: true,
             admin_api_secret: None,
             rate_limit_rps: 1,
+            boot_nodes: BootNodes::Chain,
         }
     }
 

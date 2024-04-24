@@ -17,7 +17,7 @@ use alloy_signer_wallet::LocalWallet;
 use alloy_sol_types::{SolCall, SolValue};
 use alloy_transport::TransportErrorKind;
 use mintpool::api::admin::node_info;
-use mintpool::config::{ChainInclusionMode, Config};
+use mintpool::config::{BootNodes, ChainInclusionMode, Config};
 use mintpool::controller::{ControllerCommands, DBQuery};
 use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
 use mintpool::premints::zora_premint_v2::types::{
@@ -68,6 +68,7 @@ async fn test_zora_premint_v2_e2e() {
         enable_rpc: true,
         admin_api_secret: None,
         rate_limit_rps: 1,
+        boot_nodes: BootNodes::Chain,
     };
 
     // set this so CHAINS will use the anvil rpc rather than the one in chains.json
@@ -227,6 +228,7 @@ async fn test_verify_e2e() {
         enable_rpc: true,
         admin_api_secret: None,
         rate_limit_rps: 1,
+        boot_nodes: BootNodes::Chain,
     };
 
     let config2 = Config {
@@ -248,6 +250,7 @@ async fn test_verify_e2e() {
         enable_rpc: true,
         admin_api_secret: None,
         rate_limit_rps: 1,
+        boot_nodes: BootNodes::Chain,
     };
 
     env::set_var("CHAIN_7777777_RPC_WSS", anvil.ws_endpoint());
@@ -286,6 +289,7 @@ async fn test_verify_e2e() {
         enable_rpc: true,
         admin_api_secret: None,
         rate_limit_rps: 1,
+        boot_nodes: BootNodes::Chain,
     };
 
     let ctl3 = run::start_p2p_services(&config3, RulesEngine::new_with_default_rules(&config3))
