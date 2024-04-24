@@ -2,7 +2,7 @@
 
 # Mintpool
 
-A decentralized, mempool like system for things that can be brought onchain.
+A decentralized mempool for prechain transactions.
 
 ## What?
 
