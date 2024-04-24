@@ -1,5 +1,6 @@
 use clap::Parser;
 use mintpool::api;
+use mintpool::metrics::init_metrics_and_logging;
 use mintpool::premints::zora_premint_v2::types::ZoraPremintV2;
 use mintpool::rules::RulesEngine;
 use mintpool::run::{start_p2p_services, start_watch_chain};
@@ -11,13 +12,7 @@ use tracing_subscriber::EnvFilter;
 async fn main() -> eyre::Result<()> {
     let config = mintpool::config::init();
 
-    let subscriber = tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env());
-
-    match config.interactive {
-        true => subscriber.pretty().try_init(),
-        false => subscriber.json().try_init(),
-    }
-    .expect("Unable to initialize logger");
+    let metrics_router = init_metrics_and_logging(&config);
 
     tracing::info!("Starting mintpool with config: {:?}", config);
 
@@ -25,10 +20,11 @@ async fn main() -> eyre::Result<()> {
     rules.add_default_rules();
     let ctl = start_p2p_services(&config, rules).await?;
 
-    let router = api::router_with_defaults(&config);
+    let router = api::router_with_defaults(&config).merge(metrics_router);
     api::start_api(&config, ctl.clone(), router, true).await?;
 
     start_watch_chain::<ZoraPremintV2>(&config, ctl.clone()).await;
+    tracing::info!(monotonic_counter.chains_watched = 1, "Watching chain");
     if config.interactive {
         watch_stdin(ctl.clone()).await;
     } else {
