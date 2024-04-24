@@ -2,9 +2,9 @@ use crate::api::AppState;
 use crate::controller::ControllerCommands;
 use crate::rules::Results;
 use crate::storage;
-use crate::storage::QueryOptions;
-use crate::types::PremintTypes;
-use axum::extract::{Query, State};
+use crate::storage::{get_for_id_and_kind, QueryOptions};
+use crate::types::{PremintName, PremintTypes};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde::Serialize;
@@ -40,6 +40,16 @@ pub async fn get_one(
                 "Failed to get one premint".to_string(),
             ))
         }
+    }
+}
+
+pub async fn get_by_id_and_kind(
+    State(state): State<AppState>,
+    Path((kind, id)): Path<(String, String)>,
+) -> Result<Json<PremintTypes>, (StatusCode, String)> {
+    match get_for_id_and_kind(&state.db, &id, PremintName(kind)).await {
+        Ok(premint) => Ok(Json(premint)),
+        Err(_e) => Err((StatusCode::NOT_FOUND, "Failed to get premint".to_string())),
     }
 }
 

@@ -80,7 +80,7 @@ Each `mintpool` node stores premints based on their nodes rules, and should see 
 through the p2p network. This means your node can be your source of truth for the premint NFTs you
 care about. Each premint contains all the info needed to display and bring an NFT onchain.
 
-TODO: example API requests
+See `docs/API.md` for details on the rest api.
 
 ### Extend with custom rules and endpoints
 
