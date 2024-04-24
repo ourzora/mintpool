@@ -5,12 +5,14 @@ pub mod routes;
 use crate::config::Config;
 use crate::controller::{ControllerCommands, ControllerInterface, DBQuery};
 use axum::error_handling::HandleErrorLayer;
+use axum::extract::Request;
 use axum::http::StatusCode;
-use axum::middleware::from_fn_with_state;
+use axum::middleware::{from_fn, from_fn_with_state, Next};
+use axum::response::Response;
 use axum::routing::{get, post};
 use axum::Router;
 use sqlx::SqlitePool;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use tokio::net::TcpListener;
 use tower::buffer::BufferLayer;
 use tower::limit::RateLimitLayer;
@@ -58,6 +60,7 @@ pub fn router_with_defaults(config: &Config) -> Router<AppState> {
         )
         .layer(
             ServiceBuilder::new()
+                .layer(from_fn(metrics_middleware))
                 .layer(HandleErrorLayer::new(|error: BoxError| async move {
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -93,6 +96,20 @@ pub fn with_admin_routes(state: AppState, router: Router<AppState>) -> Router<Ap
         );
 
     router.merge(admin)
+}
+
+pub async fn metrics_middleware(request: Request, next: Next) -> Response {
+    let path = request.uri().to_string();
+    let start = SystemTime::now();
+    let resp = next.run(request).await;
+    let end = start
+        .elapsed()
+        .unwrap_or(Duration::from_secs(0))
+        .as_millis();
+    tracing::info!(counter.api_request_count = 1, path = path);
+    tracing::info!(histogram.api_request_duration = end as u64, path = path);
+
+    resp
 }
 
 pub async fn start_api(

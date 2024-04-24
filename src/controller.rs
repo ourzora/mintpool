@@ -117,6 +117,7 @@ impl Controller {
 
                 // TODO: handle error? respond with error summary?
                 let _ = self.validate_and_insert(premint).await;
+                tracing::info!(histogram.premint_received = 1);
             }
             P2PEvent::MintSeenOnchain(claim) => {
                 if let Err(err) = self.handle_event_onchain_claim(claim).await {
@@ -157,14 +158,17 @@ impl Controller {
                                     eyre::eyre!("error broadcasting via channel: {:?}", err)
                                 })?;
                         } else {
+                            tracing::info!(histogram.premint_broadcasted = 1);
                             channel.send(Ok(())).map_err(|err| {
                                 eyre::eyre!("error broadcasting via channel: {:?}", err)
                             })?;
                         }
                     }
-                    Err(err) => channel
-                        .send(Err(err))
-                        .map_err(|err| eyre::eyre!("error broadcasting via channel: {:?}", err))?,
+                    Err(err) => {
+                        channel.send(Err(err)).map_err(|err| {
+                            eyre::eyre!("error broadcasting via channel: {:?}", err)
+                        })?;
+                    }
                 }
             }
             ControllerCommands::ReturnNodeInfo { channel } => {
@@ -216,6 +220,8 @@ impl Controller {
         let evaluation = self.rules.evaluate(&premint, self.store.clone()).await?;
 
         if evaluation.is_accept() {
+            tracing::info!(histogram.rules_accepted = 1);
+
             self.store
                 .store(premint)
                 .await
@@ -223,6 +229,7 @@ impl Controller {
                 .wrap_err("Failed to store premint")
         } else {
             tracing::info!("Premint failed validation: {:?}", premint);
+            tracing::info!(histogram.rules_rejected = 1);
 
             Err(evaluation).wrap_err("Premint failed validation")
         }
