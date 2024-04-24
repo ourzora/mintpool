@@ -250,10 +250,12 @@ impl SwarmController {
                 }
 
                 tracing::info!("Connection established with peer: {:?}", peer_id);
+                tracing::info!(counter.connections = 1);
             }
 
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
                 tracing::info!("Connection closed: {:?}, cause: {:?}", peer_id, cause);
+                tracing::info!(counter.connections = -1);
             }
 
             SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
@@ -381,6 +383,7 @@ impl SwarmController {
                         .wrap_err(format!("invalid address found from announce: {}", msg))?;
 
                     self.safe_dial(addr).await;
+                    tracing::info!(histogram.peer_announced = 1);
                 // Handle inclusion claims
                 } else if claims_topic_hashes(self.premint_names.clone()).contains(&message.topic) {
                     let claim = serde_json::from_str::<InclusionClaim>(&msg)
@@ -393,6 +396,7 @@ impl SwarmController {
                         }))
                         .await
                         .wrap_err("failed to send mint seen onchain event")?;
+                    tracing::info!(counter.seen_on_chain_peer_claim = 1);
                 // Handle premints
                 } else {
                     match serde_json::from_str::<PremintTypes>(&msg) {
@@ -404,6 +408,7 @@ impl SwarmController {
                                 .await
                                 .wrap_err("failed to send premint event")?;
                             tracing::debug!("premint event sent: {:?}", premint);
+                            tracing::info!(counter.p2p_premint_received = 1);
                         }
                         Err(err) => {
                             tracing::error!("Error parsing premint: {:?}", err);
