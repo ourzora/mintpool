@@ -70,6 +70,10 @@ pub struct Config {
 
     #[envconfig(from = "RATE_LIMIT_RPS", default = "2")]
     pub rate_limit_rps: u32,
+
+    // If set to chain, will check the Zora Network MintpoolTrusted nodes contract for boot nodes
+    #[envconfig(from = "BOOT_NODES", default = "chain")]
+    pub boot_nodes: BootNodes,
 }
 
 impl Config {
@@ -93,6 +97,26 @@ impl Config {
             enable_rpc: true,
             admin_api_secret: None,
             rate_limit_rps: 1,
+            boot_nodes: BootNodes::Chain,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BootNodes {
+    Chain,
+    Custom(Vec<String>),
+    None,
+}
+
+impl FromStr for BootNodes {
+    type Err = eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "chain" => Ok(Self::Chain),
+            "none" => Ok(Self::None),
+            _ => Ok(Self::Custom(s.split(',').map(|s| s.to_string()).collect())),
         }
     }
 }
@@ -168,8 +192,9 @@ pub fn init() -> Config {
 
 #[cfg(test)]
 mod test {
-    use crate::config::ChainInclusionMode;
+    use crate::config::{BootNodes, ChainInclusionMode};
     use std::env;
+    use std::str::FromStr;
 
     #[test]
     fn test_init() {
@@ -229,5 +254,19 @@ mod test {
         let names = config.premint_names();
         assert_eq!(names.len(), 1);
         assert_eq!(names[0].0, "zora_premint_v2");
+    }
+
+    #[test]
+    fn test_parse_bootnodes() {
+        assert_eq!(BootNodes::from_str("chain").unwrap(), BootNodes::Chain);
+
+        assert_eq!(
+            BootNodes::from_str("/peer/123").unwrap(),
+            BootNodes::Custom(vec!["/peer/123".to_string()])
+        );
+        assert_eq!(
+            BootNodes::from_str("/peer/123,/peer/456").unwrap(),
+            BootNodes::Custom(vec!["/peer/123".to_string(), "/peer/456".to_string()])
+        );
     }
 }
