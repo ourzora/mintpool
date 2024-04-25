@@ -49,27 +49,10 @@ async fn test_zora_premint_v2_e2e() {
         .fork("https://rpc.zora.energy")
         .spawn();
 
-    let config = Config {
-        seed: 0,
-        peer_port: 7778,
-        connect_external: false,
-        db_url: None,
-        persist_state: false,
-        prune_minted_premints: false, // important so we can query table
-        api_port: 0,
-        peer_limit: 10,
-        supported_premint_types: "zora_premint_v2".to_string(),
-        chain_inclusion_mode: ChainInclusionMode::Check,
-        supported_chain_ids: "7777777".to_string(),
-        trusted_peers: None,
-        node_id: None,
-        external_address: None,
-        interactive: false,
-        enable_rpc: true,
-        admin_api_secret: None,
-        rate_limit_rps: 1,
-        boot_nodes: BootNodes::Chain,
-    };
+    let mut config = Config::test_default();
+    config.chain_inclusion_mode = ChainInclusionMode::Check;
+    config.prune_minted_premints = false;
+    config.supported_premint_types = "zora_premint_v2".to_string();
 
     // set this so CHAINS will use the anvil rpc rather than the one in chains.json
     env::set_var("CHAIN_7777777_RPC_WSS", anvil.ws_endpoint());
@@ -209,49 +192,15 @@ async fn test_verify_e2e() {
         .fork("https://rpc.zora.energy")
         .spawn();
 
-    let config1 = Config {
-        seed: 0,
-        peer_port: 5778,
-        connect_external: false,
-        db_url: None,
-        persist_state: false,
-        prune_minted_premints: false,
-        api_port: 0,
-        peer_limit: 10,
-        supported_premint_types: "zora_premint_v2".to_string(),
-        chain_inclusion_mode: ChainInclusionMode::Check, // <- this is the key
-        supported_chain_ids: "7777777".to_string(),
-        trusted_peers: None,
-        node_id: None,
-        external_address: None,
-        interactive: false,
-        enable_rpc: true,
-        admin_api_secret: None,
-        rate_limit_rps: 1,
-        boot_nodes: BootNodes::Chain,
-    };
+    let mut config1 = Config::test_default();
+    config1.secret = "0x01".to_string();
+    config1.peer_port = 5778;
+    config1.chain_inclusion_mode = ChainInclusionMode::Check;
 
-    let config2 = Config {
-        seed: 1,
-        peer_port: 5779,
-        connect_external: false,
-        db_url: None,
-        persist_state: false,
-        prune_minted_premints: false, // important so we can query table
-        api_port: 0,
-        peer_limit: 10,
-        supported_premint_types: "zora_premint_v2".to_string(),
-        chain_inclusion_mode: ChainInclusionMode::Verify, // <- this is the key
-        supported_chain_ids: "7777777".to_string(),
-        trusted_peers: None,
-        node_id: None,
-        external_address: None,
-        interactive: false,
-        enable_rpc: true,
-        admin_api_secret: None,
-        rate_limit_rps: 1,
-        boot_nodes: BootNodes::Chain,
-    };
+    let mut config2 = Config::test_default();
+    config2.secret = "0x02".to_string();
+    config2.peer_port = 5779;
+    config2.chain_inclusion_mode = ChainInclusionMode::Verify;
 
     env::set_var("CHAIN_7777777_RPC_WSS", anvil.ws_endpoint());
 
@@ -270,27 +219,11 @@ async fn test_verify_e2e() {
 
     let node_info = ctl1.get_node_info().await.unwrap();
 
-    let config3 = Config {
-        seed: 2,
-        peer_port: 5776,
-        connect_external: false,
-        db_url: None,
-        persist_state: false,
-        prune_minted_premints: false,
-        api_port: 0,
-        peer_limit: 10,
-        supported_premint_types: "zora_premint_v2".to_string(),
-        chain_inclusion_mode: ChainInclusionMode::Trust, // <- this is the key
-        supported_chain_ids: "7777777".to_string(),
-        trusted_peers: Some(node_info.peer_id.to_string()),
-        node_id: None,
-        external_address: None,
-        interactive: false,
-        enable_rpc: true,
-        admin_api_secret: None,
-        rate_limit_rps: 1,
-        boot_nodes: BootNodes::Chain,
-    };
+    let mut config3 = Config::test_default();
+    config3.secret = "0x03".to_string();
+    config3.peer_port = 5776;
+    config3.chain_inclusion_mode = ChainInclusionMode::Trust;
+    config3.trusted_peers = Some(node_info.peer_id.to_string());
 
     let ctl3 = run::start_p2p_services(&config3, RulesEngine::new_with_default_rules(&config3))
         .await

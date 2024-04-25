@@ -11,8 +11,11 @@ use crate::types::PremintName;
 
 #[derive(Envconfig, Debug)]
 pub struct Config {
-    #[envconfig(from = "SEED")]
-    pub seed: u64,
+    // Used to derive an ed25519 keypair for node identity
+    // Should be 32 bytes of random hex.
+    // Ex: output of `openssl rand -hex 32`
+    #[envconfig(from = "SECRET")]
+    pub secret: String,
 
     #[envconfig(from = "PEER_PORT", default = "7778")]
     pub peer_port: u64,
@@ -79,7 +82,8 @@ pub struct Config {
 impl Config {
     pub fn test_default() -> Self {
         Config {
-            seed: rand::random(),
+            secret: "0x7948efac1e9dbfb77691541df857b3142ea88f5b75b37dfca506f1f1c5d659ee"
+                .to_string(),
             peer_port: rand::thread_rng().gen_range(5000..=10000),
             connect_external: false,
             db_url: None,
@@ -198,14 +202,15 @@ mod test {
 
     #[test]
     fn test_init() {
-        env::set_var("SEED", "1");
+        env::set_var("SECRET", "0x01");
         super::init();
     }
 
     #[test]
     fn test_premint_names() {
         let config = super::Config {
-            seed: 0,
+            secret: "0x7948efac1e9dbfb77691541df857b3142ea88f5b75b37dfca506f1f1c5d659ee"
+                .to_string(),
             peer_port: 7777,
             connect_external: false,
             db_url: None,
@@ -232,7 +237,8 @@ mod test {
         assert_eq!(names[1].0, "zora_premint_v2");
 
         let config = super::Config {
-            seed: 0,
+            secret: "0x7948efac1e9dbfb77691541df857b3142ea88f5b75b37dfca506f1f1c5d659ee"
+                .to_string(),
             peer_port: 7777,
             connect_external: false,
             db_url: None,
