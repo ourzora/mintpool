@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # adapted from https://docs.docker.com/language/rust/develop/#get-and-run-the-sample-application
 
-ARG RUST_VERSION=1.77.1
+ARG RUST_VERSION=1.77.2
 ARG APP_NAME=mintpool
 FROM rust:${RUST_VERSION}-slim-bullseye AS build
 ARG APP_NAME
@@ -18,6 +18,7 @@ RUN --mount=type=bind,source=justfile,target=justfile \
 
 RUN --mount=type=bind,source=src,target=src \
     --mount=type=bind,source=data,target=data \
+    --mount=type=bind,source=contracts,target=contracts \
     --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
     --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
     --mount=type=cache,target=/app/target/ \
