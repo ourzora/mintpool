@@ -13,8 +13,8 @@ use crate::{ignore, reject, typed_rule};
 
 // create premint v2 rule implementations here
 
-pub async fn is_authorized_to_create_premint<T: Reader>(
-    premint: &ZoraPremintV2,
+pub async fn is_authorized_to_create_premint<T: Reader, P>(
+    premint: &P,
     context: &RuleContext<T>,
 ) -> eyre::Result<Evaluation> {
     let rpc = match context.rpc {
@@ -73,7 +73,7 @@ pub async fn premint_version_supported<T: Reader>(
 
     let result = view_contract_call(call, rpc, PREMINT_FACTORY_ADDR).await?;
 
-    match result.versions.contains(&"2".to_string()) {
+    match result.versions.contains(&"ERC20_1".to_string()) {
         true => Ok(Accept),
         false => reject!("Premint version 2 not supported by contract"),
     }

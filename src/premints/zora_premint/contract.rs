@@ -25,6 +25,8 @@ sol! {
 }
 
 pub trait ZoraPremint {
+    const VERSION: &'static str;
+
     fn collection_address(&self) -> Address;
     fn chain_id(&self) -> u64;
     fn signature(&self) -> String;
