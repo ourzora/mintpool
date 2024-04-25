@@ -102,7 +102,7 @@ fn make_keypair(config: &Config) -> eyre::Result<Keypair> {
     } else if secret_bytes.len() > 32 {
         bytes.copy_from_slice(&secret_bytes[..32]);
     } else {
-        bytes.copy_from_slice(&secret_bytes)
+        bytes.copy_from_slice(&secret_bytes);
     };
 
     Ok(Keypair::ed25519_from_bytes(bytes)?)
