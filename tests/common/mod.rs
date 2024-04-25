@@ -1,7 +1,6 @@
 pub mod factories;
 pub mod mintpool_build {
-    use chrono::format;
-    use mintpool::config::{BootNodes, ChainInclusionMode, Config};
+    use mintpool::config::Config;
     use mintpool::controller::{ControllerCommands, ControllerInterface};
     use mintpool::rules::RulesEngine;
     use rand::Rng;
