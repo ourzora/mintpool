@@ -1,4 +1,6 @@
+use alloy::hex;
 use libp2p::identity;
+use libp2p::identity::Keypair;
 use std::time::Duration;
 use tracing::{info_span, Instrument};
 
@@ -18,11 +20,8 @@ pub async fn start_p2p_services(
     config: &Config,
     rules: RulesEngine<PremintStorage>,
 ) -> eyre::Result<ControllerInterface> {
-    let mut bytes = [0u8; 32];
-    bytes[0] = config.seed as u8;
-
-    let id_keys = identity::Keypair::ed25519_from_bytes(bytes).unwrap();
-
+    let id_keys = make_keypair(config)
+        .expect("Failed to create keypair, node cannot start. Confirm secret is 32 bytes of hex (0x + 64 hex chars)");
     let (event_send, event_recv) = tokio::sync::mpsc::channel(1024);
     let (swrm_cmd_send, swrm_recv) = tokio::sync::mpsc::channel(1024);
     let (ext_cmd_send, ext_cmd_recv) = tokio::sync::mpsc::channel(1024);
@@ -93,6 +92,20 @@ pub async fn start_p2p_services(
     }
 
     Ok(controller_interface)
+}
+
+fn make_keypair(config: &Config) -> eyre::Result<Keypair> {
+    let secret_bytes = hex::decode(&config.secret)?;
+    let mut bytes = [0u8; 32];
+    if secret_bytes.len() < 32 {
+        bytes[..secret_bytes.len()].copy_from_slice(&secret_bytes);
+    } else if secret_bytes.len() > 32 {
+        bytes.copy_from_slice(&secret_bytes[..32]);
+    } else {
+        bytes.copy_from_slice(&secret_bytes);
+    };
+
+    Ok(Keypair::ed25519_from_bytes(bytes)?)
 }
 
 async fn connect_to_boot_nodes(ctl: &ControllerInterface, boot_nodes: Vec<String>) {

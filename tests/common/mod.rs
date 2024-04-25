@@ -1,8 +1,9 @@
 pub mod factories;
 pub mod mintpool_build {
-    use mintpool::config::{BootNodes, ChainInclusionMode, Config};
+    use mintpool::config::Config;
     use mintpool::controller::{ControllerCommands, ControllerInterface};
     use mintpool::rules::RulesEngine;
+    use rand::Rng;
     use tokio::time;
 
     pub async fn announce_all(nodes: Vec<ControllerInterface>) {
@@ -25,28 +26,12 @@ pub mod mintpool_build {
     }
 
     pub fn make_config(port: u64, peer_limit: u64) -> Config {
-        let rand_n = rand::random::<u64>();
-        Config {
-            seed: rand_n,
-            connect_external: false,
-            db_url: None,
-            persist_state: false,
-            prune_minted_premints: false,
-            api_port: 0,
-            peer_limit,
-            supported_premint_types: "simple,zora_premint_v2".to_string(),
-            chain_inclusion_mode: ChainInclusionMode::Check,
-            supported_chain_ids: "7777777".to_string(),
-            trusted_peers: None,
-            node_id: None,
-            external_address: None,
-            peer_port: port,
-            interactive: false,
-            enable_rpc: true,
-            admin_api_secret: None,
-            rate_limit_rps: 1,
-            boot_nodes: BootNodes::Chain,
-        }
+        let mut config = Config::test_default();
+        config.secret = format!("0x{}", rand::thread_rng().gen_range(10..99));
+        config.peer_port = port;
+        config.peer_limit = peer_limit;
+
+        config
     }
 
     pub async fn make_nodes(
