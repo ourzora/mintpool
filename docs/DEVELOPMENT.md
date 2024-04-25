@@ -2,6 +2,10 @@
 
 Documentation for working on mintpool its self.
 
+High level architecture:
+
+![](../data/architecture.png)
+
 ## Getting started
 
 [Install rust](https://www.rust-lang.org/tools/install)

@@ -12,19 +12,21 @@ docker build -t mintpool .
 
 Alternatively, you can build with cargo from source
 
+([Install rust](https://www.rust-lang.org/tools/install))
+
 ```shell
 git clone https://github.com/ourzora/mintpool.git
 cd mintpool
 cargo build --release
 
-./target/release/mintpool
+SECRET=use_a_real_secret ./target/release/mintpool
 ```
 
 or use `cargo install`
 
 ```shell
 cargo install --git https://github.com/ourzora/mintpool.git
-mintpool
+SECRET=use_a_real_secret mintpool
 ```
 
 ## Configuration
@@ -34,7 +36,9 @@ mintpool
 All configuration is optional, and defaults are provided for everything other than `SEED`
 
 ```
-SEED: u64 (required)                        - Seed for peer id
+SECRET: u64 (required)                      - Secret used to generate the node's keypair for p2p operations.
+                                                This serves as the node's identity on the network for reputation and connection.
+                                                Recommended: 32 byte hex random string (ex: `openssl rand -hex 32`)
 PEER_PORT: u64 (7778)                       - Port to listen for p2p connections from other nodes
 CONNECT_EXTERNAL: bool (true)               - If true, the node will run on 0.0.0.0 instead of 127.0.0.1
 DATABASE_URL: String ("sqlite::memory:")    - sqlite connection string (ex: sqlite://mintpool.db, sqlite::memory:)
@@ -61,10 +65,16 @@ RATE_LIMIT_RPS: u32 (2)                     - Rate limit requests per second for
 Logging is controlled via the `RUST_LOG` environment variable. We recommend
 setting `export RUST_LOG=info`
 
-## Running locally
+## Running
 
 You can run the node with the following command, this will give you a node running with a repl
 
 ```shell
-RUST_LOG=info SEED=1 INTERACTIVE=true mintpool
+cargo build --release
+RUST_LOG=info SECRET=use_a_real_secret_please ./target/release/mintpool
 ```
+
+You now will have a node running on with HTTP api running on `http://localhost:7777` and p2p
+on `http://localhost:7778`.
+Your node should automatically connect to the default boot nodes and sync the last 1 day worth or
+premints. See `docs/API.md` for details on the rest api.

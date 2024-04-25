@@ -13,9 +13,10 @@ use crate::rules::RulesEngine;
 use crate::storage::{PremintStorage, Reader};
 use crate::types::Premint;
 
-/// Starts the libp2p swarm, the controller, and the checkers if applicable.
+/// Starts the libp2p swarm, the controller, and the checkers if applicable, then wires them all up.
 /// Returns an interface for interacting with the controller.
 /// All interactions with the controller should be done through `ControllerInterface` for memory safety.
+/// Recommended to use this function when extending mintpool as a library, but if you're feeling bold you can reproduce what its doing.
 pub async fn start_p2p_services(
     config: &Config,
     rules: RulesEngine<PremintStorage>,
@@ -133,6 +134,7 @@ async fn connect_to_boot_nodes(ctl: &ControllerInterface, boot_nodes: Vec<String
     }
 }
 
+// Used to start processes to watch for new mint events onchain
 pub async fn start_watch_chain<T: Premint>(config: &Config, controller: ControllerInterface) {
     if config.chain_inclusion_mode == ChainInclusionMode::Check {
         for chain_id in config.supported_chains() {
