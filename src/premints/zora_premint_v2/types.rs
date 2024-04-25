@@ -105,7 +105,7 @@ impl Premint for ZoraPremintV2 {
     }
 
     fn check_filter(chain_id: u64) -> Option<Filter> {
-        let supported_chains = [7777777, 8423]; // TODO: add the rest here and enable testnet mode
+        let supported_chains = [7777777, 8453]; // TODO: add the rest here and enable testnet mode
         if !supported_chains.contains(&chain_id) {
             return None;
         }
