@@ -51,7 +51,7 @@ impl MintChecker {
     }
 
     /// Polls for new mints based on a filter defined by the PremintType
-    pub async fn poll_for_new_mints<T: Premint>(&self) -> eyre::Result<()> {
+    pub async fn poll_for_new_mints<T: Premint>(&self) -> eyre::Result<MintCheckerResult> {
         let mut highest_block: Option<u64> = None;
 
         let mut filter = if let Some(filter) = T::check_filter(self.chain_id) {
@@ -59,7 +59,7 @@ impl MintChecker {
         } else {
             let err = eyre::eyre!("No filter for chain / premint type, skipping spawning checker");
             tracing::warn!(error = err.to_string(), "checking failed");
-            return Err(err);
+            return Ok(MintCheckerResult::NoFilter);
         };
 
         loop {
@@ -117,6 +117,10 @@ impl MintChecker {
     async fn make_provider(&self) -> eyre::Result<Arc<ChainListProvider>> {
         CHAINS.get_rpc(self.chain_id).await
     }
+}
+
+pub enum MintCheckerResult {
+    NoFilter,
 }
 
 /// checks the chain to ensure an inclusion claim actually does exist so we can safely prune

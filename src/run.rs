@@ -4,7 +4,7 @@ use libp2p::identity::Keypair;
 use std::time::Duration;
 use tracing::{info_span, Instrument};
 
-use crate::chain::{get_contract_boot_nodes, MintChecker};
+use crate::chain::{get_contract_boot_nodes, MintChecker, MintCheckerResult};
 use crate::chain_list::CHAINS;
 use crate::config::{BootNodes, ChainInclusionMode, Config};
 use crate::controller::{Controller, ControllerCommands, ControllerInterface};
@@ -143,12 +143,21 @@ pub async fn start_watch_chain<T: Premint>(config: &Config, controller: Controll
             let checker = MintChecker::new(chain_id, rpc_url, controller.clone());
             tokio::spawn(async move {
                 loop {
-                    if let Err(err) = checker.poll_for_new_mints::<T>().await {
-                        tracing::error!(
-                            error = err.to_string(),
-                            chain_id = chain_id,
-                            "checker failed"
-                        );
+                    match checker.poll_for_new_mints::<T>().await {
+                        Ok(MintCheckerResult::NoFilter) => {
+                            tracing::warn!(
+                                chain_id = chain_id,
+                                "No filter for chain / premint type, skipping checker"
+                            );
+                            break;
+                        }
+                        Err(err) => {
+                            tracing::error!(
+                                error = err.to_string(),
+                                chain_id = chain_id,
+                                "checker failed"
+                            );
+                        }
                     }
                 }
             });
