@@ -1,10 +1,11 @@
 use libp2p::identity;
+use std::time::Duration;
 use tracing::{info_span, Instrument};
 
-use crate::chain::MintChecker;
+use crate::chain::{get_contract_boot_nodes, MintChecker};
 use crate::chain_list::CHAINS;
-use crate::config::{ChainInclusionMode, Config};
-use crate::controller::{Controller, ControllerInterface};
+use crate::config::{BootNodes, ChainInclusionMode, Config};
+use crate::controller::{Controller, ControllerCommands, ControllerInterface};
 use crate::p2p::SwarmController;
 use crate::rules::RulesEngine;
 use crate::storage::{PremintStorage, Reader};
@@ -69,7 +70,54 @@ pub async fn start_p2p_services(
         }
     });
 
+    // Connect to initial nodes
+    match &config.boot_nodes {
+        BootNodes::Chain => {
+            tracing::info!("Fetching boot nodes from chain");
+            match get_contract_boot_nodes().await {
+                Ok(boot_nodes) => {
+                    connect_to_boot_nodes(&controller_interface, boot_nodes).await;
+                }
+                Err(err) => {
+                    tracing::error!(error=err.to_string(), "Failed to get boot nodes from contract, falling back to No boot nodes. Add nodes via interactive mode or admin API.");
+                }
+            }
+        }
+        BootNodes::Custom(boot_nodes) => {
+            tracing::info!("Connecting to custom boot nodes");
+            connect_to_boot_nodes(&controller_interface, boot_nodes.clone()).await;
+        }
+        BootNodes::None => {
+            tracing::info!("Starting with no boot nodes as peers");
+        }
+    }
+
     Ok(controller_interface)
+}
+
+async fn connect_to_boot_nodes(ctl: &ControllerInterface, boot_nodes: Vec<String>) {
+    for boot_node in boot_nodes {
+        if let Err(err) = ctl
+            .send_command(ControllerCommands::ConnectToPeer {
+                address: boot_node.clone(),
+            })
+            .await
+        {
+            tracing::error!(
+                error = err.to_string(),
+                boot_node = boot_node,
+                "Failed to connect to bootnode"
+            );
+        }
+    }
+    // TODO: we should probably announce on ConnectToPeer
+    tokio::time::sleep(Duration::from_millis(500)).await; // give nodes time to connect.
+    if let Err(err) = ctl.send_command(ControllerCommands::AnnounceSelf).await {
+        tracing::error!(
+            error = err.to_string(),
+            "Failed to announce self to boot nodes"
+        );
+    }
 }
 
 pub async fn start_watch_chain<T: Premint>(config: &Config, controller: ControllerInterface) {
