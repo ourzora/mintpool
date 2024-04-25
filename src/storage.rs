@@ -173,17 +173,7 @@ impl Reader for PremintStorage {
         id: &String,
         kind: PremintName,
     ) -> eyre::Result<PremintTypes> {
-        let row = sqlx::query(
-            r#"
-            SELECT json FROM premints WHERE id = ? and kind = ?
-        "#,
-        )
-        .bind(id)
-        .bind(kind.0)
-        .fetch_one(&self.db)
-        .await?;
-        let json = row.try_get(0)?;
-        PremintTypes::from_json(json)
+        get_for_id_and_kind(&self.db, id, kind).await
     }
 
     async fn get_for_token_uri(&self, uri: &String) -> eyre::Result<PremintTypes> {
@@ -194,6 +184,24 @@ impl Reader for PremintStorage {
         let json = row.try_get(0)?;
         PremintTypes::from_json(json)
     }
+}
+
+pub async fn get_for_id_and_kind(
+    db: &SqlitePool,
+    id: &String,
+    kind: PremintName,
+) -> eyre::Result<PremintTypes> {
+    let row = sqlx::query(
+        r#"
+            SELECT json FROM premints WHERE id = ? and kind = ?
+        "#,
+    )
+    .bind(id)
+    .bind(kind.0)
+    .fetch_one(db)
+    .await?;
+    let json = row.try_get(0)?;
+    PremintTypes::from_json(json)
 }
 
 pub async fn list_all(db: &SqlitePool) -> eyre::Result<Vec<PremintTypes>> {

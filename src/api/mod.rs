@@ -46,6 +46,8 @@ pub fn router_with_defaults(config: &Config) -> Router<AppState> {
     Router::new()
         .route("/health", get(routes::health))
         .route("/list-all", get(routes::list_all))
+        .route("/get-one", get(routes::get_one))
+        .route("/get-one/:kind/:id", get(routes::get_by_id_and_kind))
         .route("/submit-premint", post(routes::submit_premint))
         .layer(
             ServiceBuilder::new()

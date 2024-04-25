@@ -13,6 +13,7 @@ use crate::types::{
     InclusionClaim, MintpoolNodeInfo, PeerInclusionClaim, PremintName, PremintTypes,
 };
 
+/// Represents commands that can be sent to the p2p swarm
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum SwarmCommand {
@@ -32,6 +33,7 @@ pub enum SwarmCommand {
     SendOnchainMintFound(InclusionClaim),
 }
 
+/// Event types that may be received from the p2p swarm that need to be handled by the controller
 pub enum P2PEvent {
     NetworkState(NetworkState),
     PremintReceived(PremintTypes),
@@ -62,6 +64,7 @@ pub enum DBQuery {
     Direct(oneshot::Sender<eyre::Result<SqlitePool>>),
 }
 
+/// Central hub for processing incoming events and commands from peers and other inputs
 pub struct Controller {
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     swarm_event_receiver: mpsc::Receiver<P2PEvent>,

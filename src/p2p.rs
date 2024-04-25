@@ -39,6 +39,7 @@ pub struct SwarmController {
     discover_ticker: Ticker,
 }
 
+/// Service for managing p2p actions and connections
 impl SwarmController {
     pub fn new(
         id_keys: Keypair,

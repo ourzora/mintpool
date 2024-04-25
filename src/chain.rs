@@ -12,6 +12,7 @@ use crate::controller::{ControllerCommands, ControllerInterface};
 use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
 use crate::types::{InclusionClaim, Premint, PremintTypes};
 
+/// Helper function for calling view functions for SolCall types
 pub async fn contract_call<T>(call: T, provider: &Arc<ChainListProvider>) -> eyre::Result<T::Return>
 where
     T: SolCall,
@@ -49,6 +50,7 @@ impl MintChecker {
         }
     }
 
+    /// Polls for new mints based on a filter defined by the PremintType
     pub async fn poll_for_new_mints<T: Premint>(&self) -> eyre::Result<()> {
         let mut highest_block: Option<u64> = None;
 
