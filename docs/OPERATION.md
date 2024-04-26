@@ -14,31 +14,40 @@ Alternatively, you can build with cargo from source
 
 ([Install rust](https://www.rust-lang.org/tools/install))
 
+Install dependencies:
+
 ```shell
 git clone https://github.com/ourzora/mintpool.git
 cd mintpool
+
+cargo install just
+just init
+just seed
+```
+
+Then you can build and run
+
+```shell
 cargo build --release
 
 SECRET=use_a_real_secret ./target/release/mintpool
-```
-
-or use `cargo install`
-
-```shell
-cargo install --git https://github.com/ourzora/mintpool.git
-SECRET=use_a_real_secret mintpool
 ```
 
 ## Configuration
 
 `mintpool` uses environment variables for configuration, listed below (see `src/config.rs` in code)
 
-All configuration is optional, and defaults are provided for everything other than `SEED`
+Required Configuration:
 
 ```
-SECRET: u64 (required)                      - Secret used to generate the node's keypair for p2p operations.
-                                                This serves as the node's identity on the network for reputation and connection.
-                                                Recommended: 32 byte hex random string (ex: `openssl rand -hex 32`)
+SECRET: u64 (required)      - Secret used to generate the node's keypair for p2p operations.
+                              This serves as the node's identity on the network for reputation and connection.
+                              Recommended: 32 byte hex random string (ex: `openssl rand -hex 32`)
+```
+
+Optional Configuration:
+
+```
 PEER_PORT: u64 (7778)                       - Port to listen for p2p connections from other nodes
 CONNECT_EXTERNAL: bool (true)               - If true, the node will run on 0.0.0.0 instead of 127.0.0.1
 DATABASE_URL: String ("sqlite::memory:")    - sqlite connection string (ex: sqlite://mintpool.db, sqlite::memory:)
@@ -59,6 +68,26 @@ ENABLE_RPC: bool (true)                     - If true, rpc will be used for rule
 ADMIN_API_SECRET: Option<String> (None)     - Secret key used to access admin api routes
 RATE_LIMIT_RPS: u32 (2)                     - Rate limit requests per second for the http api
 SYNC_LOOKBACK_HOURS: u64 (6)                - Number of hours to look back for syncing premints from another node
+```
+
+**Recommended Configuration for Production:**
+
+```
+DATABASE_URL=sqlite://mintpool.db                # path for sqlite database
+PERSIST_STATE=true                               # persists mints between restarts
+ADMIN_API_SECRET=shared_secret_with_api_clients  # This is required to access admin routes
+```
+
+### Configuring blockchain RPC
+
+`mintpool` comes with public RPC urls for a zora network, base, and ethereum. If you want to use
+your own RPC urls, or use a chain that's not in the default `SUPPORTED_CHAIN_IDS` you can set the
+following environment variables:
+
+```
+export CHAIN_{CHAIN_ID}_RPC_WSS=wss://<your_chain_rpc>
+# example
+export CHAIN_7777777_RPC_WSS=wss://rpc.zora.energy
 ```
 
 #### Logging
