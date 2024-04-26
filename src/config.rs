@@ -256,7 +256,7 @@ mod test {
             enable_rpc: true,
             admin_api_secret: None,
             rate_limit_rps: 1,
-            boot_nodes: BootNodes::Chain,
+            boot_nodes: BootNodes::None,
         };
 
         let names = config.premint_names();
