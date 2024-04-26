@@ -44,7 +44,7 @@ pub mod mintpool_build {
             let config = make_config(start_port + i, peer_limit);
 
             let ctl = mintpool::run::start_p2p_services(
-                &config,
+                config.clone(),
                 RulesEngine::new_with_default_rules(&config),
             )
             .await

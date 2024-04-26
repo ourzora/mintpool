@@ -81,8 +81,7 @@ pub struct Controller {
     external_commands: mpsc::Receiver<ControllerCommands>,
     store: PremintStorage,
     rules: RulesEngine<PremintStorage>,
-    trusted_peers: Vec<PeerId>,
-    inclusion_mode: ChainInclusionMode,
+
     config: Config,
 }
 
@@ -101,8 +100,6 @@ impl Controller {
             external_commands,
             store,
             rules,
-            trusted_peers: config.trusted_peers(),
-            inclusion_mode: config.chain_inclusion_mode,
             config,
         }
     }
@@ -229,7 +226,7 @@ impl Controller {
                     tracing::debug!("Marked as seen onchain {:?}", claim.clone());
                 }
 
-                if self.inclusion_mode == ChainInclusionMode::Check {
+                if self.config.chain_inclusion_mode == ChainInclusionMode::Check {
                     if let Err(err) = self
                         .swarm_command_sender
                         .send(SwarmCommand::SendOnchainMintFound(claim))
@@ -263,7 +260,7 @@ impl Controller {
     }
 
     async fn handle_event_onchain_claim(&self, peer_claim: PeerInclusionClaim) -> eyre::Result<()> {
-        match self.inclusion_mode {
+        match self.config.chain_inclusion_mode {
             ChainInclusionMode::Check | ChainInclusionMode::Verify => {
                 let claim = peer_claim.claim;
                 let premint = self
@@ -286,7 +283,11 @@ impl Controller {
                 }
             }
             ChainInclusionMode::Trust => {
-                if self.trusted_peers.contains(&peer_claim.from_peer_id) {
+                if self
+                    .config
+                    .trusted_peers()
+                    .contains(&peer_claim.from_peer_id)
+                {
                     self.store
                         .mark_seen_on_chain(peer_claim.claim.clone())
                         .await?;
@@ -303,26 +304,6 @@ impl Controller {
                 Ok(())
             }
         }
-    }
-
-    /// temporary solution for full state from a known other node via their http api.
-    /// We should migrate to syncing based on peer_id & libp2p request_response
-    async fn api_sync(&self, api_url: String) -> eyre::Result<()> {
-        let seconds = self.config.sync_lookback_hours * 60 * 60;
-        let from_time = SystemTime::now().sub(Duration::from_secs(seconds));
-
-        let from_time = chrono::Utc::now().sub(chrono::Duration::hours(
-            self.config.sync_lookback_hours as i64,
-        ));
-
-        let url = reqwest::Url::parse_with_params(
-            api_url.as_str(),
-            &[("from", serde_json::to_string(&from_time)?)],
-        )?;
-
-        // reqwest::get()
-
-        Ok(())
     }
 }
 

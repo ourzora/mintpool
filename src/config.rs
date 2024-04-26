@@ -231,6 +231,7 @@ mod test {
             admin_api_secret: None,
             rate_limit_rps: 1,
             boot_nodes: BootNodes::Chain,
+            sync_lookback_hours: 0,
         };
 
         let names = config.premint_names();
@@ -259,6 +260,7 @@ mod test {
             admin_api_secret: None,
             rate_limit_rps: 1,
             boot_nodes: BootNodes::None,
+            sync_lookback_hours: 0,
         };
 
         let names = config.premint_names();
