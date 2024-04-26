@@ -87,7 +87,7 @@ opentelemetry_sdk = { version = "0.22.1", features = ["metrics", "rt-tokio"] }
 opentelemetry-stdout = { version = "0.3.0", features = ["logs", "metrics", "trace"] }
 opentelemetry-prometheus = "0.15.0"
 prometheus = "0.13.3"
-
+built = "0.7.2"
 
 [patch.crates-io]
 alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "7574bfc" }
@@ -98,3 +98,7 @@ opt-level = 3
 
 [dev-dependencies]
 alloy-node-bindings = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
+
+
+[build-dependencies]
+built = { version = "0.7.2", features = ["git2"] }

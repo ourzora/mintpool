@@ -12,7 +12,7 @@ use libp2p::gossipsub::Version;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::GetProvidersOk::FoundProviders;
-use libp2p::kad::{Addresses, GetProvidersOk, QueryResult, RecordKey};
+use libp2p::kad::{Addresses, QueryResult, RecordKey};
 use libp2p::multiaddr::Protocol;
 use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
 use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr, PeerId};

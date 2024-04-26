@@ -18,6 +18,24 @@ curl http://localhost:7777/health
 OK
 ```
 
+### `GET /summary`
+
+Returns information about the node
+
+Example
+
+```
+curl -H "Authorization: abc" http://localhost:7777/admin/node
+
+{
+  "local_peer_id": "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X",
+  "num_peers": 0,
+  "dht_peers": [],
+  "gossipsub_peers": [],
+  "all_external_addresses": []
+}
+```
+
 ### `GET /list-all`
 
 List all premints stored by the node. Supports the following query params for filtering:
@@ -277,24 +295,6 @@ If the admin key is not set these routes are unreachable.
 ### `POST /admin/submit-premint`
 
 See `/submit-premint` for details, same route but without ratelimit
-
-### `GET /admin/node`
-
-Returns information about the node
-
-Example
-
-```
-curl -H "Authorization: abc" http://localhost:7777/admin/node
-
-{
-  "local_peer_id": "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X",
-  "num_peers": 0,
-  "dht_peers": [],
-  "gossipsub_peers": [],
-  "all_external_addresses": []
-}
-```
 
 ### `POST /admin/add-peer`
 
