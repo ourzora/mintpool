@@ -17,6 +17,7 @@ RUN --mount=type=bind,source=justfile,target=justfile \
     cargo install just && just ci
 
 RUN --mount=type=bind,source=src,target=src \
+    --mount=type=bind,source=.git,target=.git \
     --mount=type=bind,source=data,target=data \
     --mount=type=bind,source=contracts,target=contracts \
     --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
@@ -24,6 +25,7 @@ RUN --mount=type=bind,source=src,target=src \
     --mount=type=cache,target=/app/target/ \
     --mount=type=cache,target=/usr/local/cargo/registry/ \
     --mount=type=bind,source=migrations,target=/app/migrations \
+    --mount=type=bind,source=build.rs,target=build.rs \
     <<EOF
 set -e
 cargo build --locked --release

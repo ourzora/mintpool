@@ -102,9 +102,9 @@ impl Controller {
         store: PremintStorage,
         rules: RulesEngine<PremintStorage>,
     ) -> Self {
-        // sync every 60 minutes, also sync 30 seconds after startup (gives some time to connect to peers)
+        // sync every 60 minutes, also sync 5 seconds after startup (gives some time to connect to peers)
         let sync_ticker =
-            Ticker::new_with_next(Duration::from_secs(60 * 60), Duration::from_secs(30));
+            Ticker::new_with_next(Duration::from_secs(60 * 60), Duration::from_secs(5));
 
         Self {
             swarm_command_sender,
