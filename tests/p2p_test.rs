@@ -1,12 +1,9 @@
 mod common;
 
 use crate::common::{asserts, helpers, mintpool_build};
-use alloy_signer::Signer;
 use common::factories::Factory;
-use mintpool::api::routes::submit_premint;
 use mintpool::controller::ControllerCommands;
 use mintpool::controller::ControllerCommands::Broadcast;
-use mintpool::premints::zora_premint_v2::types::ZoraPremintV2;
 use mintpool::types::{PremintTypes, SimplePremint};
 use tokio::time;
 
@@ -96,7 +93,7 @@ async fn test_max_connections() {
     let num_nodes = 5;
     let limit = 3;
 
-    let nodes = mintpool_build::make_nodes(2310, num_nodes, limit).await;
+    let nodes = mintpool_build::make_nodes(3370, num_nodes, limit).await;
     mintpool_build::connect_all_to_first(nodes.clone()).await;
 
     mintpool_build::announce_all(nodes.clone()).await;

@@ -116,7 +116,7 @@ pub struct Chain {
 #[cfg(test)]
 mod test {
     use super::*;
-    use alloy_provider::Provider;
+    use alloy::providers::Provider;
 
     #[test]
     fn test_chains_new() {

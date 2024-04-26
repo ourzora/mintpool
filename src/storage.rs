@@ -323,7 +323,7 @@ fn build_query(options: &QueryOptions) -> QueryBuilder<Sqlite> {
 
 #[cfg(test)]
 mod test {
-    use alloy_primitives::Address;
+    use alloy::primitives::Address;
     use chrono::{Duration, Utc};
     use sqlx::Row;
     use std::ops::Sub;

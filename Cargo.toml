@@ -81,6 +81,7 @@ alloy = { git = "https://github.com/alloy-rs/alloy", rev = "bbef8de", features =
     "json-abi",
     "node-bindings",
     "contract",
+    "signer-wallet"
 ] }
 
 #alloy-transport = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }

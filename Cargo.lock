@@ -118,6 +118,7 @@ dependencies = [
  "alloy-signer-aws",
  "alloy-signer-gcp",
  "alloy-signer-ledger",
+ "alloy-signer-wallet",
  "alloy-transport",
  "alloy-transport-http",
  "alloy-transport-ws",
