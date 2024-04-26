@@ -6,8 +6,10 @@ use tokio::{io, select};
 
 const PROMPT: &str = r#"🌍 Mintpool node accepting commands 🌍
 Supported commands:
+    /connect <multiaddr> - ex: /connect /dnsaddr/mintpool-1.zora.co
     /ip4/<some node_uri> - ex: /ip4/127.0.0.1/tcp/7779/p2p/12D3..e2Xo
     /peers - list all connected peers
+    /sync - sync from a random peer
     /node - shows node info
     /announce - announce self to the network to connect to all available peers
     /list - list all premints in the database
@@ -47,6 +49,10 @@ async fn process_stdin_line(ctl: ControllerInterface, line: String) {
                 error = err.to_string(),
                 "Error sending connect to peer command"
             );
+        };
+    } else if line.starts_with("/sync") {
+        if let Err(err) = ctl.send_command(ControllerCommands::Sync).await {
+            tracing::error!(error = err.to_string(), "Error sending sync command");
         };
     } else if line.starts_with("/ip4") {
         if let Err(err) = ctl
