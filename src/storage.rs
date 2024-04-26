@@ -325,6 +325,7 @@ mod test {
     use alloy_primitives::Address;
     use chrono::{Duration, Utc};
     use sqlx::Row;
+    use std::ops::Sub;
 
     use crate::config::Config;
     use crate::premints::zora_premint_v2::types::ZoraPremintV2;
@@ -335,8 +336,6 @@ mod test {
     use crate::types::{InclusionClaim, Premint, PremintTypes};
 
     #[tokio::test]
-    use chrono::{Duration, Utc};
-    use std::ops::Sub;
     async fn test_insert_and_get() {
         let config = Config::test_default();
 
