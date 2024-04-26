@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::controller::{P2PEvent, SwarmCommand};
+use crate::storage::QueryOptions;
 use crate::types::{
     claims_topic_hashes, InclusionClaim, MintpoolNodeInfo, PeerInclusionClaim, Premint,
     PremintName, PremintTypes,
@@ -14,12 +15,17 @@ use libp2p::kad::store::MemoryStore;
 use libp2p::kad::GetProvidersOk::FoundProviders;
 use libp2p::kad::{Addresses, QueryResult, RecordKey};
 use libp2p::multiaddr::Protocol;
+use libp2p::request_response::{Message, ProtocolSupport};
 use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
-use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr, PeerId};
+use libp2p::{
+    gossipsub, kad, noise, request_response, tcp, yamux, Multiaddr, PeerId, StreamProtocol,
+};
 use sha256::digest;
 use std::hash::Hasher;
 use std::time::Duration;
 use tokio::select;
+use tower::load::pending_requests;
+use tower_http::request_id;
 
 #[derive(NetworkBehaviour)]
 pub struct MintpoolBehaviour {
@@ -27,6 +33,7 @@ pub struct MintpoolBehaviour {
     kad: kad::Behaviour<MemoryStore>,
     identify: libp2p::identify::Behaviour,
     ping: libp2p::ping::Behaviour,
+    request_response: request_response::cbor::Behaviour<QueryOptions, Vec<PremintTypes>>,
 }
 
 pub struct SwarmController {
@@ -120,6 +127,13 @@ impl SwarmController {
                         public_key,
                     )),
                     ping: libp2p::ping::Behaviour::new(libp2p::ping::Config::new()),
+                    request_response: request_response::cbor::Behaviour::new(
+                        [(
+                            StreamProtocol::new("/mintpool-sync/1"),
+                            ProtocolSupport::Full,
+                        )],
+                        request_response::Config::default(),
+                    ),
                 }
             })?
             .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
@@ -284,6 +298,10 @@ impl SwarmController {
                         "Error processing gossipsub behavior event",
                     );
                 }
+            }
+
+            SwarmEvent::Behaviour(MintpoolBehaviourEvent::RequestResponse(event)) => {
+                self.handle_request_response_event(event).await
             }
 
             SwarmEvent::Dialing { peer_id, .. } => {
@@ -548,6 +566,53 @@ impl SwarmController {
             gossipsub_peers,
             all_external_addresses: self.swarm.external_addresses().cloned().collect(),
         }
+    }
+
+    async fn handle_request_response_event(
+        &mut self,
+        event: request_response::Event<QueryOptions, Vec<PremintTypes>>,
+    ) -> eyre::Result<()> {
+        match event {
+            request_response::Event::Message { peer, message } => match message {
+                Message::Request {
+                    request_id,
+                    request,
+                    channel,
+                } => {
+                    tracing::info!(
+                        request_id = request_id.to_string(),
+                        "processing request for sync"
+                    );
+                    let (snd, recv) = tokio::sync::oneshot::channel();
+                    self.event_sender
+                        .send(P2PEvent::SyncRequest {
+                            query: request,
+                            channel: snd,
+                        })
+                        .await?;
+                    let result = recv.await??;
+                    self.swarm
+                        .behaviour_mut()
+                        .request_response
+                        .send_response(channel, result)
+                        .map_err(|e| eyre::eyre!("Error sending response: {:?}", e))?
+                }
+                Message::Response {
+                    request_id,
+                    response,
+                } => {
+                    tracing::info!(
+                        request_id = request_id.to_string(),
+                        "received response for sync"
+                    );
+                    self.event_sender
+                        .send(P2PEvent::SyncResponse { premints: response })
+                        .await?;
+                }
+            },
+            other => tracing::info!("mintpool sync request/response event: {:?}", other),
+        }
+        Ok(())
     }
 }
 

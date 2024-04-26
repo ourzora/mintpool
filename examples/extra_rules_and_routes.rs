@@ -27,7 +27,7 @@ async fn main() -> eyre::Result<()> {
     rules.add_rule(metadata_rule!(only_odd_token_ids));
     rules.add_rule(Box::new(MustStartWithA {}));
 
-    let ctl = mintpool::run::start_p2p_services(&config, rules).await?;
+    let ctl = mintpool::run::start_p2p_services(config.clone(), rules).await?;
 
     // Add some custom routes in addition to the defaults. You could also add middleware or anything else you can do with axum.
     let mut router = mintpool::api::router_with_defaults(&config);

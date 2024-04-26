@@ -11,7 +11,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::p2p::NetworkState;
 use crate::rules::{Results, RulesEngine};
-use crate::storage::{PremintStorage, Reader, Writer};
+use crate::storage::{list_all_with_options, PremintStorage, QueryOptions, Reader, Writer};
 use crate::types::{
     InclusionClaim, MintpoolNodeInfo, PeerInclusionClaim, PremintName, PremintTypes,
 };
@@ -41,6 +41,13 @@ pub enum P2PEvent {
     NetworkState(NetworkState),
     PremintReceived(PremintTypes),
     MintSeenOnchain(PeerInclusionClaim),
+    SyncRequest {
+        query: QueryOptions,
+        channel: oneshot::Sender<eyre::Result<Vec<PremintTypes>>>,
+    },
+    SyncResponse {
+        premints: Vec<PremintTypes>,
+    },
 }
 
 pub enum ControllerCommands {
@@ -130,6 +137,18 @@ impl Controller {
             P2PEvent::MintSeenOnchain(claim) => {
                 if let Err(err) = self.handle_event_onchain_claim(claim).await {
                     tracing::error!("Error handling onchain claim: {:?}", err);
+                }
+            }
+            P2PEvent::SyncRequest { query, channel } => {
+                let events = list_all_with_options(&self.store.db(), &query).await;
+                if let Err(Err(err)) = channel.send(events) {
+                    tracing::error!("Error sending sync response: {:?}", err);
+                }
+                tracing::info!(histogram.sync_request_processed = 1);
+            }
+            P2PEvent::SyncResponse { premints } => {
+                for premint in premints {
+                    let _ = self.validate_and_insert(premint).await;
                 }
             }
         }

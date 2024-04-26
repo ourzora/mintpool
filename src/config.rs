@@ -7,7 +7,7 @@ use rand::Rng;
 use crate::chain_list::CHAINS;
 use crate::types::PremintName;
 
-#[derive(Envconfig, Debug)]
+#[derive(Envconfig, Debug, Clone)]
 pub struct Config {
     // Used to derive an ed25519 keypair for node identity
     // Should be 32 bytes of random hex.
@@ -103,6 +103,7 @@ impl Config {
             admin_api_secret: None,
             rate_limit_rps: 1,
             boot_nodes: BootNodes::None,
+            sync_lookback_hours: 6,
         }
     }
 }

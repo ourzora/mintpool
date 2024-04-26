@@ -18,20 +18,20 @@ use crate::types::Premint;
 /// All interactions with the controller should be done through `ControllerInterface` for memory safety.
 /// Recommended to use this function when extending mintpool as a library, but if you're feeling bold you can reproduce what its doing.
 pub async fn start_p2p_services(
-    config: &Config,
+    config: Config,
     rules: RulesEngine<PremintStorage>,
 ) -> eyre::Result<ControllerInterface> {
-    let id_keys = make_keypair(config)
+    let id_keys = make_keypair(&config)
         .expect("Failed to create keypair, node cannot start. Confirm secret is 32 bytes of hex (0x + 64 hex chars)");
     let (event_send, event_recv) = tokio::sync::mpsc::channel(1024);
     let (swrm_cmd_send, swrm_recv) = tokio::sync::mpsc::channel(1024);
     let (ext_cmd_send, ext_cmd_recv) = tokio::sync::mpsc::channel(1024);
 
-    let store = PremintStorage::new(config).await;
+    let store = PremintStorage::new(&config).await;
 
-    let mut swarm_controller = SwarmController::new(id_keys, config, swrm_recv, event_send);
+    let mut swarm_controller = SwarmController::new(id_keys, &config, swrm_recv, event_send);
     let mut controller = Controller::new(
-        &config,
+        config.clone(),
         swrm_cmd_send,
         event_recv,
         ext_cmd_recv,

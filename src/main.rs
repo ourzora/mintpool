@@ -18,7 +18,7 @@ async fn main() -> eyre::Result<()> {
 
     let mut rules = RulesEngine::new(&config);
     rules.add_default_rules();
-    let ctl = start_p2p_services(&config, rules).await?;
+    let ctl = start_p2p_services(config.clone(), rules).await?;
 
     let router = api::router_with_defaults(&config).merge(metrics_router);
     api::start_api(&config, ctl.clone(), router, true).await?;
