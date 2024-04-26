@@ -49,6 +49,7 @@ pub fn router_with_defaults(config: &Config) -> Router<AppState> {
         .route("/get-one", get(routes::get_one))
         .route("/get-one/:kind/:id", get(routes::get_by_id_and_kind))
         .route("/submit-premint", post(routes::submit_premint))
+        .route("/summary", get(routes::summary))
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(|error: BoxError| async move {
@@ -78,7 +79,6 @@ pub fn router_with_defaults(config: &Config) -> Router<AppState> {
 
 pub fn with_admin_routes(state: AppState, router: Router<AppState>) -> Router<AppState> {
     let admin = Router::new()
-        .route("/admin/node", get(admin::node_info))
         .route("/admin/add-peer", post(admin::add_peer))
         // admin submit premint route is not rate limited (allows for operator to send high volume of premints)
         .route("/admin/submit-premint", post(routes::submit_premint))

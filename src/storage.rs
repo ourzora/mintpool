@@ -6,7 +6,7 @@ use eyre::WrapErr;
 use serde::Deserialize;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::Row;
-use sqlx::{Encode, QueryBuilder, Sqlite, SqlitePool};
+use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 use std::str::FromStr;
 
 async fn init_db(config: &Config) -> SqlitePool {

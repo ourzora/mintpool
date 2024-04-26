@@ -11,3 +11,7 @@ pub mod run;
 pub mod stdin;
 pub mod storage;
 pub mod types;
+
+pub mod built_info {
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+}
