@@ -1,16 +1,17 @@
-use crate::chain::inclusion_claim_correct;
-use crate::config::{ChainInclusionMode, Config};
+use std::ops::Sub;
+use std::time::{Duration, SystemTime};
+
 use chrono::{DateTime, Utc};
 use eyre::WrapErr;
 use futures_ticker::Ticker;
 use futures_util::StreamExt;
 use libp2p::PeerId;
 use sqlx::SqlitePool;
-use std::ops::Sub;
-use std::time::{Duration, SystemTime};
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
+use crate::chain::inclusion_claim_correct;
+use crate::config::{ChainInclusionMode, Config};
 use crate::p2p::NetworkState;
 use crate::rules::{Results, RulesEngine};
 use crate::storage::{list_all_with_options, PremintStorage, QueryOptions, Reader, Writer};
@@ -72,6 +73,7 @@ pub enum ControllerCommands {
     },
     Query(DBQuery),
     ResolveOnchainMint(InclusionClaim),
+    Sync,
 }
 
 pub enum DBQuery {
@@ -134,16 +136,13 @@ impl Controller {
     }
 
     async fn do_sync(&self) {
-        let now = SystemTime::now();
-        let then = now - Duration::from_secs(60 * 60 * self.config.sync_lookback_hours);
+        let from = Some(
+            chrono::Utc::now() - Duration::from_secs(60 * 60 * self.config.sync_lookback_hours),
+        );
 
         let query = QueryOptions {
-            chain_id: None,
-            kind: None,
-            collection_address: None,
-            creator_address: None,
-            from: Some(DateTime::from(then)),
-            to: Some(DateTime::from(now)),
+            from,
+            ..Default::default()
         };
 
         self.swarm_command_sender
@@ -269,6 +268,9 @@ impl Controller {
                     }
                 }
             }
+            ControllerCommands::Sync => {
+                self.do_sync().await;
+            }
         }
         Ok(())
     }
@@ -353,6 +355,14 @@ impl ControllerInterface {
     pub async fn send_command(&self, command: ControllerCommands) -> eyre::Result<()> {
         self.command_sender.send(command).await?;
         Ok(())
+    }
+
+    pub async fn get_all_premints(&self) -> eyre::Result<Vec<PremintTypes>> {
+        let (snd, recv) = oneshot::channel();
+        self.send_command(ControllerCommands::Query(DBQuery::ListAll(snd)))
+            .await?;
+
+        Ok(recv.await??)
     }
 
     pub async fn get_node_info(&self) -> eyre::Result<MintpoolNodeInfo> {

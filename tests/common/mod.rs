@@ -30,8 +30,25 @@ pub mod mintpool_build {
         config.secret = format!("0x{}", rand::thread_rng().gen_range(10..99));
         config.peer_port = port;
         config.peer_limit = peer_limit;
+        config.node_id = Some(port);
 
         config
+    }
+
+    pub async fn get_local_address(ctl: &ControllerInterface) -> String {
+        let n1_info = ctl
+            .get_node_info()
+            .await
+            .expect("failed to get node info from n1");
+
+        n1_info
+            .addr
+            .first()
+            .unwrap()
+            .clone()
+            .with_p2p(n1_info.peer_id)
+            .unwrap()
+            .to_string()
     }
 
     pub async fn make_nodes(
@@ -70,18 +87,7 @@ pub mod mintpool_build {
 
     pub async fn connect_all_to_first(nodes: Vec<ControllerInterface>) {
         if let Some((first, nodes)) = nodes.split_first() {
-            let n1_info = first
-                .get_node_info()
-                .await
-                .expect("failed to get node info from n1");
-            let n1_local_addr = n1_info
-                .addr
-                .first()
-                .unwrap()
-                .clone()
-                .with_p2p(n1_info.peer_id)
-                .unwrap()
-                .to_string();
+            let n1_local_addr = get_local_address(first).await;
 
             for node in nodes {
                 node.send_command(ControllerCommands::ConnectToPeer {
@@ -96,6 +102,27 @@ pub mod mintpool_build {
         } else {
             panic!("nodes is empty")
         }
+    }
+}
+
+pub mod helpers {
+    use mintpool::controller::ControllerCommands;
+    use mintpool::types::PremintTypes;
+
+    pub async fn must_submit_premint(
+        ctl: &mintpool::controller::ControllerInterface,
+        premint: PremintTypes,
+    ) {
+        let (snd, rcv) = tokio::sync::oneshot::channel();
+        ctl.send_command(ControllerCommands::Broadcast {
+            message: premint,
+            channel: snd,
+        })
+        .await
+        .expect("failed to send premint");
+        rcv.await
+            .expect("failed to receive response")
+            .expect("premint failed");
     }
 }
 

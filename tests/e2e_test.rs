@@ -16,7 +16,6 @@ use alloy_signer::Signer;
 use alloy_signer_wallet::LocalWallet;
 use alloy_sol_types::{SolCall, SolValue};
 use alloy_transport::TransportErrorKind;
-use mintpool::api::admin::node_info;
 use mintpool::config::{BootNodes, ChainInclusionMode, Config};
 use mintpool::controller::{ControllerCommands, DBQuery};
 use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
