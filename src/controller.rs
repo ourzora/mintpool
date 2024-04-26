@@ -1,4 +1,5 @@
 use std::ops::Sub;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use chrono::{DateTime, Utc};
@@ -8,7 +9,7 @@ use futures_util::StreamExt;
 use libp2p::PeerId;
 use sqlx::SqlitePool;
 use tokio::select;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, Semaphore};
 
 use crate::chain::inclusion_claim_correct;
 use crate::config::{ChainInclusionMode, Config};
@@ -176,9 +177,13 @@ impl Controller {
                 tracing::info!(histogram.sync_request_processed = 1);
             }
             P2PEvent::SyncResponse { premints } => {
-                for premint in premints {
-                    let _ = self.validate_and_insert(premint).await;
-                }
+                let sem = Arc::new(Semaphore::new(10));
+                futures_util::future::join_all(premints.into_iter().map(|p| async {
+                    let permit = sem.acquire().await.unwrap();
+                    let _ = self.validate_and_insert(p).await;
+                    drop(permit);
+                }))
+                .await;
             }
         }
     }
