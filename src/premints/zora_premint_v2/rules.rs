@@ -3,8 +3,10 @@ use std::str::FromStr;
 use alloy_primitives::Signature;
 use alloy_sol_types::SolStruct;
 
-use crate::chain::contract_call;
-use crate::premints::zora_premint_v2::types::{IZoraPremintV2, ZoraPremintV2};
+use crate::chain::view_contract_call;
+use crate::premints::zora_premint_v2::types::{
+    IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
+};
 use crate::rules::Evaluation::Accept;
 use crate::rules::{Evaluation, Rule, RuleContext};
 use crate::storage::Reader;
@@ -28,7 +30,7 @@ pub async fn is_authorized_to_create_premint<T: Reader>(
         premintContractConfigContractAdmin: premint.collection.contractAdmin,
     };
 
-    let result = contract_call(call, rpc).await?;
+    let result = view_contract_call(call, rpc, PREMINT_FACTORY_ADDR).await?;
 
     match result.isAuthorized {
         true => Ok(Accept),
@@ -50,7 +52,7 @@ pub async fn not_minted<T: Reader>(
         uid: premint.premint.uid,
     };
 
-    let result = contract_call(call, rpc).await?;
+    let result = view_contract_call(call, rpc, PREMINT_FACTORY_ADDR).await?;
 
     match result.contractCreated && !result.tokenIdForPremint.is_zero() {
         false => Ok(Accept),
@@ -71,7 +73,7 @@ pub async fn premint_version_supported<T: Reader>(
         contractAddress: premint.collection_address,
     };
 
-    let result = contract_call(call, rpc).await?;
+    let result = view_contract_call(call, rpc, PREMINT_FACTORY_ADDR).await?;
 
     match result.versions.contains(&"2".to_string()) {
         true => Ok(Accept),

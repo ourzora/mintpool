@@ -76,7 +76,11 @@ pub async fn start_p2p_services(
             tracing::info!("Fetching boot nodes from chain");
             match get_contract_boot_nodes().await {
                 Ok(boot_nodes) => {
-                    connect_to_boot_nodes(&controller_interface, boot_nodes).await;
+                    connect_to_boot_nodes(&controller_interface, boot_nodes.clone()).await;
+                    tracing::info!(
+                        nodes = serde_json::to_string(&boot_nodes).ok(),
+                        "Connected to bootnodes!"
+                    )
                 }
                 Err(err) => {
                     tracing::error!(error=err.to_string(), "Failed to get boot nodes from contract, falling back to No boot nodes. Add nodes via interactive mode or admin API.");
