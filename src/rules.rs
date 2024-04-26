@@ -252,7 +252,7 @@ macro_rules! typed_rule {
                 context: &$crate::rules::RuleContext<T>,
             ) -> eyre::Result<$crate::rules::Evaluation> {
                 match item {
-                    $t(premint) => $fn(&premint, context).await,
+                    $t(premint) => $fn(premint, context).await,
                     _ => $crate::ignore!("Wrong type"),
                 }
             }
