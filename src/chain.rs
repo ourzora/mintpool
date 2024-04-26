@@ -13,14 +13,18 @@ use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
 use crate::types::{InclusionClaim, Premint, PremintTypes};
 
 /// Helper function for calling view functions for SolCall types
-pub async fn contract_call<T>(call: T, provider: &Arc<ChainListProvider>) -> eyre::Result<T::Return>
+pub async fn view_contract_call<T>(
+    call: T,
+    provider: &Arc<ChainListProvider>,
+    address: Address,
+) -> eyre::Result<T::Return>
 where
     T: SolCall,
 {
     provider
         .call(
             &TransactionRequest {
-                to: Some(PREMINT_FACTORY_ADDR),
+                to: Some(address),
                 input: TransactionInput::new(Bytes::from(call.abi_encode())),
                 ..Default::default()
             },
@@ -151,8 +155,8 @@ sol! {
     "contracts/artifacts/abi.json"
 }
 
-const BOOTNODES_CONTRACT_ADDRESS: Address = address!("7777777748Bc44D8FD1DDB63d6C0A802d9c03588");
-const BOOTNODES_CONTRACT_DEPLOY_BLOCK: u64 = 1_000_000; // TODO: get this after contract deployment
+const BOOTNODES_CONTRACT_ADDRESS: Address = address!("777777A1476296E9F7835C91e2B917ecbfAf83a1");
+const BOOTNODES_CONTRACT_DEPLOY_BLOCK: u64 = 13_699_230;
 
 pub async fn get_contract_boot_nodes() -> eyre::Result<Vec<String>> {
     let chain = CHAINS.get_rpc(7777777).await?;
@@ -180,11 +184,12 @@ pub async fn get_contract_boot_nodes() -> eyre::Result<Vec<String>> {
         .map(|event| event.node.to_string())
         .collect::<Vec<String>>();
 
-    let result = contract_call(
+    let result = view_contract_call(
         MintpoolTrustedBootnodes::isTrustedNode_1Call {
             _nodes: nodes.clone(),
         },
         &chain,
+        BOOTNODES_CONTRACT_ADDRESS,
     )
     .await?;
 
@@ -204,4 +209,23 @@ pub async fn get_contract_boot_nodes() -> eyre::Result<Vec<String>> {
         .collect::<Vec<String>>();
 
     Ok(valid_nodes)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::chain::get_contract_boot_nodes;
+
+    #[tokio::test]
+    async fn test_get_bootnodes_from_chain() {
+        let nodes = get_contract_boot_nodes().await.unwrap();
+
+        assert_eq!(
+            nodes,
+            vec![
+                "/dnsaddr/mintpool-1.zora.co".to_string(),
+                "/dnsaddr/mintpool-2.zora.co".to_string(),
+                "/dnsaddr/mintpool-3.zora.co".to_string()
+            ]
+        );
+    }
 }
