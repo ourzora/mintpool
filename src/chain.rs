@@ -152,7 +152,7 @@ sol! {
 }
 
 const BOOTNODES_CONTRACT_ADDRESS: Address = address!("777777A1476296E9F7835C91e2B917ecbfAf83a1");
-const BOOTNODES_CONTRACT_DEPLOY_BLOCK: u64 = 13_698_823;
+const BOOTNODES_CONTRACT_DEPLOY_BLOCK: u64 = 13_699_230;
 
 pub async fn get_contract_boot_nodes() -> eyre::Result<Vec<String>> {
     let chain = CHAINS.get_rpc(7777777).await?;
