@@ -177,7 +177,7 @@ impl Controller {
                 tracing::info!(histogram.sync_request_processed = 1);
             }
             P2PEvent::SyncResponse { premints } => {
-                let sem = Arc::new(Semaphore::new(10));
+                let sem = Semaphore::new(10);
                 futures_util::future::join_all(premints.into_iter().map(|p| async {
                     let permit = sem.acquire().await.unwrap();
                     let _ = self.validate_and_insert(p).await;
