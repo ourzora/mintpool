@@ -320,10 +320,11 @@ fn build_query(options: &QueryOptions) -> QueryBuilder<Sqlite> {
 
 #[cfg(test)]
 mod test {
+    use std::ops::Sub;
+
     use alloy::primitives::Address;
     use chrono::{Duration, Utc};
     use sqlx::Row;
-    use std::ops::Sub;
 
     use crate::config::Config;
     use crate::premints::zora_premint::v2::V2;
