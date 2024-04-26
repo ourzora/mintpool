@@ -30,7 +30,7 @@ Then you can build and run
 ```shell
 cargo build --release
 
-SECRET=use_a_real_secret ./target/release/mintpool
+RUST_LOG=info SECRET=use_a_real_secret ./target/release/mintpool
 ```
 
 ## Configuration
