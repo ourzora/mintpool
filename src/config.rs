@@ -75,6 +75,9 @@ pub struct Config {
     // If set to chain, will check the Zora Network MintpoolTrusted nodes contract for boot nodes
     #[envconfig(from = "BOOT_NODES", default = "chain")]
     pub boot_nodes: BootNodes,
+
+    #[envconfig(from = "SYNC_LOOKBACK_HOURS", default = "6")]
+    pub sync_lookback_hours: u64,
 }
 
 impl Config {

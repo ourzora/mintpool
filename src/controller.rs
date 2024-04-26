@@ -1,8 +1,11 @@
 use crate::chain::inclusion_claim_correct;
 use crate::config::{ChainInclusionMode, Config};
+use chrono::Utc;
 use eyre::WrapErr;
 use libp2p::PeerId;
 use sqlx::SqlitePool;
+use std::ops::Sub;
+use std::time::{Duration, SystemTime};
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
@@ -73,11 +76,12 @@ pub struct Controller {
     rules: RulesEngine<PremintStorage>,
     trusted_peers: Vec<PeerId>,
     inclusion_mode: ChainInclusionMode,
+    config: Config,
 }
 
 impl Controller {
     pub fn new(
-        config: &Config,
+        config: Config,
         swarm_command_sender: mpsc::Sender<SwarmCommand>,
         swarm_event_receiver: mpsc::Receiver<P2PEvent>,
         external_commands: mpsc::Receiver<ControllerCommands>,
@@ -92,6 +96,7 @@ impl Controller {
             rules,
             trusted_peers: config.trusted_peers(),
             inclusion_mode: config.chain_inclusion_mode,
+            config,
         }
     }
 
@@ -279,6 +284,26 @@ impl Controller {
                 Ok(())
             }
         }
+    }
+
+    /// temporary solution for full state from a known other node via their http api.
+    /// We should migrate to syncing based on peer_id & libp2p request_response
+    async fn api_sync(&self, api_url: String) -> eyre::Result<()> {
+        let seconds = self.config.sync_lookback_hours * 60 * 60;
+        let from_time = SystemTime::now().sub(Duration::from_secs(seconds));
+
+        let from_time = chrono::Utc::now().sub(chrono::Duration::hours(
+            self.config.sync_lookback_hours as i64,
+        ));
+
+        let url = reqwest::Url::parse_with_params(
+            api_url.as_str(),
+            &[("from", serde_json::to_string(&from_time)?)],
+        )?;
+
+        // reqwest::get()
+
+        Ok(())
     }
 }
 

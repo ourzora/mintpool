@@ -58,6 +58,7 @@ INTERACTIVE: bool (false)                   - If true, interactive repl will run
 ENABLE_RPC: bool (true)                     - If true, rpc will be used for rules evaluation
 ADMIN_API_SECRET: Option<String> (None)     - Secret key used to access admin api routes
 RATE_LIMIT_RPS: u32 (2)                     - Rate limit requests per second for the http api
+SYNC_LOOKBACK_HOURS: u64 (6)                - Number of hours to look back for syncing premints from another node
 ```
 
 #### Logging
