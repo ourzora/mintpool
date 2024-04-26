@@ -73,8 +73,9 @@ SYNC_LOOKBACK_HOURS: u64 (6)                - Number of hours to look back for s
 **Recommended Configuration for Production:**
 
 ```
-DATABASE_URL=sqlite://mintpool.db
-PERSIST_STATE=true
+DATABASE_URL=sqlite://mintpool.db                # path for sqlite database
+PERSIST_STATE=true                               # persists mints between restarts
+ADMIN_API_SECRET=shared_secret_with_api_clients  # This is required to access admin routes
 ```
 
 ### Configuring blockchain RPC
