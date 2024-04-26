@@ -1,6 +1,6 @@
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
-use alloy_primitives::{Address, B256, U256};
 use async_trait::async_trait;
 use libp2p::gossipsub::TopicHash;
 use libp2p::{gossipsub, Multiaddr, PeerId};

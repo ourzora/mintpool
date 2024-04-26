@@ -2,11 +2,11 @@ use std::borrow::Cow;
 
 use crate::premints::zora_premint_v2::types::IZoraPremintV2::PremintedV2;
 use crate::types::{InclusionClaim, Premint, PremintMetadata, PremintName};
+use alloy::primitives::{address, Address, U256};
 use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
-use alloy::sol_types::private::U256;
-use alloy_primitives::{address, Address};
-use alloy_sol_macro::sol;
-use alloy_sol_types::{Eip712Domain, SolEvent};
+use alloy::sol;
+use alloy::sol_types::{Eip712Domain, SolEvent};
+// use alloy_sol_types::SolEvent;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 

@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
-use alloy_primitives::Address;
+// use alloy_primitives::Address;
+use alloy::primitives::Address;
 use async_trait::async_trait;
 use eyre::WrapErr;
 use serde::{Deserialize, Serialize};

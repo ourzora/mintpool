@@ -1,10 +1,16 @@
 use std::sync::Arc;
 
-use alloy::rpc::types::eth::{Filter, TransactionInput, TransactionRequest};
-use alloy_primitives::{address, Address, Bytes};
-use alloy_provider::Provider;
-use alloy_sol_macro::sol;
-use alloy_sol_types::{SolCall, SolEvent};
+// use alloy_primitives::{address, Address, Bytes};
+// use alloy_provider::Provider;
+// use alloy_rpc_types::{Filter, TransactionInput, TransactionRequest};
+// use alloy_sol_macro::sol;
+// use alloy_sol_types::{SolCall, SolEvent};
+use alloy::primitives::{address, Address, Bytes, TxKind};
+use alloy::providers::Provider;
+use alloy::rpc::types::eth::{BlockId, Filter, TransactionInput, TransactionRequest};
+use alloy::sol;
+use alloy::sol_types::{SolCall, SolEvent};
+
 use futures_util::StreamExt;
 
 use crate::chain_list::{ChainListProvider, CHAINS};
@@ -24,11 +30,11 @@ where
     provider
         .call(
             &TransactionRequest {
-                to: Some(address),
+                to: Some(TxKind::Call(address)),
                 input: TransactionInput::new(Bytes::from(call.abi_encode())),
                 ..Default::default()
             },
-            None,
+            BlockId::latest(),
         )
         .await
         .map_err(|err| eyre::eyre!("Error calling contract: {:?}", err))
