@@ -1,10 +1,6 @@
-use crate::config::Config;
-use crate::controller::{P2PEvent, SwarmCommand};
-use crate::storage::QueryOptions;
-use crate::types::{
-    claims_topic_hashes, InclusionClaim, MintpoolNodeInfo, PeerInclusionClaim, Premint,
-    PremintName, PremintTypes,
-};
+use std::hash::Hasher;
+use std::time::Duration;
+
 use eyre::WrapErr;
 use futures_ticker::Ticker;
 use libp2p::core::ConnectedPoint;
@@ -20,11 +16,18 @@ use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
 use libp2p::{
     gossipsub, kad, noise, request_response, tcp, yamux, Multiaddr, PeerId, StreamProtocol,
 };
+use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
 use sha256::digest;
-use std::hash::Hasher;
-use std::time::Duration;
 use tokio::select;
+
+use crate::config::Config;
+use crate::controller::{P2PEvent, SwarmCommand};
+use crate::storage::QueryOptions;
+use crate::types::{
+    claims_topic_hashes, InclusionClaim, MintpoolNodeInfo, PeerInclusionClaim, Premint,
+    PremintName, PremintTypes,
+};
 
 #[derive(NetworkBehaviour)]
 pub struct MintpoolBehaviour {
@@ -575,17 +578,12 @@ impl SwarmController {
 
     async fn do_sync(&mut self, query: QueryOptions) {
         // select random peer
-        let peer_id = self
-            .swarm
-            .behaviour_mut()
-            .kad
-            .kbuckets()
-            .flat_map(|x| {
-                x.iter()
-                    .map(|x| x.node.key.preimage().clone())
-                    .collect::<Vec<_>>()
-            })
-            .next();
+        let state = self.make_network_state();
+
+        let peer_id = state
+            .gossipsub_peers
+            .choose(&mut rand::thread_rng())
+            .cloned();
 
         if let Some(peer_id) = peer_id {
             let id = self
