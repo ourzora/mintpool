@@ -219,6 +219,7 @@ impl SwarmController {
                     tracing::error!("Error broadcasting claim: {:?}", err);
                 }
             }
+            SwarmCommand::Sync { query } => self.do_sync(query).await,
         }
     }
 
@@ -569,6 +570,33 @@ impl SwarmController {
             dht_peers,
             gossipsub_peers,
             all_external_addresses: self.swarm.external_addresses().cloned().collect(),
+        }
+    }
+
+    async fn do_sync(&mut self, query: QueryOptions) {
+        // select random peer
+        let peer_id = self
+            .swarm
+            .behaviour_mut()
+            .kad
+            .kbuckets()
+            .flat_map(|x| {
+                x.iter()
+                    .map(|x| x.node.key.preimage().clone())
+                    .collect::<Vec<_>>()
+            })
+            .next();
+
+        if let Some(peer_id) = peer_id {
+            let id = self
+                .swarm
+                .behaviour_mut()
+                .request_response
+                .send_request(&peer_id, query);
+
+            tracing::info!(request_id = id.to_string(), "sent sync request");
+        } else {
+            tracing::info!("No peers to sync with");
         }
     }
 
