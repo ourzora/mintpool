@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO premints (id, kind, version, signer, chain_id, collection_address, token_id, token_uri, json)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n            ON CONFLICT (kind, id) DO UPDATE SET version = $3, json = $9\n            WHERE excluded.version > version;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": []
+  },
+  "hash": "a946ccfeda1f1e3b2fd101ed955e5dbe9e259fbe32e32d355c3e6ba29dbb775d"
+}

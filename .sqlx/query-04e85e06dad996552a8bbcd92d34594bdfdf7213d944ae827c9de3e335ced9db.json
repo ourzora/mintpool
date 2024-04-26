@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                DELETE FROM premints WHERE id = ? AND chain_id = ? AND kind = ?\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "04e85e06dad996552a8bbcd92d34594bdfdf7213d944ae827c9de3e335ced9db"
+}
