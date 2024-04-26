@@ -1,14 +1,12 @@
 use crate::api::routes::APIResponse;
 use crate::api::AppState;
 use crate::controller::ControllerCommands;
-use crate::p2p::NetworkState;
 use axum::body::Body;
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::Response;
 use axum::Json;
-use serde::Serialize;
 
 pub async fn auth_middleware(
     State(state): State<AppState>,
@@ -75,5 +73,16 @@ pub async fn add_peer(
                 message: e.to_string(),
             }),
         ),
+    }
+}
+
+pub async fn sync(State(state): State<AppState>) -> StatusCode {
+    match state
+        .controller
+        .send_command(ControllerCommands::Sync)
+        .await
+    {
+        Ok(_) => StatusCode::OK,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }

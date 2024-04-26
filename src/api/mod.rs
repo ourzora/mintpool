@@ -82,6 +82,7 @@ pub fn with_admin_routes(state: AppState, router: Router<AppState>) -> Router<Ap
         .route("/admin/add-peer", post(admin::add_peer))
         // admin submit premint route is not rate limited (allows for operator to send high volume of premints)
         .route("/admin/submit-premint", post(routes::submit_premint))
+        .route("/admin/sync", post(admin::sync))
         .layer(from_fn_with_state(state, admin::auth_middleware))
         .layer(
             ServiceBuilder::new()
