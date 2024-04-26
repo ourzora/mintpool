@@ -152,9 +152,21 @@ pub async fn summary(State(state): State<AppState>) -> Result<Json<SummaryRespon
                     node_info: info.into(),
                 }))
             }
-            Err(_e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+            Err(e) => {
+                tracing::error!(
+                    error = e.to_string(),
+                    "Error returned from controller when fetching network state for /summary"
+                );
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
         },
-        Err(_e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => {
+            tracing::error!(
+                error = e.to_string(),
+                "Error receving result from channel when fetching network state for /summary"
+            );
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
