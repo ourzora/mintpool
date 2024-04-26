@@ -57,7 +57,7 @@ async fn test_zora_premint_v2_e2e() {
     // set this so CHAINS will use the anvil rpc rather than the one in chains.json
     env::set_var("CHAIN_7777777_RPC_WSS", anvil.ws_endpoint());
 
-    let ctl = run::start_p2p_services(&config, RulesEngine::new_with_default_rules(&config))
+    let ctl = run::start_p2p_services(config.clone(), RulesEngine::new_with_default_rules(&config))
         .await
         .unwrap();
     run::start_watch_chain::<ZoraPremintV2>(&config, ctl.clone()).await;
@@ -208,14 +208,20 @@ async fn test_verify_e2e() {
     // Start 3 nodes, one in check, one in verify, one in trust (trusts node 1)
     // ============================================================================================
 
-    let ctl1 = run::start_p2p_services(&config1, RulesEngine::new_with_default_rules(&config1))
-        .await
-        .unwrap();
+    let ctl1 = run::start_p2p_services(
+        config1.clone(),
+        RulesEngine::new_with_default_rules(&config1),
+    )
+    .await
+    .unwrap();
     run::start_watch_chain::<ZoraPremintV2>(&config1, ctl1.clone()).await;
 
-    let ctl2 = run::start_p2p_services(&config2, RulesEngine::new_with_default_rules(&config2))
-        .await
-        .unwrap();
+    let ctl2 = run::start_p2p_services(
+        config2.clone(),
+        RulesEngine::new_with_default_rules(&config2),
+    )
+    .await
+    .unwrap();
 
     let node_info = ctl1.get_node_info().await.unwrap();
 
@@ -225,9 +231,12 @@ async fn test_verify_e2e() {
     config3.chain_inclusion_mode = ChainInclusionMode::Trust;
     config3.trusted_peers = Some(node_info.peer_id.to_string());
 
-    let ctl3 = run::start_p2p_services(&config3, RulesEngine::new_with_default_rules(&config3))
-        .await
-        .unwrap();
+    let ctl3 = run::start_p2p_services(
+        config3.clone(),
+        RulesEngine::new_with_default_rules(&config3),
+    )
+    .await
+    .unwrap();
 
     connect_all_to_first(vec![ctl1.clone(), ctl2.clone(), ctl3.clone()]).await;
 

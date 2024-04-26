@@ -7,7 +7,7 @@ use rand::Rng;
 use crate::chain_list::CHAINS;
 use crate::types::PremintName;
 
-#[derive(Envconfig, Debug)]
+#[derive(Envconfig, Debug, Clone)]
 pub struct Config {
     // Used to derive an ed25519 keypair for node identity
     // Should be 32 bytes of random hex.
@@ -75,6 +75,9 @@ pub struct Config {
     // If set to chain, will check the Zora Network MintpoolTrusted nodes contract for boot nodes
     #[envconfig(from = "BOOT_NODES", default = "chain")]
     pub boot_nodes: BootNodes,
+
+    #[envconfig(from = "SYNC_LOOKBACK_HOURS", default = "6")]
+    pub sync_lookback_hours: u64,
 }
 
 impl Config {
@@ -100,6 +103,7 @@ impl Config {
             admin_api_secret: None,
             rate_limit_rps: 1,
             boot_nodes: BootNodes::None,
+            sync_lookback_hours: 6,
         }
     }
 }
@@ -227,6 +231,7 @@ mod test {
             admin_api_secret: None,
             rate_limit_rps: 1,
             boot_nodes: BootNodes::Chain,
+            sync_lookback_hours: 0,
         };
 
         let names = config.premint_names();
@@ -255,6 +260,7 @@ mod test {
             admin_api_secret: None,
             rate_limit_rps: 1,
             boot_nodes: BootNodes::None,
+            sync_lookback_hours: 0,
         };
 
         let names = config.premint_names();

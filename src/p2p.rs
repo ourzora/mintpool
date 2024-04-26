@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::controller::{P2PEvent, SwarmCommand};
+use crate::storage::QueryOptions;
 use crate::types::{
     claims_topic_hashes, InclusionClaim, MintpoolNodeInfo, PeerInclusionClaim, Premint,
     PremintName, PremintTypes,
@@ -14,8 +15,12 @@ use libp2p::kad::store::MemoryStore;
 use libp2p::kad::GetProvidersOk::FoundProviders;
 use libp2p::kad::{Addresses, QueryResult, RecordKey};
 use libp2p::multiaddr::Protocol;
+use libp2p::request_response::{InboundRequestId, Message, ProtocolSupport, ResponseChannel};
 use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
-use libp2p::{gossipsub, kad, noise, tcp, yamux, Multiaddr, PeerId};
+use libp2p::{
+    gossipsub, kad, noise, request_response, tcp, yamux, Multiaddr, PeerId, StreamProtocol,
+};
+use serde::{Deserialize, Serialize};
 use sha256::digest;
 use std::hash::Hasher;
 use std::time::Duration;
@@ -27,6 +32,7 @@ pub struct MintpoolBehaviour {
     kad: kad::Behaviour<MemoryStore>,
     identify: libp2p::identify::Behaviour,
     ping: libp2p::ping::Behaviour,
+    request_response: request_response::cbor::Behaviour<QueryOptions, SyncResponse>,
 }
 
 pub struct SwarmController {
@@ -120,6 +126,13 @@ impl SwarmController {
                         public_key,
                     )),
                     ping: libp2p::ping::Behaviour::new(libp2p::ping::Config::new()),
+                    request_response: request_response::cbor::Behaviour::new(
+                        [(
+                            StreamProtocol::new("/mintpool-sync/1"),
+                            ProtocolSupport::Full,
+                        )],
+                        request_response::Config::default(),
+                    ),
                 }
             })?
             .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
@@ -283,6 +296,15 @@ impl SwarmController {
                         error = err.to_string(),
                         "Error processing gossipsub behavior event",
                     );
+                }
+            }
+
+            SwarmEvent::Behaviour(MintpoolBehaviourEvent::RequestResponse(event)) => {
+                match self.handle_request_response_event(event).await {
+                    Ok(_) => {}
+                    Err(err) => {
+                        tracing::error!("Error handling request response event: {:?}", err);
+                    }
                 }
             }
 
@@ -549,6 +571,96 @@ impl SwarmController {
             all_external_addresses: self.swarm.external_addresses().cloned().collect(),
         }
     }
+
+    async fn handle_request_response_event(
+        &mut self,
+        event: request_response::Event<QueryOptions, SyncResponse>,
+    ) -> eyre::Result<()> {
+        match event {
+            request_response::Event::Message { peer, message } => match message {
+                Message::Request {
+                    request_id,
+                    request,
+                    channel,
+                } => {
+                    let resp = self.make_sync_response(request_id, request).await;
+                    self.swarm
+                        .behaviour_mut()
+                        .request_response
+                        .send_response(channel, resp)
+                        .map_err(|e| eyre::eyre!("Error sending response: {:?}", e))?;
+                }
+                Message::Response {
+                    request_id,
+                    response,
+                } => {
+                    tracing::info!(
+                        request_id = request_id.to_string(),
+                        "received response for sync"
+                    );
+                    match response {
+                        SyncResponse::Premints(premints) => {
+                            self.event_sender
+                                .send(P2PEvent::SyncResponse { premints })
+                                .await?;
+                        }
+                        SyncResponse::Error(err) => {
+                            tracing::error!(
+                                request_id = request_id.to_string(),
+                                error = err,
+                                "error received to our sync request"
+                            );
+                        }
+                    }
+                }
+            },
+            other => tracing::info!("mintpool sync request/response event: {:?}", other),
+        }
+        Ok(())
+    }
+
+    // Makes a Response for a request to sync from another node
+    async fn make_sync_response(
+        &mut self,
+        request_id: InboundRequestId,
+        request: QueryOptions,
+    ) -> SyncResponse {
+        tracing::info!(
+            request_id = request_id.to_string(),
+            "processing request for sync"
+        );
+        match self.make_sync_response_query(request).await {
+            Ok(premints) => SyncResponse::Premints(premints),
+            Err(err) => {
+                tracing::error!(
+                    request_id = request_id.to_string(),
+                    error = err.to_string(),
+                    "error processing sync request"
+                );
+                SyncResponse::Error(err.to_string())
+            }
+        }
+    }
+
+    // inner function to make propagating errors that occur during query easier to work with
+    async fn make_sync_response_query(
+        &mut self,
+        request: QueryOptions,
+    ) -> eyre::Result<Vec<PremintTypes>> {
+        let (snd, recv) = tokio::sync::oneshot::channel();
+        self.event_sender
+            .send(P2PEvent::SyncRequest {
+                query: request,
+                channel: snd,
+            })
+            .await
+            .map_err(|_| eyre::eyre!("Controller error"))?;
+        let result = recv
+            .await
+            .map_err(|_| eyre::eyre!("Channel error"))?
+            .map_err(|_| eyre::eyre!("Query error"))?;
+        Ok(result)
+    }
 }
 
 fn gossipsub_message_id(message: &gossipsub::Message) -> gossipsub::MessageId {
@@ -576,6 +688,12 @@ pub struct NetworkState {
     pub dht_peers: Vec<Addresses>,
     pub gossipsub_peers: Vec<PeerId>,
     pub all_external_addresses: Vec<Multiaddr>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum SyncResponse {
+    Premints(Vec<PremintTypes>),
+    Error(String),
 }
 
 fn announce_topic() -> gossipsub::IdentTopic {

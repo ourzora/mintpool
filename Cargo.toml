@@ -21,6 +21,8 @@ libp2p = { version = "0.53.2", features = [
     "identify",
     "ping",
     "dns",
+    "request-response",
+    "cbor"
 ] }
 tokio = { version = "1.36.0", features = ["full"] }
 eyre = "0.6.12"

@@ -5,7 +5,7 @@ use alloy_primitives::Address;
 use async_trait::async_trait;
 use chrono::Utc;
 use eyre::WrapErr;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::Row;
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
@@ -233,7 +233,7 @@ pub async fn list_all(db: &SqlitePool) -> eyre::Result<Vec<PremintTypes>> {
     Ok(premints)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct QueryOptions {
     pub chain_id: Option<u64>,
     pub kind: Option<String>,

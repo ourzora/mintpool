@@ -29,7 +29,7 @@ mod api_test {
     async fn make_test_router(config: &Config) -> Router {
         let mut rules = RulesEngine::new(config);
         rules.add_default_rules();
-        let ctl = start_p2p_services(config, rules).await.unwrap();
+        let ctl = start_p2p_services(config.clone(), rules).await.unwrap();
 
         let router = api::router_with_defaults(config);
         let state = AppState::from(config, ctl.clone()).await;
