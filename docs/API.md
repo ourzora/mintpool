@@ -343,6 +343,16 @@ curl -X POST http://localhost:7777/admin/add-peer -H "Content-Type: application/
 {"Success":{"message":"Peer added"}}
 ```
 
+### `POST /admin/sync`
+
+Starts a sync against a random node
+
+```
+curl -X POST http://localhost:7777/admin/async -H "Authorization: abc"
+
+200
+```
+
 ## `/metrics` Prometheus Metrics scrape endpoint
 
 Returns prometheus metrics for the node

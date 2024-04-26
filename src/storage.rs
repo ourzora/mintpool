@@ -2,15 +2,13 @@ use std::str::FromStr;
 
 use alloy_primitives::Address;
 use async_trait::async_trait;
-use chrono::Utc;
 use eyre::WrapErr;
 use serde::{Deserialize, Serialize};
-use sqlx::{QueryBuilder, Sqlite, SqlitePool};
-use sqlx::Row;
 use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::Row;
+use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 
 use crate::config::Config;
-use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
 
 async fn init_db(config: &Config) -> SqlitePool {
