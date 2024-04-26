@@ -121,7 +121,6 @@ async fn test_node_sync() {
     let second = second.into_iter().next().unwrap();
 
     mintpool_build::connect_all_to_first(nodes.clone()).await;
-    time::sleep(time::Duration::from_secs(10)).await;
 
     // add two premints to the pool
     let premints = vec![
@@ -161,7 +160,7 @@ async fn test_node_sync() {
         })
         .await
         .unwrap();
-    time::sleep(time::Duration::from_secs(3)).await;
+    time::sleep(time::Duration::from_secs(1)).await;
 
     second
         .send_command(ControllerCommands::Sync)
