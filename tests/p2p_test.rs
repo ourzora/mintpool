@@ -1,9 +1,12 @@
 mod common;
 
-use crate::common::{asserts, mintpool_build};
+use crate::common::{asserts, helpers, mintpool_build};
+use alloy_signer::Signer;
 use common::factories::Factory;
+use mintpool::api::routes::submit_premint;
 use mintpool::controller::ControllerCommands;
 use mintpool::controller::ControllerCommands::Broadcast;
+use mintpool::premints::zora_premint_v2::types::ZoraPremintV2;
 use mintpool::types::{PremintTypes, SimplePremint};
 use tokio::time;
 
@@ -100,5 +103,87 @@ async fn test_max_connections() {
 
     for node in nodes {
         asserts::expect_lte_than_connections(&node, limit as usize).await;
+    }
+}
+
+const PREMINT_JSON: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/data/valid_zora_v2_premint.json"
+));
+
+#[test_log::test(tokio::test)]
+async fn test_node_sync() {
+    let num_nodes = 3;
+
+    let nodes = mintpool_build::gen_fully_connected_swarm(2350, num_nodes).await;
+    let (first, nodes) = mintpool_build::split_first_rest(nodes).await;
+    let second = mintpool_build::make_nodes(3350, 1, 3).await;
+    let second = second.into_iter().next().unwrap();
+
+    mintpool_build::connect_all_to_first(nodes.clone()).await;
+    time::sleep(time::Duration::from_secs(10)).await;
+
+    // add two premints to the pool
+    let premints = vec![
+        PremintTypes::Simple(SimplePremint::build_default()),
+        PremintTypes::ZoraV2(serde_json::from_str(PREMINT_JSON).unwrap()),
+    ];
+
+    futures_util::future::join_all(
+        premints
+            .iter()
+            .map(|premint| helpers::must_submit_premint(&first, premint.clone())),
+    )
+    .await;
+
+    // check that all premints are in the pool
+    let stored_premints = first
+        .get_all_premints()
+        .await
+        .expect("failed to get all premints");
+
+    assert_eq!(stored_premints.len(), premints.len());
+
+    // check that the second node has no premints
+    assert_eq!(
+        second
+            .get_all_premints()
+            .await
+            .expect("failed to get all premints")
+            .len(),
+        0
+    );
+
+    // after adding the premints, connect the nodes
+    second
+        .send_command(ControllerCommands::ConnectToPeer {
+            address: mintpool_build::get_local_address(&first).await,
+        })
+        .await
+        .unwrap();
+    time::sleep(time::Duration::from_secs(3)).await;
+
+    second
+        .send_command(ControllerCommands::Sync)
+        .await
+        .expect("failed to sync");
+
+    // give time for the nodes to sync
+    time::sleep(time::Duration::from_secs(3)).await;
+
+    // check that all premints are in the second node
+    let stored_premints = second
+        .get_all_premints()
+        .await
+        .expect("failed to get all premints");
+
+    assert_eq!(stored_premints.len(), premints.len());
+
+    for premint in premints {
+        let stored_premint = stored_premints
+            .iter()
+            .find(|p| p == &&premint)
+            .expect("premint not found in stored premints");
+        assert_eq!(stored_premint, &premint);
     }
 }
