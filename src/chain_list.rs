@@ -1,21 +1,14 @@
-use std::sync::Arc;
-use std::time::Duration;
-
-use alloy::network::{Ethereum, Network};
-// use alloy::providers::layers;
-use alloy::providers::fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller};
-use alloy::providers::{Identity, ProviderBuilder, RootProvider};
+use alloy::network::Network;
+use alloy::providers::{ProviderBuilder, RootProvider};
 use alloy::pubsub::PubSubFrontend;
 use alloy::rpc::client::WsConnect;
-
-// use alloy_provider::layers::{GasEstimatorProvider, ManagedNonceProvider};
-// use alloy_provider::{Identity, ProviderBuilder, RootProvider};
-// use alloy_rpc_client::WsConnect;
 use eyre::ContextCompat;
 use mini_moka::sync::Cache;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::time::Duration;
 
 const CHAINS_JSON: &str = include_str!("../data/chains.json");
 
@@ -82,14 +75,7 @@ impl Chains {
             Some(provider) => Ok(provider),
             None => {
                 let conn = WsConnect::new(url);
-                let provider = ProviderBuilder::new()
-                    // .with_recommended_fillers()
-                    .on_ws(conn)
-                    .await?;
-                // let provider: ChainListProvider<N> = ProviderBuilder::<Identity, N>::default()
-                //     .with_recommended_layers()
-                //     .on_ws(conn)
-                //     .await?;
+                let provider = ProviderBuilder::new().on_ws(conn).await?;
 
                 let arc = Arc::new(provider);
 

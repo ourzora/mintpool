@@ -1,22 +1,14 @@
-use std::sync::Arc;
-
-// use alloy_primitives::{address, Address, Bytes};
-// use alloy_provider::Provider;
-// use alloy_rpc_types::{Filter, TransactionInput, TransactionRequest};
-// use alloy_sol_macro::sol;
-// use alloy_sol_types::{SolCall, SolEvent};
+use crate::chain_list::{ChainListProvider, CHAINS};
+use crate::controller::{ControllerCommands, ControllerInterface};
+use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
+use crate::types::{InclusionClaim, Premint, PremintTypes};
 use alloy::primitives::{address, Address, Bytes, TxKind};
 use alloy::providers::Provider;
 use alloy::rpc::types::eth::{BlockId, Filter, TransactionInput, TransactionRequest};
 use alloy::sol;
 use alloy::sol_types::{SolCall, SolEvent};
-
 use futures_util::StreamExt;
-
-use crate::chain_list::{ChainListProvider, CHAINS};
-use crate::controller::{ControllerCommands, ControllerInterface};
-use crate::premints::zora_premint_v2::types::PREMINT_FACTORY_ADDR;
-use crate::types::{InclusionClaim, Premint, PremintTypes};
+use std::sync::Arc;
 
 /// Helper function for calling view functions for SolCall types
 pub async fn view_contract_call<T>(
