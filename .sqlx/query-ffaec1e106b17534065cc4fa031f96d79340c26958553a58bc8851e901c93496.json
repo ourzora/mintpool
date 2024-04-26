@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                UPDATE premints SET seen_on_chain = true WHERE id = ? AND chain_id = ? AND kind = ?\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "ffaec1e106b17534065cc4fa031f96d79340c26958553a58bc8851e901c93496"
+}
