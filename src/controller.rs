@@ -129,13 +129,13 @@ impl Controller {
                     self.handle_event(event).await;
                 }
                 _ = self.sync_ticker.next() => {
-                    self.do_sync().await;
+                    self.request_sync().await;
                 }
             }
         }
     }
 
-    async fn do_sync(&self) {
+    async fn request_sync(&self) {
         let from = Some(
             chrono::Utc::now() - Duration::from_secs(60 * 60 * self.config.sync_lookback_hours),
         );
@@ -269,7 +269,7 @@ impl Controller {
                 }
             }
             ControllerCommands::Sync => {
-                self.do_sync().await;
+                self.request_sync().await;
             }
         }
         Ok(())
