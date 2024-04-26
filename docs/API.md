@@ -25,14 +25,47 @@ Returns information about the node
 Example
 
 ```
-curl -H "Authorization: abc" http://localhost:7777/admin/node
+curl -H "Authorization: abc" http://localhost:7777/summary
 
 {
-  "local_peer_id": "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X",
-  "num_peers": 0,
-  "dht_peers": [],
-  "gossipsub_peers": [],
-  "all_external_addresses": []
+  "commit_sha": "3d917f1",
+  "pkg_version": "0.1.0",
+  "active_premint_count": 1,
+  "total_premint_count": 1,
+  "node_info": {
+    "local_peer_id": "12D3KooWCY9tjLzwXeWgYe8smxyAhEj7x1TxGG7fMzDLGwzPLEuC",
+    "num_peers": 3,
+    "dht_peers": [
+      [
+        "/dnsaddr/mintpool-1.zora.co/p2p/12D3KooWLUCRp7EFvBRGqhZ3kfZT3BRHoxX3a2erBGY5Nm49ggqy",
+        "/dnsaddr/mintpool-1.zora.co"
+      ],
+      [
+        "/dnsaddr/mintpool-3.zora.co/p2p/12D3KooWSgM2s7sJjKt7Tf3eXSDduszS6ZonaY444Yz7sNNVW7K9",
+        "/dnsaddr/mintpool-3.zora.co"
+      ],
+      [
+        "/dnsaddr/mintpool-2.zora.co/p2p/12D3KooWEBYjav7N175YYuEsPFdm36vKywjktcaE1HFgMTnQNWmy",
+        "/dnsaddr/mintpool-2.zora.co"
+      ]
+    ],
+    "gossipsub_peers": [
+      "12D3KooWEBYjav7N175YYuEsPFdm36vKywjktcaE1HFgMTnQNWmy",
+      "12D3KooWLUCRp7EFvBRGqhZ3kfZT3BRHoxX3a2erBGY5Nm49ggqy",
+      "12D3KooWSgM2s7sJjKt7Tf3eXSDduszS6ZonaY444Yz7sNNVW7K9"
+    ],
+    "all_external_addresses": [
+      [
+        "/dnsaddr/mintpool-1.zora.co"
+      ],
+      [
+        "/dnsaddr/mintpool-3.zora.co"
+      ],
+      [
+        "/dnsaddr/mintpool-2.zora.co"
+      ]
+    ]
+  }
 }
 ```
 
