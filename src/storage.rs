@@ -1,7 +1,9 @@
 use crate::config::Config;
+use crate::premints::zora_premint_v2::types::ZoraPremintV2;
 use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
 use alloy_primitives::Address;
 use async_trait::async_trait;
+use chrono::Utc;
 use eyre::WrapErr;
 use serde::Deserialize;
 use sqlx::sqlite::SqliteConnectOptions;
@@ -308,11 +310,11 @@ fn build_query(options: &QueryOptions) -> QueryBuilder<Sqlite> {
     }
     if let Some(from) = options.from {
         query_build.push(" AND created_at >= ");
-        query_build.push_bind(from);
+        query_build.push_bind(from.to_string());
     }
     if let Some(to) = options.to {
         query_build.push(" AND created_at <= ");
-        query_build.push_bind(to);
+        query_build.push_bind(to.to_string());
     }
 
     query_build
@@ -321,8 +323,9 @@ fn build_query(options: &QueryOptions) -> QueryBuilder<Sqlite> {
 #[cfg(test)]
 mod test {
     use alloy_primitives::Address;
-    use chrono::Utc;
+    use chrono::{Duration, Utc};
     use sqlx::Row;
+    use std::ops::Sub;
 
     use crate::config::Config;
     use crate::premints::zora_premint_v2::types::ZoraPremintV2;
@@ -447,6 +450,25 @@ mod test {
                 creator_address: None,
                 from: None,
                 to: None,
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(vec![premint_simple.clone()], all);
+
+        let to = chrono::Utc::now();
+
+        let from = to.sub(Duration::seconds(10));
+
+        let all = list_all_with_options(
+            &store.db,
+            &QueryOptions {
+                chain_id: None,
+                kind: Some("simple".to_string()),
+                collection_address: None,
+                creator_address: None,
+                from: Some(from),
+                to: Some(to),
             },
         )
         .await
