@@ -1,9 +1,10 @@
 use std::str::FromStr;
 
-use alloy_primitives::{address, Address, Signature};
+use alloy_primitives::Signature;
 use alloy_sol_types::SolStruct;
 
 use crate::chain::view_contract_call;
+use crate::premints::zora_premint::contract::{IZoraPremintV2, PREMINT_FACTORY_ADDR};
 use crate::premints::zora_premint::v2::ZoraPremintV2;
 use crate::rules::Evaluation::Accept;
 use crate::rules::{Evaluation, Rule, RuleContext};
@@ -22,7 +23,7 @@ pub async fn is_authorized_to_create_premint<T: Reader, P>(
         Some(ref rpc) => rpc,
     };
 
-    let call = ZoraPremintV2::isAuthorizedToCreatePremintCall {
+    let call = IZoraPremintV2::isAuthorizedToCreatePremintCall {
         contractAddress: premint.collection_address,
         signer: premint.collection.contractAdmin,
         premintContractConfigContractAdmin: premint.collection.contractAdmin,

@@ -1,15 +1,15 @@
-use crate::config::Config;
-use crate::premints::zora_premint_v2::types::ZoraPremintV2;
-use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
+use std::str::FromStr;
+
 use alloy_primitives::Address;
 use async_trait::async_trait;
-use chrono::Utc;
 use eyre::WrapErr;
 use serde::Deserialize;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::Row;
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
-use std::str::FromStr;
+
+use crate::config::Config;
+use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
 
 async fn init_db(config: &Config) -> SqlitePool {
     let expect_msg =
@@ -322,10 +322,11 @@ fn build_query(options: &QueryOptions) -> QueryBuilder<Sqlite> {
 
 #[cfg(test)]
 mod test {
+    use std::ops::Sub;
+
     use alloy_primitives::Address;
     use chrono::{Duration, Utc};
     use sqlx::Row;
-    use std::ops::Sub;
 
     use crate::config::Config;
     use crate::premints::zora_premint::v2::ZoraPremintV2;
