@@ -1,7 +1,9 @@
 use crate::chain::inclusion_claim_correct;
 use crate::config::{ChainInclusionMode, Config};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use eyre::WrapErr;
+use futures_ticker::Ticker;
+use futures_util::StreamExt;
 use libp2p::PeerId;
 use sqlx::SqlitePool;
 use std::ops::Sub;
@@ -34,6 +36,9 @@ pub enum SwarmCommand {
         channel: oneshot::Sender<MintpoolNodeInfo>,
     },
     SendOnchainMintFound(InclusionClaim),
+    Sync {
+        query: QueryOptions,
+    },
 }
 
 /// Event types that may be received from the p2p swarm that need to be handled by the controller
@@ -81,6 +86,7 @@ pub struct Controller {
     external_commands: mpsc::Receiver<ControllerCommands>,
     store: PremintStorage,
     rules: RulesEngine<PremintStorage>,
+    sync_ticker: Ticker,
 
     config: Config,
 }
@@ -94,12 +100,17 @@ impl Controller {
         store: PremintStorage,
         rules: RulesEngine<PremintStorage>,
     ) -> Self {
+        // sync every 60 minutes, also sync 30 seconds after startup (gives some time to connect to peers)
+        let sync_ticker =
+            Ticker::new_with_next(Duration::from_secs(60 * 60), Duration::from_secs(30));
+
         Self {
             swarm_command_sender,
             swarm_event_receiver,
             external_commands,
             store,
             rules,
+            sync_ticker,
             config,
         }
     }
@@ -115,8 +126,30 @@ impl Controller {
                 Some(event) = self.swarm_event_receiver.recv() => {
                     self.handle_event(event).await;
                 }
+                _ = self.sync_ticker.next() => {
+                    self.do_sync().await;
+                }
             }
         }
+    }
+
+    async fn do_sync(&self) {
+        let now = SystemTime::now();
+        let then = now - Duration::from_secs(60 * 60 * self.config.sync_lookback_hours);
+
+        let query = QueryOptions {
+            chain_id: None,
+            kind: None,
+            collection_address: None,
+            creator_address: None,
+            from: Some(DateTime::from(then)),
+            to: Some(DateTime::from(now)),
+        };
+
+        self.swarm_command_sender
+            .send(SwarmCommand::Sync { query })
+            .await
+            .expect("Error sending sync command to swarm");
     }
 
     pub async fn handle_event(&self, event: P2PEvent) {
