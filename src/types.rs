@@ -1,6 +1,6 @@
 use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
-use alloy_primitives::{Address, B256, U256};
 use async_trait::async_trait;
 use libp2p::gossipsub::TopicHash;
 use libp2p::{gossipsub, Multiaddr, PeerId};
@@ -182,9 +182,9 @@ mod test {
         ContractCreationConfig, CreatorAttribution, TokenCreationConfig,
     };
     use crate::premints::zora_premint_v2::types::{IZoraPremintV2, PREMINT_FACTORY_ADDR};
+    use alloy::primitives::{Bytes, LogData};
     use alloy::rpc::types::eth::ReceiptEnvelope;
-    use alloy_primitives::{Bytes, LogData};
-    use alloy_sol_types::SolEvent;
+    use alloy::sol_types::SolEvent;
     use std::str::FromStr;
 
     #[test]
@@ -214,7 +214,7 @@ mod test {
     #[test]
     fn test_map_premintv2_claim() {
         let log = Log {
-            inner: alloy_primitives::Log {
+            inner: alloy::primitives::Log {
             address: PREMINT_FACTORY_ADDR.clone(),
             data: LogData::new(vec![B256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
                              B256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),
@@ -265,10 +265,10 @@ mod test {
                 .unwrap(),
             ),
             block_number: Some(12387768),
-            gas_used: None,
+            gas_used: 0,
             effective_gas_price: 0,
             blob_gas_used: None,
-            transaction_index: 4,
+            transaction_index: Some(4),
             from: Address::from_str("0xeDB81aFaecC2379635B25A752b787f821a46644c").unwrap(),
             to: Some(PREMINT_FACTORY_ADDR.clone()),
 
@@ -278,7 +278,7 @@ mod test {
         };
 
         let log = Log {
-            inner: alloy_primitives::Log {
+            inner: alloy::primitives::Log {
             address: PREMINT_FACTORY_ADDR.clone(),
             data: LogData::new(vec![B256::from_str("0xd7f3736994092942aacd1d75026379ceeaf4e28b6183b15f2decc9237334429b").unwrap(),
                              B256::from_str("0x00000000000000000000000065aae9d752ecac4965015664d0a6d0951e28d757").unwrap(),

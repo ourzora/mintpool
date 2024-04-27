@@ -1,15 +1,13 @@
-use std::str::FromStr;
-
-use alloy_primitives::Address;
+use crate::config::Config;
+use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
+use alloy::primitives::Address;
 use async_trait::async_trait;
 use eyre::WrapErr;
 use serde::{Deserialize, Serialize};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::Row;
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
-
-use crate::config::Config;
-use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
+use std::str::FromStr;
 
 async fn init_db(config: &Config) -> SqlitePool {
     let expect_msg =
@@ -322,7 +320,7 @@ fn build_query(options: &QueryOptions) -> QueryBuilder<Sqlite> {
 
 #[cfg(test)]
 mod test {
-    use alloy_primitives::Address;
+    use alloy::primitives::Address;
     use chrono::{Duration, Utc};
     use sqlx::Row;
     use std::ops::Sub;

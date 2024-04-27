@@ -5,17 +5,15 @@ use crate::common::asserts::expect_n_connections;
 use crate::common::mintpool_build::connect_all_to_first;
 use alloy::hex;
 use alloy::network::EthereumSigner;
+use alloy::node_bindings::Anvil;
+use alloy::primitives::{Bytes, TxKind, U256};
+use alloy::providers::{Provider, ProviderBuilder};
+use alloy::rpc::client::RpcClient;
 use alloy::rpc::types::eth::TransactionRequest;
-use alloy_json_rpc::RpcError;
-use alloy_node_bindings::Anvil;
-use alloy_primitives::{Bytes, U256};
-use alloy_provider::admin::AdminApi;
-use alloy_provider::{Provider, ProviderBuilder};
-use alloy_rpc_client::RpcClient;
-use alloy_signer::Signer;
-use alloy_signer_wallet::LocalWallet;
-use alloy_sol_types::{SolCall, SolValue};
-use alloy_transport::TransportErrorKind;
+use alloy::signers::wallet::LocalWallet;
+use alloy::signers::Signer;
+use alloy::sol_types::{SolCall, SolValue};
+use alloy::transports::{RpcError, TransportErrorKind};
 use mintpool::config::{BootNodes, ChainInclusionMode, Config};
 use mintpool::controller::{ControllerCommands, DBQuery};
 use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
@@ -102,7 +100,7 @@ async fn test_zora_premint_v2_e2e() {
     let signer = signer.with_chain_id(Some(7777777));
 
     let provider = ProviderBuilder::new()
-        .with_recommended_layers()
+        .with_recommended_fillers()
         .signer(EthereumSigner::from(signer.clone()))
         .on_client(RpcClient::new_http(anvil.endpoint_url()));
 
@@ -130,7 +128,7 @@ async fn test_zora_premint_v2_e2e() {
     // Someone found the premint and brought it onchain
     let tx_request = TransactionRequest {
         from: Some(signer.address()),
-        to: Some(PREMINT_FACTORY_ADDR),
+        to: Some(TxKind::Call(PREMINT_FACTORY_ADDR)),
         input: Some(Bytes::from(calldata.abi_encode())).into(),
         value: Some(U256::from(value)),
         chain_id: Some(7777777),
@@ -297,7 +295,7 @@ async fn test_verify_e2e() {
     let signer = signer.with_chain_id(Some(7777777));
 
     let provider = ProviderBuilder::new()
-        .with_recommended_layers()
+        .with_recommended_fillers()
         .signer(EthereumSigner::from(signer.clone()))
         .on_client(RpcClient::new_http(anvil.endpoint_url()));
 
@@ -325,7 +323,7 @@ async fn test_verify_e2e() {
     // Someone found the premint and brought it onchain
     let tx_request = TransactionRequest {
         from: Some(signer.address()),
-        to: Some(PREMINT_FACTORY_ADDR),
+        to: Some(TxKind::Call(PREMINT_FACTORY_ADDR)),
         input: Some(Bytes::from(calldata.abi_encode())).into(),
         value: Some(U256::from(value)),
         chain_id: Some(7777777),

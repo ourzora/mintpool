@@ -145,14 +145,14 @@ impl Display for Results {
 pub struct RuleContext<T: Reader> {
     pub storage: T,
     pub existing: Option<PremintTypes>,
-    pub rpc: Option<Arc<ChainListProvider<Ethereum>>>,
+    pub rpc: Option<Arc<ChainListProvider>>,
 }
 
 impl<T: Reader> RuleContext<T> {
     pub fn new(
         storage: T,
         existing: Option<PremintTypes>,
-        rpc: Option<Arc<ChainListProvider<Ethereum>>>,
+        rpc: Option<Arc<ChainListProvider>>,
     ) -> Self {
         Self {
             storage,

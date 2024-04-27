@@ -1,8 +1,3 @@
-use std::str::FromStr;
-
-use alloy_primitives::Signature;
-use alloy_sol_types::SolStruct;
-
 use crate::chain::view_contract_call;
 use crate::premints::zora_premint_v2::types::{
     IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
@@ -12,6 +7,9 @@ use crate::rules::{Evaluation, Rule, RuleContext};
 use crate::storage::Reader;
 use crate::types::PremintTypes;
 use crate::{ignore, reject, typed_rule};
+use alloy::primitives::Signature;
+use alloy::sol_types::SolStruct;
+use std::str::FromStr;
 
 // create premint v2 rule implementations here
 

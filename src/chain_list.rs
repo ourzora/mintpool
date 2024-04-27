@@ -1,36 +1,25 @@
-use std::sync::Arc;
-use std::time::Duration;
-
-use alloy::network::{Ethereum, Network};
+use alloy::network::Network;
+use alloy::providers::{ProviderBuilder, RootProvider};
 use alloy::pubsub::PubSubFrontend;
-use alloy_provider::layers::{GasEstimatorProvider, ManagedNonceProvider};
-use alloy_provider::{Identity, ProviderBuilder, RootProvider};
-use alloy_rpc_client::WsConnect;
+use alloy::rpc::client::WsConnect;
 use eyre::ContextCompat;
 use mini_moka::sync::Cache;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::time::Duration;
 
 const CHAINS_JSON: &str = include_str!("../data/chains.json");
 
-pub type ChainListProvider<N = Ethereum> = GasEstimatorProvider<
-    PubSubFrontend,
-    ManagedNonceProvider<PubSubFrontend, RootProvider<PubSubFrontend, N>, N>,
-    N,
->;
+pub type ChainListProvider = RootProvider<PubSubFrontend>;
 
-pub struct Chains<N>(Vec<Chain>, Cache<String, Arc<ChainListProvider<N>>>)
-where
-    N: Network;
+pub struct Chains(Vec<Chain>, Cache<String, Arc<ChainListProvider>>);
 
-pub static CHAINS: Lazy<Chains<Ethereum>> = Lazy::new(Chains::new);
+pub static CHAINS: Lazy<Chains> = Lazy::new(Chains::new);
 static VARIABLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\$\{(.+?)}").unwrap());
 
-impl<N: Network> Chains<N>
-where
-    N: Network,
-{
+impl Chains {
     fn new() -> Self {
         Chains(
             serde_json::from_str::<Vec<Chain>>(CHAINS_JSON).unwrap(),
@@ -69,14 +58,14 @@ where
         Err(eyre::eyre!("No suitable RPC URL found for chain"))
     }
 
-    pub async fn get_rpc(&self, chain_id: u64) -> eyre::Result<Arc<ChainListProvider<N>>> {
+    pub async fn get_rpc(&self, chain_id: u64) -> eyre::Result<Arc<ChainListProvider>> {
         match self.get_rpc_url(chain_id) {
             Ok(url) => self.connect(&url).await,
             Err(e) => Err(e),
         }
     }
 
-    async fn connect(&self, url: &String) -> eyre::Result<Arc<ChainListProvider<N>>> {
+    async fn connect(&self, url: &String) -> eyre::Result<Arc<ChainListProvider>> {
         if VARIABLE_REGEX.is_match(url) {
             return Err(eyre::eyre!("URL contains variables"));
         }
@@ -86,10 +75,7 @@ where
             Some(provider) => Ok(provider),
             None => {
                 let conn = WsConnect::new(url);
-                let provider: ChainListProvider<N> = ProviderBuilder::<Identity, N>::default()
-                    .with_recommended_layers()
-                    .on_ws(conn)
-                    .await?;
+                let provider = ProviderBuilder::new().on_ws(conn).await?;
 
                 let arc = Arc::new(provider);
 
@@ -116,11 +102,11 @@ pub struct Chain {
 #[cfg(test)]
 mod test {
     use super::*;
-    use alloy_provider::Provider;
+    use alloy::providers::Provider;
 
     #[test]
     fn test_chains_new() {
-        let _chains = Chains::<Ethereum>::new();
+        let _chains = Chains::new();
     }
 
     #[test]

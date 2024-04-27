@@ -3,7 +3,14 @@ name = "mintpool"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "mintpool"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mintpool"
+path = "src/main.rs"
+
 
 [dependencies]
 const-hex = "1.11.3"
@@ -54,33 +61,29 @@ futures = "0.3.30"
 sha256 = "1.5.0"
 tower = { version = "0.4.13", features = ["full"] }
 tower-http = { version = "0.5.2", features = ["cors", "compression-full", "trace"] }
-alloy = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", features = [
+alloy = { git = "https://github.com/alloy-rs/alloy", rev = "bbef8de", features = [
     "sol-types",
     "network",
     "rpc-types-eth",
     "pubsub",
+    "json",
+    "rpc-client",
+    "provider-http",
+    "provider-ws",
+    "json-rpc",
+    "rpc-client-ws",
+    "rpc-types-json",
+    "signers",
+    "transport-ws",
+    "eip712",
+    "serde",
+    "json",
+    "json-abi",
+    "node-bindings",
+    "contract",
+    "signer-wallet"
 ] }
 
-alloy-transport = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
-alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", features = [
-    "pubsub",
-    "ws",
-    "reqwest"
-] }
-alloy-provider = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", features = [
-    "pubsub",
-    "ws"
-] }
-alloy-signer = { git = "https://github.com/alloy-rs/alloy", rev = "17633df", features = [
-    "eip712",
-] }
-alloy-json-rpc = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
-alloy-signer-wallet = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
-alloy-contract = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
-alloy-core = { git = "https://github.com/alloy-rs/core", rev = "7574bfc" }
-alloy-sol-types = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["eip712-serde"] }
-alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["serde"] }
-alloy-sol-macro = { git = "https://github.com/alloy-rs/core", rev = "7574bfc", features = ["json"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 tracing-opentelemetry = "0.23.0"
 opentelemetry = { version = "0.22.0", features = ["metrics"] }
@@ -91,15 +94,9 @@ opentelemetry-prometheus = "0.15.0"
 prometheus = "0.13.3"
 built = "0.7.2"
 
-[patch.crates-io]
-alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "7574bfc" }
-
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
-
-[dev-dependencies]
-alloy-node-bindings = { git = "https://github.com/alloy-rs/alloy", rev = "17633df" }
 
 
 [build-dependencies]
