@@ -30,6 +30,12 @@ contract MintpoolTrustedNodeRegistry is Owned {
         _addTrustedNode(_node);
     }
 
+    function addTrustedNodeBatch(string[] memory _nodes) public onlyOwner {
+        for (uint256 i = 0; i < _nodes.length; i++) {
+            _addTrustedNode(_nodes[i]);
+        }
+    }
+
     /**
      * @dev Check if a node is trusted
      * @param _node The node to check
@@ -61,6 +67,12 @@ contract MintpoolTrustedNodeRegistry is Owned {
         _trustedNodeMap[nodeHash] = false;
         trustedNodeCount--;
         emit TrustedNodeRemoved(_node);
+    }
+
+    function removeTrustedNodeBatch(string[] memory _nodes) public onlyOwner {
+        for (uint256 i = 0; i < _nodes.length; i++) {
+            removeTrustedNode(_nodes[i]);
+        }
     }
 
     function hashNode(string memory _node) internal pure returns (bytes32) {
