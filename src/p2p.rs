@@ -6,6 +6,7 @@ use futures_ticker::Ticker;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
 use libp2p::gossipsub::Version;
+use libp2p::identify::Event;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::GetProvidersOk::FoundProviders;
@@ -14,8 +15,10 @@ use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{InboundRequestId, Message, ProtocolSupport, ResponseChannel};
 use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
 use libp2p::{
-    gossipsub, kad, noise, request_response, tcp, yamux, Multiaddr, PeerId, StreamProtocol,
+    autonat, dcutr, gossipsub, kad, noise, relay, request_response, tcp, yamux, Multiaddr, PeerId,
+    StreamProtocol,
 };
+
 use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
 use sha256::digest;
@@ -37,6 +40,8 @@ pub struct MintpoolBehaviour {
     ping: libp2p::ping::Behaviour,
     request_response: request_response::cbor::Behaviour<QueryOptions, SyncResponse>,
     relay: libp2p::relay::Behaviour,
+    relay_client: libp2p::relay::client::Behaviour,
+    relay_manager: libp2p_relay_manager::Behaviour,
     autonat: libp2p::autonat::Behaviour,
     dcutr: libp2p::dcutr::Behaviour,
 }
@@ -85,7 +90,10 @@ impl SwarmController {
             max_peers: config.peer_limit,
             local_mode: !config.connect_external,
             premint_names: config.premint_names(),
-            discover_ticker: Ticker::new(Duration::from_secs(60)),
+            discover_ticker: Ticker::new_with_next(
+                Duration::from_secs(60),
+                Duration::from_secs(10),
+            ),
         }
     }
 
@@ -107,7 +115,8 @@ impl SwarmController {
             )?
             .with_quic()
             .with_dns()?
-            .with_behaviour(|key| {
+            .with_relay_client(noise::Config::new, yamux::Config::default)?
+            .with_behaviour(|key, client| {
                 let mut b =
                     kad::Behaviour::new(peer_id, MemoryStore::new(key.public().to_peer_id()));
                 b.set_mode(Some(kad::Mode::Server));
@@ -141,7 +150,24 @@ impl SwarmController {
                         request_response::Config::default(),
                     ),
                     relay: libp2p::relay::Behaviour::new(peer_id, Default::default()),
-                    autonat: libp2p::autonat::Behaviour::new(peer_id, Default::default()),
+                    relay_client: client,
+                    relay_manager: libp2p_relay_manager::Behaviour::new(
+                        libp2p_relay_manager::Config {
+                            auto_connect: true,
+                            auto_relay: true,
+                            limit: Some(5),
+                            backoff: Duration::from_secs(15),
+                        },
+                    ),
+                    autonat: libp2p::autonat::Behaviour::new(
+                        peer_id,
+                        libp2p::autonat::Config {
+                            boot_delay: Duration::from_secs(15),
+                            only_global_ips: false,
+                            use_connected: true,
+                            ..Default::default()
+                        },
+                    ),
                     dcutr: libp2p::dcutr::Behaviour::new(peer_id),
                 }
             })?
@@ -237,7 +263,11 @@ impl SwarmController {
         match event {
             SwarmEvent::NewListenAddr { address, .. } => {
                 let pid = self.swarm.local_peer_id();
-                let local_address = address.with(Protocol::P2p(*pid)).to_string();
+                let local_address = if address.iter().any(|p| p == Protocol::P2pCircuit) {
+                    address.to_string()
+                } else {
+                    address.with(Protocol::P2p(*pid)).to_string()
+                };
                 tracing::info!(local_address = local_address, "Started listening");
             }
 
@@ -319,6 +349,15 @@ impl SwarmController {
                 }
             }
 
+            SwarmEvent::Behaviour(MintpoolBehaviourEvent::RelayClient(event)) => {
+                match self.handle_relay_client_event(event).await {
+                    Ok(_) => {}
+                    Err(err) => {
+                        tracing::error!("Error handling relay client event: {:?}", err);
+                    }
+                }
+            }
+
             SwarmEvent::Dialing { peer_id, .. } => {
                 tracing::info!("Dialing: {:?}", peer_id)
             }
@@ -341,6 +380,57 @@ impl SwarmController {
                         tracing::error!("Error providing external address: {:?}", err);
                     }
                 }
+            }
+
+            SwarmEvent::Behaviour(MintpoolBehaviourEvent::Identify(event)) => match event {
+                Event::Received { peer_id, info } => {
+                    let is_relay = info.protocols.contains(&libp2p::relay::HOP_PROTOCOL_NAME);
+
+                    if is_relay {
+                        tracing::info!("Discovered relay peer: {:?}", info);
+
+                        for addr in info.listen_addrs {
+                            self.swarm
+                                .behaviour_mut()
+                                .relay_manager
+                                .add_address(peer_id, addr);
+                        }
+                    }
+                }
+                _ => {
+                    tracing::info!("Identify event: {:?}", event);
+                }
+            },
+
+            SwarmEvent::Behaviour(MintpoolBehaviourEvent::Ping(event)) => {
+                match event.result {
+                    Ok(rtt) => {
+                        self.swarm.behaviour_mut().relay_manager.set_peer_rtt(
+                            event.peer,
+                            event.connection,
+                            rtt,
+                        );
+                    }
+                    _ => {}
+                }
+                tracing::info!("Ping event: {:?}", event);
+            }
+
+            SwarmEvent::Behaviour(MintpoolBehaviourEvent::Relay(event)) => {
+                tracing::info!("Relay event: {:?}", event);
+            }
+
+            SwarmEvent::Behaviour(MintpoolBehaviourEvent::Autonat(event)) => {
+                match self.handle_autonat_event(event).await {
+                    Ok(_) => {}
+                    Err(err) => {
+                        tracing::error!("Error handling autonat event: {:?}", err);
+                    }
+                }
+            }
+
+            SwarmEvent::Behaviour(MintpoolBehaviourEvent::Dcutr(event)) => {
+                tracing::info!("Dcutr event: {:?}", event);
             }
 
             other => {
@@ -610,7 +700,7 @@ impl SwarmController {
         event: request_response::Event<QueryOptions, SyncResponse>,
     ) -> eyre::Result<()> {
         match event {
-            request_response::Event::Message { peer, message } => match message {
+            request_response::Event::Message { message, .. } => match message {
                 Message::Request {
                     request_id,
                     request,
@@ -649,6 +739,46 @@ impl SwarmController {
             },
             other => tracing::info!("mintpool sync request/response event: {:?}", other),
         }
+        Ok(())
+    }
+
+    async fn handle_relay_client_event(&mut self, event: relay::client::Event) -> eyre::Result<()> {
+        match event {
+            relay::client::Event::ReservationReqAccepted { relay_peer_id, .. } => {
+                tracing::info!("Relay reservation request accepted: {:?}", relay_peer_id);
+                self.swarm
+                    .behaviour_mut()
+                    .kad
+                    .start_providing(RecordKey::new(&"mintpool::gossip"))?;
+            }
+
+            other => {
+                tracing::info!("Relay client event: {:?}", other);
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn handle_autonat_event(&mut self, event: autonat::Event) -> eyre::Result<()> {
+        if let autonat::Event::StatusChanged { old, new } = event {
+            tracing::info!("Autonat status changed: {:?} -> {:?}", old, new);
+            match new {
+                autonat::NatStatus::Private => {
+                    tracing::info!("Autonat status is private");
+                    if let Some(peer) = self.swarm.behaviour_mut().relay_manager.random_select() {
+                        tracing::info!("Relay peer: {:?}", peer);
+                    }
+                }
+                autonat::NatStatus::Public(multiaddr) => {
+                    tracing::info!("Autonat status is public: {}", multiaddr);
+                }
+                autonat::NatStatus::Unknown => {
+                    tracing::info!("Autonat status is unknown");
+                }
+            }
+        }
+
         Ok(())
     }
 

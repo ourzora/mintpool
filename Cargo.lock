@@ -3726,6 +3726,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-relay-manager"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8ce24a6522b4b58c82d72cf9f364732f354d8daaecdd359329aa6a84708428d"
+dependencies = [
+ "anyhow",
+ "futures",
+ "futures-timer",
+ "getrandom",
+ "libp2p",
+ "log",
+ "rand",
+ "thiserror",
+ "void",
+]
+
+[[package]]
 name = "libp2p-request-response"
 version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4050,6 +4067,7 @@ dependencies = [
  "futures-util",
  "itertools 0.12.1",
  "libp2p",
+ "libp2p-relay-manager",
  "mini-moka",
  "once_cell",
  "opentelemetry",
