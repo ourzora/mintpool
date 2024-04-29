@@ -181,6 +181,8 @@ impl SwarmController {
     pub async fn run(&mut self, port: u64, listen_ip: String) -> eyre::Result<()> {
         self.swarm
             .listen_on(format!("/ip4/{listen_ip}/tcp/{port}").parse()?)?;
+        self.swarm
+            .listen_on(format!("/ip4/{listen_ip}/udp/{port}/quic-v1").parse()?)?;
 
         let registry_topic = announce_topic();
         self.swarm
