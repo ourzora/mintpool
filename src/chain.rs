@@ -153,7 +153,7 @@ sol! {
     "contracts/artifacts/abi.json"
 }
 
-const BOOTNODES_CONTRACT_ADDRESS: Address = address!("777777A1476296E9F7835C91e2B917ecbfAf83a1");
+const BOOTNODES_CONTRACT_ADDRESS: Address = address!("7777770105719d36De7E5A0a26536D6482234Ccd");
 const BOOTNODES_CONTRACT_DEPLOY_BLOCK: u64 = 13_699_230;
 
 pub async fn get_contract_boot_nodes() -> eyre::Result<Vec<String>> {
@@ -220,9 +220,9 @@ mod test {
         assert_eq!(
             nodes,
             vec![
-                "/dnsaddr/mintpool-1.zora.co".to_string(),
-                "/dnsaddr/mintpool-2.zora.co".to_string(),
-                "/dnsaddr/mintpool-3.zora.co".to_string()
+                "/dnsaddr/mintpool-1.zora.co/p2p/12D3KooWLUCRp7EFvBRGqhZ3kfZT3BRHoxX3a2erBGY5Nm49ggqy".to_string(),
+                "/dnsaddr/mintpool-2.zora.co/p2p/12D3KooWEBYjav7N175YYuEsPFdm36vKywjktcaE1HFgMTnQNWmy".to_string(),
+                "/dnsaddr/mintpool-3.zora.co/p2p/12D3KooWSgM2s7sJjKt7Tf3eXSDduszS6ZonaY444Yz7sNNVW7K9".to_string(),
             ]
         );
     }

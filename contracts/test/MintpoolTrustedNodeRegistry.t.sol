@@ -78,4 +78,40 @@ contract MintpoolTrustedNodeRegistryTest is Test {
             assertEq(trustedNodes[i], false);
         }
     }
+
+    function test_addRemoveTrustedNodeBatch() public {
+        string[] memory nodes = new string[](2);
+        nodes[0] = "node3";
+        nodes[1] = "node4";
+        vm.prank(zora);
+        registry.addTrustedNodeBatch(nodes);
+
+        bool trusted = registry.isTrustedNode("node3");
+        assertEq(trusted, true);
+        trusted = registry.isTrustedNode("node4");
+        assertEq(trusted, true);
+
+        vm.prank(zora);
+        registry.removeTrustedNodeBatch(nodes);
+        trusted = registry.isTrustedNode("node3");
+        assertEq(trusted, false);
+        trusted = registry.isTrustedNode("node4");
+        assertEq(trusted, false);
+    }
+
+    function test_addTrustedNodeBatch_onlyOwner() public {
+        string[] memory nodes = new string[](2);
+        nodes[0] = "node3";
+        nodes[1] = "node4";
+        vm.expectRevert("UNAUTHORIZED");
+        registry.addTrustedNodeBatch(nodes);
+    }
+
+    function test_removeTrustedNodeBatch_onlyOwner() public {
+        string[] memory nodes = new string[](2);
+        nodes[0] = "node3";
+        nodes[1] = "node4";
+        vm.expectRevert("UNAUTHORIZED");
+        registry.removeTrustedNodeBatch(nodes);
+    }
 }

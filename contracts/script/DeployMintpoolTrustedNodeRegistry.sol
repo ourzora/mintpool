@@ -26,8 +26,8 @@ interface ImmutableCreate2Factory {
 contract DeployScript is Script {
     // Generated using https://github.com/iainnash/create2crunch/tree/use_prefix_matching_instead
     address zora = 0xd1d1D4e36117aB794ec5d4c78cBD3a8904E691D0;
-    bytes32 salt = 0x00000000000000000000000000000000000000007a58e80278dae600cc595960;
-    address expectedAddress = 0x777777A1476296E9F7835C91e2B917ecbfAf83a1;
+    bytes32 salt = 0x00000000000000000000000000000000000000000a54fd9f3c211d018424dd4e;
+    address expectedAddress = 0x7777770105719d36De7E5A0a26536D6482234Ccd;
 
     ImmutableCreate2Factory constant IMMUTABLE_CREATE2_FACTORY =
     ImmutableCreate2Factory(0x0000000000FFe8B47B3e2130213B802212439497);
@@ -36,9 +36,9 @@ contract DeployScript is Script {
 
     function run() public {
         string[] memory trustedNodes = new string[](3);
-        trustedNodes[0] = "/dnsaddr/mintpool-1.zora.co";
-        trustedNodes[1] = "/dnsaddr/mintpool-2.zora.co";
-        trustedNodes[2] = "/dnsaddr/mintpool-3.zora.co";
+        trustedNodes[0] = "/dnsaddr/mintpool-1.zora.co/p2p/12D3KooWLUCRp7EFvBRGqhZ3kfZT3BRHoxX3a2erBGY5Nm49ggqy";
+        trustedNodes[1] = "/dnsaddr/mintpool-2.zora.co/p2p/12D3KooWEBYjav7N175YYuEsPFdm36vKywjktcaE1HFgMTnQNWmy";
+        trustedNodes[2] = "/dnsaddr/mintpool-3.zora.co/p2p/12D3KooWSgM2s7sJjKt7Tf3eXSDduszS6ZonaY444Yz7sNNVW7K9";
 
         bytes memory creationCode = type(MintpoolTrustedNodeRegistry).creationCode;
         bytes32 creationCodeHash = keccak256(creationCode);
