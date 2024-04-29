@@ -109,7 +109,7 @@ impl SwarmController {
         let swarm = libp2p::SwarmBuilder::with_existing_identity(id_keys)
             .with_tokio()
             .with_tcp(
-                tcp::Config::default().port_reuse(true).nodelay(true),
+                tcp::Config::default(),
                 noise::Config::new,
                 yamux::Config::default,
             )?
