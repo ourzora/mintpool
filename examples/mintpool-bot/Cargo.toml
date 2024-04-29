@@ -1,0 +1,40 @@
+[package]
+name = "mintpool-bot"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mintpool = { git = "https://github.com/ourzora/mintpool.git", branch = "main" }
+hex = "0.4.3"
+alloy = { git = "https://github.com/alloy-rs/alloy", rev = "bbef8de", features = [
+    "sol-types",
+    "network",
+    "rpc-types-eth",
+    "pubsub",
+    "json",
+    "rpc-client",
+    "provider-http",
+    "provider-ws",
+    "json-rpc",
+    "rpc-client-ws",
+    "rpc-types-json",
+    "signers",
+    "transport-ws",
+    "eip712",
+    "serde",
+    "json",
+    "json-abi",
+    "node-bindings",
+    "contract",
+    "signer-wallet"
+] }
+eyre = "0.6.12"
+lazy_static = "1.4.0"
+url = "2.5.0"
+reqwest = "0.12.4"
+tokio = { version = "1.37.0", features = ["full"] }
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+async-trait = "0.1.80"
