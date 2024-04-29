@@ -29,8 +29,13 @@ libp2p = { version = "0.53.2", features = [
     "ping",
     "dns",
     "request-response",
-    "cbor"
+    "cbor",
+    "quic",
+    "relay",
+    "autonat",
+    "dcutr"
 ] }
+libp2p-relay-manager = "0.2.2"
 tokio = { version = "1.36.0", features = ["full"] }
 eyre = "0.6.12"
 regex = "1.10.4"
@@ -93,6 +98,7 @@ opentelemetry-stdout = { version = "0.3.0", features = ["logs", "metrics", "trac
 opentelemetry-prometheus = "0.15.0"
 prometheus = "0.13.3"
 built = "0.7.2"
+itertools = "0.12.1"
 
 
 [profile.dev.package.sqlx-macros]
