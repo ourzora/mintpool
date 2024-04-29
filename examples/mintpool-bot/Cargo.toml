@@ -31,7 +31,6 @@ alloy = { git = "https://github.com/alloy-rs/alloy", rev = "bbef8de", features =
     "signer-wallet"
 ] }
 eyre = "0.6.12"
-lazy_static = "1.4.0"
 url = "2.5.0"
 reqwest = "0.12.4"
 tokio = { version = "1.37.0", features = ["full"] }

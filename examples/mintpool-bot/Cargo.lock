@@ -3988,7 +3988,6 @@ dependencies = [
  "async-trait",
  "eyre",
  "hex",
- "lazy_static",
  "mintpool",
  "reqwest 0.12.4",
  "tokio",

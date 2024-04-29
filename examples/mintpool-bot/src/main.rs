@@ -1,9 +1,9 @@
 use alloy::network::{Ethereum, EthereumSigner};
-use alloy::primitives::{Bytes, Sign, TxKind, B256, U256, address};
+use alloy::primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy::providers::fillers::{
     ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, SignerFiller,
 };
-use alloy::providers::{Identity, Provider, ProviderBuilder, RootProvider, WalletProvider};
+use alloy::providers::{Identity, Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::RpcClient;
 use alloy::rpc::types::eth::{BlockId, TransactionRequest};
 use alloy::signers::k256::ecdsa::SigningKey;
@@ -11,19 +11,17 @@ use alloy::signers::wallet::Wallet;
 use alloy::signers::Signer;
 use alloy::sol_types::SolCall;
 use alloy::transports::http::Http;
-use lazy_static::lazy_static;
+use async_trait::async_trait;
+
 use mintpool::api::start_api;
-use mintpool::{metadata_rule, typed_rule};
 use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
 use mintpool::premints::zora_premint_v2::types::{
     IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
 };
 use mintpool::rules::{Evaluation, Rule, RuleContext, RulesEngine};
 use mintpool::storage::Reader;
-use mintpool::types::{Premint, PremintMetadata, PremintTypes};
+use mintpool::types::{Premint, PremintTypes};
 use reqwest::Client;
-use std::collections::HashMap;
-use async_trait::async_trait;
 use tokio::signal::unix::{signal, SignalKind};
 
 #[tokio::main]
@@ -41,8 +39,6 @@ async fn main() -> eyre::Result<()> {
     let router = mintpool::api::router_with_defaults(&config);
     start_api(&config, ctl.clone(), router, true).await?;
 
-
-
     let mut sigint = signal(SignalKind::interrupt())?;
     let mut sigterm = signal(SignalKind::terminate())?;
     tokio::select! {
@@ -57,15 +53,13 @@ async fn main() -> eyre::Result<()> {
 }
 
 fn display_eth(v: U256) -> String {
-    let i: f64 = match v.try_into(){
+    let i: f64 = match v.try_into() {
         Ok(v) => v,
         Err(_) => return format!("Too big: {:?}", v),
     };
 
     format!("{:.6}", i / 1e18)
 }
-
-
 
 // Passing an alloy type currently is pretty annoying
 type MintProvider = FillProvider<
@@ -80,16 +74,20 @@ type MintProvider = FillProvider<
 
 struct Minter {
     signer: Wallet<SigningKey>,
-    providers: HashMap<u64, MintProvider>,
+    creator_address: Address,
 }
 
 #[async_trait]
 impl<T: Reader> Rule<T> for Minter {
-    async fn check(&self, item: &PremintTypes, context: &RuleContext<T>) -> eyre::Result<Evaluation> {
+    async fn check(
+        &self,
+        item: &PremintTypes,
+        context: &RuleContext<T>,
+    ) -> eyre::Result<Evaluation> {
         match item {
             PremintTypes::ZoraV2(premint) => {
                 // If from jacob.eth, mint it
-                if premint.metadata().signer == address!("17cd072cBd45031EFc21Da538c783E0ed3b25DCc") {
+                if premint.metadata().signer == self.creator_address {
                     match self.mint_zora_premint(premint.clone()).await {
                         Ok(_) => {
                             println!("Minted premint: {:?}", premint);
@@ -102,7 +100,7 @@ impl<T: Reader> Rule<T> for Minter {
                 } else {
                     Ok(Evaluation::Accept)
                 }
-            },
+            }
             _ => Ok(Evaluation::Ignore("not a zora premint".to_string())),
         }
     }
@@ -114,14 +112,27 @@ impl<T: Reader> Rule<T> for Minter {
 
 impl Minter {
     pub fn new() -> Self {
-        let pkey = hex::decode(std::env::var("PRIVATE_KEY").unwrap().strip_prefix("0x").unwrap())
-            .expect("failed to decode private key");
+        let pkey = hex::decode(
+            std::env::var("PRIVATE_KEY")
+                .expect("Need private key envar (export PRIVATE_KEY=0x...)")
+                .strip_prefix("0x")
+                .unwrap(),
+        )
+        .expect("failed to decode private key");
+
+        // default to jacob.eth
+        let creator_address = std::env::var("CREATOR_ADDRESS")
+            .unwrap_or("0x17cd072cBd45031EFc21Da538c783E0ed3b25DCc".to_string());
+        let creator_address =
+            Address::parse_checksummed(creator_address, None).expect("Failed to parse address");
+
         let pkey = B256::from_slice(pkey.as_slice());
         let signer = Wallet::from_bytes(&pkey).expect("failed to create wallet");
 
-        let mut providers = HashMap::new();
-
-        Minter { signer, providers }
+        Minter {
+            signer,
+            creator_address,
+        }
     }
 
     fn make_provider_for_chain(
