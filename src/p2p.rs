@@ -39,11 +39,11 @@ pub struct MintpoolBehaviour {
     identify: libp2p::identify::Behaviour,
     ping: libp2p::ping::Behaviour,
     request_response: request_response::cbor::Behaviour<QueryOptions, SyncResponse>,
-    relay: libp2p::relay::Behaviour,
-    relay_client: libp2p::relay::client::Behaviour,
+    relay: relay::Behaviour,
+    relay_client: relay::client::Behaviour,
     relay_manager: libp2p_relay_manager::Behaviour,
-    autonat: libp2p::autonat::Behaviour,
-    dcutr: libp2p::dcutr::Behaviour,
+    autonat: autonat::Behaviour,
+    dcutr: dcutr::Behaviour,
 }
 
 pub struct SwarmController {
@@ -109,7 +109,7 @@ impl SwarmController {
         let swarm = libp2p::SwarmBuilder::with_existing_identity(id_keys)
             .with_tokio()
             .with_tcp(
-                tcp::Config::default(),
+                tcp::Config::default().port_reuse(true).nodelay(true),
                 noise::Config::new,
                 yamux::Config::default,
             )?
