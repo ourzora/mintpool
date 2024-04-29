@@ -413,7 +413,7 @@ impl SwarmController {
                     }
                     _ => {}
                 }
-                tracing::info!("Ping event: {:?}", event);
+                tracing::debug!("Ping event: {:?}", event);
             }
 
             SwarmEvent::Behaviour(MintpoolBehaviourEvent::Relay(event)) => {
