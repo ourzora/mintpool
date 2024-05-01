@@ -192,14 +192,9 @@ pub struct NodeInfoResponse {
     pub dht_peers: Vec<Vec<String>>,
     pub gossipsub_peers: Vec<String>,
     pub external_addresses: Vec<String>,
-    pub providing: Vec<ProviderRecord>,
+    pub providing: Vec<String>,
     pub listeners: Vec<String>,
     pub nat_status: String,
-}
-
-#[derive(Serialize)]
-pub struct ProviderRecord {
-    pub key: String,
 }
 
 trait StringOrHex {
@@ -211,14 +206,6 @@ impl StringOrHex for Vec<u8> {
         match String::from_utf8(self.clone()) {
             Ok(value) => value,
             Err(_) => self.encode_hex(),
-        }
-    }
-}
-
-impl From<&libp2p::kad::ProviderRecord> for ProviderRecord {
-    fn from(record: &libp2p::kad::ProviderRecord) -> Self {
-        Self {
-            key: record.key.to_vec().to_string(),
         }
     }
 }
@@ -243,7 +230,11 @@ impl From<NetworkState> for NodeInfoResponse {
             .collect();
         let gossipsub_peers = gossipsub_peers.iter().map(ToString::to_string).collect();
         let external_addresses = external_addresses.iter().map(ToString::to_string).collect();
-        let providing = providing.iter().map(From::from).collect();
+        let providing = providing
+            .iter()
+            .take(100)
+            .map(|record| record.key.to_vec().to_string())
+            .collect();
         let listeners = listeners.iter().map(ToString::to_string).collect();
         let nat_status = match nat_status {
             NatStatus::Private => "Private",
