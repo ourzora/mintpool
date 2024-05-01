@@ -78,6 +78,9 @@ pub struct Config {
 
     #[envconfig(from = "SYNC_LOOKBACK_HOURS", default = "6")]
     pub sync_lookback_hours: u64,
+
+    #[envconfig(from = "ENABLE_RELAY", default = "false")]
+    pub enable_relay: bool,
 }
 
 impl Config {
@@ -104,6 +107,7 @@ impl Config {
             rate_limit_rps: 1,
             boot_nodes: BootNodes::None,
             sync_lookback_hours: 6,
+            enable_relay: false,
         }
     }
 }
@@ -198,7 +202,7 @@ pub fn init() -> Config {
 
 #[cfg(test)]
 mod test {
-    use crate::config::{BootNodes, ChainInclusionMode};
+    use crate::config::{BootNodes, ChainInclusionMode, Config};
     use std::env;
     use std::str::FromStr;
 
@@ -210,28 +214,9 @@ mod test {
 
     #[test]
     fn test_premint_names() {
-        let config = super::Config {
-            secret: "0x7948efac1e9dbfb77691541df857b3142ea88f5b75b37dfca506f1f1c5d659ee"
-                .to_string(),
-            peer_port: 7777,
-            connect_external: false,
-            db_url: None,
-            persist_state: false,
-            prune_minted_premints: false,
-            api_port: 0,
-            peer_limit: 1000,
+        let config = Config {
             supported_premint_types: "simple,zora_premint_v2".to_string(),
-            chain_inclusion_mode: ChainInclusionMode::Check,
-            supported_chain_ids: "7777777".to_string(),
-            trusted_peers: None,
-            node_id: None,
-            external_address: None,
-            interactive: false,
-            enable_rpc: true,
-            admin_api_secret: None,
-            rate_limit_rps: 1,
-            boot_nodes: BootNodes::Chain,
-            sync_lookback_hours: 0,
+            ..Config::test_default()
         };
 
         let names = config.premint_names();
@@ -240,27 +225,8 @@ mod test {
         assert_eq!(names[1].0, "zora_premint_v2");
 
         let config = super::Config {
-            secret: "0x7948efac1e9dbfb77691541df857b3142ea88f5b75b37dfca506f1f1c5d659ee"
-                .to_string(),
-            peer_port: 7777,
-            connect_external: false,
-            db_url: None,
-            persist_state: false,
-            prune_minted_premints: false,
-            api_port: 0,
-            peer_limit: 1000,
             supported_premint_types: "zora_premint_v2".to_string(),
-            chain_inclusion_mode: ChainInclusionMode::Check,
-            supported_chain_ids: "7777777".to_string(),
-            trusted_peers: None,
-            node_id: None,
-            external_address: None,
-            interactive: false,
-            enable_rpc: true,
-            admin_api_secret: None,
-            rate_limit_rps: 1,
-            boot_nodes: BootNodes::None,
-            sync_lookback_hours: 0,
+            ..Config::test_default()
         };
 
         let names = config.premint_names();

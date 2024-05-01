@@ -10,17 +10,19 @@ use libp2p::futures::StreamExt;
 use libp2p::gossipsub::Version;
 use libp2p::identify::Event;
 use libp2p::identity::Keypair;
-use libp2p::kad::store::MemoryStore;
+use libp2p::kad::store::{MemoryStore, RecordStore};
 use libp2p::kad::GetProvidersOk::FoundProviders;
 use libp2p::kad::{Addresses, ProviderRecord, QueryResult, Record, RecordKey};
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{InboundRequestId, Message, ProtocolSupport, ResponseChannel};
-use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
+use libp2p::swarm::behaviour::toggle::Toggle;
+use libp2p::swarm::dial_opts::{DialOpts, PeerCondition};
+use libp2p::swarm::DialError::DialPeerConditionFalse;
+use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent, ToSwarm};
 use libp2p::{
     autonat, dcutr, gossipsub, kad, noise, relay, request_response, tcp, yamux, Multiaddr, PeerId,
     StreamProtocol,
 };
-
 use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
 use sha256::digest;
@@ -28,6 +30,7 @@ use tokio::select;
 
 use crate::config::Config;
 use crate::controller::{P2PEvent, SwarmCommand};
+use crate::multiaddr_ext::MultiaddrExt;
 use crate::storage::QueryOptions;
 use crate::types::{
     claims_topic_hashes, InclusionClaim, MintpoolNodeInfo, PeerInclusionClaim, Premint,
@@ -41,7 +44,7 @@ pub struct MintpoolBehaviour {
     identify: libp2p::identify::Behaviour,
     ping: libp2p::ping::Behaviour,
     request_response: request_response::cbor::Behaviour<QueryOptions, SyncResponse>,
-    relay: relay::Behaviour,
+    relay: Toggle<relay::Behaviour>,
     relay_client: relay::client::Behaviour,
     relay_manager: libp2p_relay_manager::Behaviour,
     autonat: autonat::Behaviour,
@@ -66,7 +69,8 @@ impl SwarmController {
         command_receiver: tokio::sync::mpsc::Receiver<SwarmCommand>,
         event_sender: tokio::sync::mpsc::Sender<P2PEvent>,
     ) -> Self {
-        let mut swarm = Self::make_swarm_controller(id_keys).expect("Invalid config for swarm");
+        let mut swarm = Self::make_swarm_controller(id_keys, config.enable_relay)
+            .expect("Invalid config for swarm");
 
         // add external address if configured
         config
@@ -105,13 +109,16 @@ impl SwarmController {
         MintpoolNodeInfo { peer_id, addr }
     }
 
-    fn make_swarm_controller(id_keys: Keypair) -> eyre::Result<libp2p::Swarm<MintpoolBehaviour>> {
+    fn make_swarm_controller(
+        id_keys: Keypair,
+        enable_relay: bool,
+    ) -> eyre::Result<libp2p::Swarm<MintpoolBehaviour>> {
         let peer_id = id_keys.public().to_peer_id();
         let public_key = id_keys.public();
         let swarm = libp2p::SwarmBuilder::with_existing_identity(id_keys)
             .with_tokio()
             .with_tcp(
-                tcp::Config::default(),
+                tcp::Config::default().port_reuse(true).nodelay(true),
                 noise::Config::new,
                 yamux::Config::default,
             )?
@@ -121,7 +128,6 @@ impl SwarmController {
             .with_behaviour(|key, client| {
                 let mut b =
                     kad::Behaviour::new(peer_id, MemoryStore::new(key.public().to_peer_id()));
-                b.set_mode(Some(kad::Mode::Server));
                 let gossipsub_config = gossipsub::ConfigBuilder::default()
                     .heartbeat_interval(Duration::from_secs(10))
                     .validation_mode(gossipsub::ValidationMode::Strict)
@@ -151,7 +157,11 @@ impl SwarmController {
                         )],
                         request_response::Config::default(),
                     ),
-                    relay: libp2p::relay::Behaviour::new(peer_id, Default::default()),
+                    relay: Toggle::from(if enable_relay {
+                        Some(relay::Behaviour::new(peer_id, Default::default()))
+                    } else {
+                        None
+                    }),
                     relay_client: client,
                     relay_manager: libp2p_relay_manager::Behaviour::new(
                         libp2p_relay_manager::Config {
@@ -161,9 +171,9 @@ impl SwarmController {
                             backoff: Duration::from_secs(15),
                         },
                     ),
-                    autonat: libp2p::autonat::Behaviour::new(
+                    autonat: autonat::Behaviour::new(
                         peer_id,
-                        libp2p::autonat::Config {
+                        autonat::Config {
                             boot_delay: Duration::from_secs(15),
                             only_global_ips: false,
                             use_connected: true,
@@ -182,9 +192,9 @@ impl SwarmController {
     /// Starts the swarm controller listening and runs the run_loop awaiting incoming actions
     pub async fn run(&mut self, port: u64, listen_ip: String) -> eyre::Result<()> {
         self.swarm
-            .listen_on(format!("/ip4/{listen_ip}/tcp/{port}").parse()?)?;
-        self.swarm
             .listen_on(format!("/ip4/{listen_ip}/udp/{port}/quic-v1").parse()?)?;
+        self.swarm
+            .listen_on(format!("/ip4/{listen_ip}/tcp/{port}").parse()?)?;
 
         let registry_topic = announce_topic();
         self.swarm
@@ -267,12 +277,43 @@ impl SwarmController {
         match event {
             SwarmEvent::NewListenAddr { address, .. } => {
                 let pid = self.swarm.local_peer_id();
-                let local_address = if address.iter().any(|p| p == Protocol::P2pCircuit) {
+                let local_address = if address.is_relayed() {
+                    // if it's a relay address, let's assume it's an external address
+                    self.swarm.add_external_address(address.clone());
+
                     address.to_string()
                 } else {
                     address.with(Protocol::P2p(*pid)).to_string()
                 };
                 tracing::info!(local_address = local_address, "Started listening");
+            }
+
+            SwarmEvent::ExpiredListenAddr { address, .. } => {
+                tracing::info!(address = address.to_string(), "Expired listen address");
+
+                if address.is_relayed() {
+                    self.swarm.remove_external_address(&address);
+                }
+            }
+
+            SwarmEvent::ListenerClosed {
+                addresses, reason, ..
+            } => {
+                tracing::info!(
+                    addresses = addresses
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    reason = format!("{:?}", reason),
+                    "Listener closed"
+                );
+
+                for address in addresses {
+                    if address.is_relayed() {
+                        self.swarm.remove_external_address(&address);
+                    }
+                }
             }
 
             SwarmEvent::IncomingConnection {
@@ -291,22 +332,21 @@ impl SwarmController {
             } => {
                 self.reject_connection_if_over_max(connection_id);
 
-                match endpoint {
-                    ConnectedPoint::Dialer { address, .. } => {
-                        let addr = address;
-                        self.swarm.add_external_address(addr.clone());
-                        let b = self.swarm.behaviour_mut();
-                        b.kad.add_address(&peer_id, addr.clone());
-                        tracing::info!("Dialed: {:?}", addr);
-                    }
-                    ConnectedPoint::Listener {
-                        local_addr,
-                        send_back_addr,
-                    } => {
-                        let addr = send_back_addr.with(Protocol::P2p(peer_id));
-                        tracing::info!("Was connected to by: {:?} local: {local_addr}", addr);
-                    }
-                }
+                // match endpoint {
+                //     ConnectedPoint::Dialer { address, .. } => {
+                //         let addr = address;
+                //         let b = self.swarm.behaviour_mut();
+                //         b.kad.add_address(&peer_id, addr.clone());
+                //         tracing::info!("Dialed: {:?}", addr);
+                //     }
+                //     ConnectedPoint::Listener {
+                //         local_addr,
+                //         send_back_addr,
+                //     } => {
+                //         let addr = send_back_addr.with(Protocol::P2p(peer_id));
+                //         tracing::info!("Was connected to by: {:?} local: {local_addr}", addr);
+                //     }
+                // }
 
                 tracing::info!("Connection established with peer: {:?}", peer_id);
                 tracing::info!(counter.connections = 1);
@@ -366,7 +406,13 @@ impl SwarmController {
                 tracing::info!("Dialing: {:?}", peer_id)
             }
 
+            SwarmEvent::NewExternalAddrCandidate { address } => {
+                tracing::info!("New external address candidate: {:?}", address)
+            }
+
             SwarmEvent::ExternalAddrConfirmed { address } => {
+                tracing::info!("External address confirmed: {:?}", address);
+
                 match self
                     .swarm
                     .behaviour_mut()
@@ -388,7 +434,7 @@ impl SwarmController {
 
             SwarmEvent::Behaviour(MintpoolBehaviourEvent::Identify(event)) => match event {
                 Event::Received { peer_id, info } => {
-                    let is_relay = info.protocols.contains(&libp2p::relay::HOP_PROTOCOL_NAME);
+                    let is_relay = info.protocols.contains(&relay::HOP_PROTOCOL_NAME);
 
                     if is_relay {
                         tracing::info!("Discovered relay peer: {:?}", info);
@@ -581,7 +627,7 @@ impl SwarmController {
             } => match providers {
                 FoundProviders { providers, .. } => {
                     for peer in providers {
-                        tracing::info!("Found provider: {:?}", peer);
+                        tracing::trace!("Found provider: {:?}", peer);
 
                         // lookup address in kad routing table
                         let addresses =
@@ -639,13 +685,21 @@ impl SwarmController {
             return;
         }
 
-        if state.all_external_addresses.contains(&address) && !self.local_mode {
-            tracing::warn!("Already connected to peer: {:?}", address);
-            return;
-        }
+        let opts = if let Some(peer_id) = address.peer_id() {
+            DialOpts::peer_id(peer_id)
+                .addresses(vec![address])
+                .condition(PeerCondition::DisconnectedAndNotDialing)
+                .build()
+        } else {
+            DialOpts::from(address)
+        };
 
-        if let Err(err) = self.swarm.dial(address) {
-            tracing::error!("Error dialing peer: {:?}", err);
+        match self.swarm.dial(opts) {
+            Ok(_) | Err(DialPeerConditionFalse(PeerCondition::DisconnectedAndNotDialing)) => {}
+
+            Err(err) => {
+                tracing::error!("Error dialing peer: {:?}", err);
+            }
         }
     }
 
