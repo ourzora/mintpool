@@ -3443,6 +3443,7 @@ dependencies = [
  "quick-protobuf",
  "rand",
  "rw-stream-sink",
+ "serde",
  "smallvec",
  "thiserror",
  "tracing",
@@ -3514,6 +3515,7 @@ dependencies = [
  "quick-protobuf-codec 0.3.1",
  "rand",
  "regex",
+ "serde",
  "sha2",
  "smallvec",
  "tracing",
@@ -3555,6 +3557,7 @@ dependencies = [
  "multihash",
  "quick-protobuf",
  "rand",
+ "serde",
  "sha2",
  "thiserror",
  "tracing",
@@ -3582,6 +3585,7 @@ dependencies = [
  "quick-protobuf",
  "quick-protobuf-codec 0.3.1",
  "rand",
+ "serde",
  "sha2",
  "smallvec",
  "thiserror",
@@ -4142,6 +4146,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "076d548d76a0e2a0d4ab471d0b1c36c577786dfc4471242035d97a12a735c492"
 dependencies = [
  "core2",
+ "serde",
  "unsigned-varint 0.7.2",
 ]
 
