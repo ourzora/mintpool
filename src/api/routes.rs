@@ -237,8 +237,6 @@ impl From<NetworkState> for NodeInfoResponse {
             ..
         } = state;
 
-        let iter = gossipsub_peers.iter();
-
         let dht_peers = dht_peers
             .into_iter()
             .map(|peer| peer.iter().map(ToString::to_string).collect())
