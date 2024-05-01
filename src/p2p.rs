@@ -326,28 +326,10 @@ impl SwarmController {
             }
             SwarmEvent::ConnectionEstablished {
                 peer_id,
-                endpoint,
                 connection_id,
                 ..
             } => {
                 self.reject_connection_if_over_max(connection_id);
-
-                // match endpoint {
-                //     ConnectedPoint::Dialer { address, .. } => {
-                //         let addr = address;
-                //         let b = self.swarm.behaviour_mut();
-                //         b.kad.add_address(&peer_id, addr.clone());
-                //         tracing::info!("Dialed: {:?}", addr);
-                //     }
-                //     ConnectedPoint::Listener {
-                //         local_addr,
-                //         send_back_addr,
-                //     } => {
-                //         let addr = send_back_addr.with(Protocol::P2p(peer_id));
-                //         tracing::info!("Was connected to by: {:?} local: {local_addr}", addr);
-                //     }
-                // }
-
                 tracing::info!("Connection established with peer: {:?}", peer_id);
                 tracing::info!(counter.connections = 1);
             }
