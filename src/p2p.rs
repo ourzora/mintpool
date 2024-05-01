@@ -1,8 +1,10 @@
+use std::borrow::Cow;
 use std::hash::Hasher;
 use std::time::Duration;
 
 use eyre::WrapErr;
 use futures_ticker::Ticker;
+use libp2p::autonat::NatStatus;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
 use libp2p::gossipsub::Version;
@@ -10,7 +12,7 @@ use libp2p::identify::Event;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::GetProvidersOk::FoundProviders;
-use libp2p::kad::{Addresses, QueryResult, RecordKey};
+use libp2p::kad::{Addresses, ProviderRecord, QueryResult, Record, RecordKey};
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{InboundRequestId, Message, ProtocolSupport, ResponseChannel};
 use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
@@ -648,30 +650,30 @@ impl SwarmController {
     }
 
     fn make_network_state(&mut self) -> NetworkState {
-        let dht_peers: Vec<_> = self
-            .swarm
-            .behaviour_mut()
+        let external_addresses = self.swarm.external_addresses().cloned().collect();
+        let local_peer_id = *self.swarm.local_peer_id();
+        let network_info = self.swarm.network_info();
+        let listeners = self.swarm.listeners().cloned().collect();
+
+        let b = self.swarm.behaviour_mut();
+        let dht_peers: Vec<_> = b
             .kad
             .kbuckets()
             .flat_map(|x| x.iter().map(|x| x.node.value.clone()).collect::<Vec<_>>())
             .collect();
-
-        let my_id = *self.swarm.local_peer_id();
-
-        let gossipsub_peers = self
-            .swarm
-            .behaviour_mut()
-            .gossipsub
-            .all_mesh_peers()
-            .cloned()
-            .collect::<Vec<_>>();
+        let providing = b.kad.store_mut().provided().map(Cow::into_owned).collect();
+        let gossipsub_peers = b.gossipsub.all_mesh_peers().cloned().collect::<Vec<_>>();
+        let nat_status = b.autonat.nat_status();
 
         NetworkState {
-            local_peer_id: my_id,
-            network_info: self.swarm.network_info(),
+            local_peer_id,
+            network_info,
             dht_peers,
             gossipsub_peers,
-            all_external_addresses: self.swarm.external_addresses().cloned().collect(),
+            external_addresses,
+            providing,
+            listeners,
+            nat_status,
         }
     }
 
@@ -748,10 +750,6 @@ impl SwarmController {
         match event {
             relay::client::Event::ReservationReqAccepted { relay_peer_id, .. } => {
                 tracing::info!("Relay reservation request accepted: {:?}", relay_peer_id);
-                self.swarm
-                    .behaviour_mut()
-                    .kad
-                    .start_providing(RecordKey::new(&"mintpool::gossip"))?;
             }
 
             other => {
@@ -852,7 +850,10 @@ pub struct NetworkState {
     pub network_info: NetworkInfo,
     pub dht_peers: Vec<Addresses>,
     pub gossipsub_peers: Vec<PeerId>,
-    pub all_external_addresses: Vec<Multiaddr>,
+    pub external_addresses: Vec<Multiaddr>,
+    pub providing: Vec<ProviderRecord>,
+    pub listeners: Vec<Multiaddr>,
+    pub nat_status: NatStatus,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

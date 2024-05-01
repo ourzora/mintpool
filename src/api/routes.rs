@@ -1,3 +1,14 @@
+use std::path::Display;
+
+use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
+use axum::Json;
+use const_hex::ToHexExt;
+use itertools::Itertools;
+use libp2p::autonat::NatStatus;
+use serde::Serialize;
+use sqlx::{Executor, Row};
+
 use crate::api::AppState;
 use crate::controller::ControllerCommands;
 use crate::p2p::NetworkState;
@@ -5,11 +16,6 @@ use crate::rules::Results;
 use crate::storage;
 use crate::storage::{get_for_id_and_kind, QueryOptions};
 use crate::types::{PremintName, PremintTypes};
-use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
-use axum::Json;
-use serde::Serialize;
-use sqlx::{Executor, Row};
 
 pub async fn list_all(
     State(state): State<AppState>,
@@ -185,7 +191,36 @@ pub struct NodeInfoResponse {
     pub num_peers: u64,
     pub dht_peers: Vec<Vec<String>>,
     pub gossipsub_peers: Vec<String>,
-    pub all_external_addresses: Vec<Vec<String>>,
+    pub external_addresses: Vec<String>,
+    pub providing: Vec<ProviderRecord>,
+    pub listeners: Vec<String>,
+    pub nat_status: String,
+}
+
+#[derive(Serialize)]
+pub struct ProviderRecord {
+    pub key: String,
+}
+
+trait StringOrHex {
+    fn to_string(&self) -> String;
+}
+
+impl StringOrHex for Vec<u8> {
+    fn to_string(&self) -> String {
+        match String::from_utf8(self.clone()) {
+            Ok(value) => value,
+            Err(_) => self.encode_hex(),
+        }
+    }
+}
+
+impl From<&libp2p::kad::ProviderRecord> for ProviderRecord {
+    fn from(record: &libp2p::kad::ProviderRecord) -> Self {
+        Self {
+            key: record.key.to_vec().to_string(),
+        }
+    }
 }
 
 impl From<NetworkState> for NodeInfoResponse {
@@ -195,24 +230,39 @@ impl From<NetworkState> for NodeInfoResponse {
             network_info,
             dht_peers,
             gossipsub_peers,
-            all_external_addresses,
+            external_addresses,
+            listeners,
+            providing,
+            nat_status,
             ..
         } = state;
+
+        let iter = gossipsub_peers.iter();
+
         let dht_peers = dht_peers
             .into_iter()
-            .map(|peer| peer.iter().map(|p| p.to_string()).collect())
+            .map(|peer| peer.iter().map(ToString::to_string).collect())
             .collect();
-        let gossipsub_peers = gossipsub_peers.into_iter().map(|p| p.to_string()).collect();
-        let all_external_addresses = all_external_addresses
-            .into_iter()
-            .map(|peer| peer.into_iter().map(|p| p.to_string()).collect())
-            .collect();
+        let gossipsub_peers = gossipsub_peers.iter().map(ToString::to_string).collect();
+        let external_addresses = external_addresses.iter().map(ToString::to_string).collect();
+        let providing = providing.iter().map(From::from).collect();
+        let listeners = listeners.iter().map(ToString::to_string).collect();
+        let nat_status = match nat_status {
+            NatStatus::Private => "Private",
+            NatStatus::Unknown => "Unknown",
+            NatStatus::Public(..) => "Public",
+        }
+        .to_string();
+
         Self {
             local_peer_id: local_peer_id.to_string(),
             num_peers: network_info.num_peers() as u64,
             dht_peers,
             gossipsub_peers,
-            all_external_addresses,
+            external_addresses,
+            providing,
+            listeners,
+            nat_status,
         }
     }
 }
