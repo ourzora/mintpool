@@ -59,7 +59,7 @@ pub struct SwarmController {
     max_peers: u64,
     local_mode: bool,
     premint_names: Vec<PremintName>,
-    discover_ticker: Ticker,
+    bootstrap_ticker: Ticker,
 }
 
 /// Service for managing p2p actions and connections
@@ -97,9 +97,10 @@ impl SwarmController {
             max_peers: config.peer_limit,
             local_mode: !config.connect_external,
             premint_names: config.premint_names(),
-            discover_ticker: Ticker::new_with_next(
-                Duration::from_secs(60),
-                Duration::from_secs(10),
+            bootstrap_ticker: Ticker::new(
+                // spec suggests to run bootstrap every 5 minutes
+                // first time bootstrap will trigger after first connection
+                Duration::from_secs(60 * 5),
             ),
         }
     }
@@ -227,8 +228,13 @@ impl SwarmController {
                     }
                 }
                 event = self.swarm.select_next_some() => self.handle_swarm_event(event).await,
-                _tick = self.discover_ticker.next() => {
-                    self.swarm.behaviour_mut().kad.get_providers(RecordKey::new(&"mintpool::gossip"));
+                _tick = self.bootstrap_ticker.next() => {
+                    match self.swarm.behaviour_mut().kad.bootstrap() {
+                        Ok(_) => {}
+                        Err(err) => {
+                            tracing::error!("Error bootstrapping kad: {:?}", err);
+                        }
+                    }
                 },
             }
         }
@@ -398,24 +404,6 @@ impl SwarmController {
 
             SwarmEvent::ExternalAddrConfirmed { address } => {
                 tracing::info!("External address confirmed: {:?}", address);
-
-                match self
-                    .swarm
-                    .behaviour_mut()
-                    .kad
-                    .start_providing(RecordKey::new(&"mintpool::gossip"))
-                {
-                    Ok(id) => {
-                        tracing::info!(
-                            "Providing external address: {:?} (QueryID: {:?})",
-                            address,
-                            id
-                        );
-                    }
-                    Err(err) => {
-                        tracing::error!("Error providing external address: {:?}", err);
-                    }
-                }
             }
 
             SwarmEvent::Behaviour(MintpoolBehaviourEvent::Identify(event)) => match event {
@@ -423,7 +411,7 @@ impl SwarmController {
                     let is_relay = info.protocols.contains(&relay::HOP_PROTOCOL_NAME);
 
                     if is_relay {
-                        tracing::info!("Discovered relay peer: {:?}", info);
+                        tracing::debug!("Discovered relay peer: {:?}", info);
 
                         for addr in info.listen_addrs {
                             self.swarm
@@ -599,48 +587,27 @@ impl SwarmController {
                 tracing::info!("Inbound kad request: {:?}", request);
             }
             kad::Event::RoutingUpdated {
-                peer, addresses, ..
+                peer,
+                addresses,
+                is_new_peer,
+                ..
             } => {
                 tracing::info!(
                     "Routing updated, peer: {:?}, addresses: {:?}",
                     peer,
                     addresses
                 );
-            }
-            kad::Event::OutboundQueryProgressed {
-                result: QueryResult::GetProviders(Ok(providers)),
-                ..
-            } => match providers {
-                FoundProviders { providers, .. } => {
-                    for peer in providers {
-                        tracing::trace!("Found provider: {:?}", peer);
 
-                        // lookup address in kad routing table
-                        let addresses =
-                            self.swarm
-                                .behaviour_mut()
-                                .kad
-                                .kbuckets()
-                                .find_map(|bucket| {
-                                    bucket.iter().find_map(|entry| {
-                                        if entry.node.key.preimage() == &peer {
-                                            Some(entry.node.value.clone())
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                });
-
-                        // try to connect all known addresses
-                        if let Some(addresses) = addresses {
-                            for address in addresses.iter() {
-                                self.safe_dial(address.clone()).await;
-                            }
+                if is_new_peer && self.swarm.behaviour_mut().kad.kbuckets().count() == 1 {
+                    tracing::info!("First peer, bootstrapping kad");
+                    match self.swarm.behaviour_mut().kad.bootstrap() {
+                        Ok(_) => {}
+                        Err(err) => {
+                            tracing::error!("Error bootstrapping kad: {:?}", err);
                         }
                     }
                 }
-                _ => {}
-            },
+            }
             other => {
                 tracing::info!("Kad event: {:?}", other);
             }
