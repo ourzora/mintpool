@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use eyre::WrapErr;
 use futures_ticker::Ticker;
+use itertools::Itertools;
 use libp2p::autonat::NatStatus;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
@@ -279,7 +280,10 @@ impl SwarmController {
                 let pid = self.swarm.local_peer_id();
                 let local_address = if address.is_relayed() {
                     // if it's a relay address, let's assume it's an external address
-                    self.swarm.add_external_address(address.clone());
+
+                    if !self.swarm.external_addresses().contains(&address) {
+                        self.swarm.add_external_address(address.clone());
+                    }
 
                     address.to_string()
                 } else {
