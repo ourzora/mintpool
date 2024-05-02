@@ -1,5 +1,5 @@
-use crate::config::Config;
-use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
+use std::str::FromStr;
+
 use alloy::primitives::Address;
 use async_trait::async_trait;
 use eyre::WrapErr;
@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::Row;
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
-use std::str::FromStr;
+
+use crate::config::Config;
+use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
 
 async fn init_db(config: &Config) -> SqlitePool {
     let expect_msg =
