@@ -18,6 +18,8 @@ use tower::buffer::BufferLayer;
 use tower::limit::RateLimitLayer;
 use tower::{BoxError, ServiceBuilder};
 
+const NO_METRICS_ENDPOINTS: [&str; 2] = ["/health", "/metrics"];
+
 #[derive(Clone)]
 pub struct AppState {
     pub db: SqlitePool,
@@ -103,6 +105,10 @@ pub fn with_admin_routes(state: AppState, router: Router<AppState>) -> Router<Ap
 
 pub async fn metrics_middleware(request: Request, next: Next) -> Response {
     let path = request.uri().to_string();
+    if NO_METRICS_ENDPOINTS.contains(&path.as_str()) {
+        return next.run(request).await;
+    }
+
     let start = SystemTime::now();
     let resp = next.run(request).await;
     let end = start
