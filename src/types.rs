@@ -1,4 +1,4 @@
-use crate::premints::zora_premint::v2;
+use crate::premints::zora_premint::{erc20v1, v2};
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
 use async_trait::async_trait;
@@ -64,6 +64,7 @@ pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
 pub enum PremintTypes {
     Simple(SimplePremint),
     ZoraV2(v2::V2),
+    ZoraERC20V1(erc20v1::ERC20V1),
 }
 
 impl PremintTypes {
@@ -86,6 +87,7 @@ macro_rules! every_arm_fn {
                 match self {
                     PremintTypes::Simple(p) => p.$fn($($arg),*),
                     PremintTypes::ZoraV2(p) => p.$fn($($arg),*),
+                    PremintTypes::ZoraERC20V1(p) => p.$fn($($arg),*),
                 }
             }
         }
@@ -97,6 +99,7 @@ macro_rules! every_arm_fn {
                 match self {
                     PremintTypes::Simple(p) => p.$fn($($arg),*).await,
                     PremintTypes::ZoraV2(p) => p.$fn($($arg),*).await,
+                    PremintTypes::ZoraERC20V1(p) => p.$fn($($arg),*).await,
                 }
             }
         }

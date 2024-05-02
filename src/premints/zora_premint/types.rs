@@ -18,45 +18,6 @@ macro_rules! implement_zora_premint_traits {
             pub signature: String,
         }
 
-
-        impl core::default::Default for $namespace::ContractCreationConfig {
-            fn default() -> Self {
-                Self {
-                    contractAdmin: Default::default(),
-                    contractURI: String::default(),
-                    contractName: String::default(),
-                }
-            }
-        }
-
-        impl core::default::Default for $namespace::TokenCreationConfig {
-            fn default() -> Self {
-                Self {
-                    tokenURI: Default::default(),
-                    maxSupply: Default::default(),
-                    maxTokensPerAddress: Default::default(),
-                    pricePerToken: Default::default(),
-                    mintStart: Default::default(),
-                    mintDuration: Default::default(),
-                    royaltyBPS: Default::default(),
-                    payoutRecipient: Default::default(),
-                    fixedPriceMinter: Default::default(),
-                    createReferral: Default::default(),
-                }
-            }
-        }
-
-        impl core::default::Default for $namespace::CreatorAttribution {
-            fn default() -> Self {
-                Self {
-                    tokenConfig: Default::default(),
-                    uid: Default::default(),
-                    version: Default::default(),
-                    deleted: Default::default(),
-                }
-            }
-        }
-
         impl $typ {
             fn event_to_guid(chain_id: u64, event: &$namespace::PremintedV2) -> String {
                 format!(
