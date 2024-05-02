@@ -1,7 +1,7 @@
 use clap::Parser;
 use mintpool::api;
 use mintpool::metrics::init_metrics_and_logging;
-use mintpool::premints::zora_premint::v2::ZoraPremintV2;
+use mintpool::premints::zora_premint::v2::V2;
 use mintpool::rules::RulesEngine;
 use mintpool::run::{start_p2p_services, start_watch_chain};
 use mintpool::stdin::watch_stdin;
@@ -23,7 +23,7 @@ async fn main() -> eyre::Result<()> {
     let router = api::router_with_defaults(&config).merge(metrics_router);
     api::start_api(&config, ctl.clone(), router, true).await?;
 
-    start_watch_chain::<ZoraPremintV2>(&config, ctl.clone()).await;
+    start_watch_chain::<V2>(&config, ctl.clone()).await;
     tracing::info!(monotonic_counter.chains_watched = 1, "Watching chain");
     if config.interactive {
         watch_stdin(ctl.clone()).await;

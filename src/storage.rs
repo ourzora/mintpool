@@ -326,7 +326,7 @@ mod test {
     use std::ops::Sub;
 
     use crate::config::Config;
-    use crate::premints::zora_premint::v2::ZoraPremintV2;
+    use crate::premints::zora_premint::v2::V2;
     use crate::storage;
     use crate::storage::{
         list_all, list_all_with_options, PremintStorage, QueryOptions, Reader, Writer,
@@ -368,7 +368,7 @@ mod test {
 
         // now let's try to update
 
-        let mut premint = ZoraPremintV2::default();
+        let mut premint = V2::default();
         premint.premint.version = 2;
         let premint = PremintTypes::ZoraV2(premint);
         store.store(premint.clone()).await.unwrap();
@@ -513,7 +513,7 @@ mod test {
 
         let store = PremintStorage::new(&config).await;
 
-        let mut p = ZoraPremintV2::default();
+        let mut p = V2::default();
         p.premint.uid = 1;
         p.chain_id = 7777777;
         let premint_v2 = PremintTypes::ZoraV2(p);
@@ -546,7 +546,7 @@ mod test {
         let store = PremintStorage::new(&config).await;
 
         // Make sure IDs are different
-        let mut p = ZoraPremintV2::default();
+        let mut p = V2::default();
         p.premint.uid = 1;
         p.chain_id = 7777777;
         let premint_v2 = PremintTypes::ZoraV2(p);

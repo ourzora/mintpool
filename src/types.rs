@@ -1,4 +1,4 @@
-use crate::premints::zora_premint::v2::ZoraPremintV2;
+use crate::premints::zora_premint::v2;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
 use async_trait::async_trait;
@@ -7,6 +7,7 @@ use libp2p::{gossipsub, Multiaddr, PeerId};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::format;
 
 #[derive(Debug, Clone)]
 pub struct PremintName(pub String);
@@ -62,7 +63,7 @@ pub trait Premint: Serialize + DeserializeOwned + Debug + Clone {
 #[allow(clippy::large_enum_variant)]
 pub enum PremintTypes {
     Simple(SimplePremint),
-    ZoraV2(ZoraPremintV2),
+    ZoraV2(v2::V2),
 }
 
 impl PremintTypes {
@@ -204,7 +205,7 @@ mod test {
         let premint = PremintTypes::from_json(json).unwrap();
         println!("{:?}", premint);
 
-        let premint = PremintTypes::ZoraV2(ZoraPremintV2::default());
+        let premint = PremintTypes::ZoraV2(v2::V2::default());
         let json = premint.to_json().unwrap();
         println!("{}", json);
         let premint: PremintTypes = PremintTypes::from_json(json).unwrap();
@@ -238,7 +239,7 @@ mod test {
             ..Default::default()
         };
 
-        let claim = ZoraPremintV2::map_claim(7777777, log.clone()).unwrap();
+        let claim = v2::V2::map_claim(7777777, log.clone()).unwrap();
         let expected = InclusionClaim {
             premint_id: "7777777:0x65aae9d752ecac4965015664d0a6d0951e28d757:1".to_string(),
             chain_id: 7777777,
@@ -305,8 +306,8 @@ mod test {
             IZoraPremintV2::PremintedV2::decode_raw_log(log.topics(), &log.data().data, true)
                 .unwrap();
 
-        let claim = ZoraPremintV2::map_claim(7777777, log.clone()).unwrap();
-        let premint = ZoraPremintV2 {
+        let claim = <v2::V2 as Premint>::map_claim(7777777, log.clone()).unwrap();
+        let premint = v2::V2 {
             collection: ContractCreationConfig {
                 contractAdmin: Default::default(),
                 contractURI: "".to_string(),

@@ -2,7 +2,6 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-use alloy::network::Ethereum;
 use async_trait::async_trait;
 use futures::future::join_all;
 use serde::ser::SerializeStruct;
@@ -242,11 +241,11 @@ macro_rules! metadata_rule {
 
 #[macro_export]
 macro_rules! typed_rule {
-    ($t:path, $fn:tt) => {{
+    ($t:path, $fn:path) => {{
         struct TypedRule;
 
         #[async_trait::async_trait]
-        impl<T: Reader> $crate::rules::Rule<T> for TypedRule {
+        impl<T: $crate::storage::Reader> $crate::rules::Rule<T> for TypedRule {
             async fn check(
                 &self,
                 item: &$crate::types::PremintTypes,
@@ -276,7 +275,7 @@ pub fn all_rules<T: Reader>() -> Vec<Box<dyn Rule<T>>> {
     let mut rules: Vec<Box<dyn Rule<T>>> = Vec::new();
 
     rules.append(&mut general::all_rules());
-    rules.append(&mut crate::premints::zora_premint::rules::all_rules());
+    rules.append(&mut crate::premints::zora_premint::v2::all_v2_rules());
 
     rules
 }
@@ -455,7 +454,7 @@ mod general {
 
 #[cfg(test)]
 mod test {
-    use crate::premints::zora_premint::v2::ZoraPremintV2;
+    use crate::premints::zora_premint::v2::V2;
     use crate::rules::general::existing_token_uri;
     use crate::rules::Evaluation::{Accept, Reject};
     use crate::storage::{PremintStorage, Writer};
@@ -502,7 +501,7 @@ mod test {
     }
 
     async fn simple_typed_zora_rule<T: Reader>(
-        _item: &ZoraPremintV2,
+        _item: &V2,
         _context: &RuleContext<T>,
     ) -> eyre::Result<Evaluation> {
         Ok(Accept)

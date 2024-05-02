@@ -1,180 +1,60 @@
-use std::borrow::Cow;
+use crate::{implement_zora_premint_traits, typed_rule};
+use alloy::primitives::Address;
 
-use crate::premints::zora_premint::v2::ZoraPremintV2::PremintedV2;
-use crate::types::{InclusionClaim, Premint, PremintMetadata, PremintName};
-use alloy::primitives::{address, Address, U256};
-use alloy::rpc::types::eth::{Filter, Log, TransactionReceipt};
-use alloy::sol;
-use alloy::sol_types::private::U256;
-use alloy::sol_types::{Eip712Domain, SolEvent};
-// use alloy_sol_types::SolEvent;
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use crate::premints::zora_premint::contract::IZoraPremintV2;
+use crate::premints::zora_premint::contract::IZoraPremintV2::PremintedV2;
+use crate::rules::Rule;
+use crate::storage::Reader;
+use crate::types::PremintTypes;
 
-use crate::premints::zora_premint::contract::ZoraPremintV2::PremintedV2;
-use crate::premints::zora_premint::contract::{ZoraPremint, ZoraPremintV2, PREMINT_FACTORY_ADDR};
-use crate::types::{InclusionClaim, Premint, PremintMetadata, PremintName};
+implement_zora_premint_traits!(IZoraPremintV2, V2, "zora_premint_v2", "2");
 
-// aliasing the types here for readability. the original name need to stay
-// because they impact signature generation
-pub type PremintConfigV2 = ZoraPremintV2::CreatorAttribution;
-pub type TokenCreationConfigV2 = ZoraPremintV2::TokenCreationConfig;
-pub type ContractCreationConfigV2 = ZoraPremintV2::ContractCreationConfig;
-
-// modelled after the PremintRequest API type
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ZoraPremintV2 {
-    pub collection: ContractCreationConfigV2,
-    pub premint: PremintConfigV2,
-    pub collection_address: Address,
-    pub chain_id: u64,
-    pub signature: String,
+pub fn all_v2_rules<T: Reader>() -> Vec<Box<dyn Rule<T>>> {
+    vec![
+        typed_rule!(PremintTypes::ZoraV2, V2::is_authorized_to_create_premint),
+        typed_rule!(PremintTypes::ZoraV2, V2::is_valid_signature),
+        typed_rule!(PremintTypes::ZoraV2, V2::is_chain_supported),
+        typed_rule!(PremintTypes::ZoraV2, V2::not_minted),
+        typed_rule!(PremintTypes::ZoraV2, V2::premint_version_supported),
+    ]
 }
+#[cfg(test)]
+mod test {
+    use crate::rules::Evaluation::{Accept, Ignore, Reject};
+    use crate::rules::RuleContext;
 
-impl Default for ZoraPremintV2 {
-    fn default() -> Self {
-        Self {
-            collection: ContractCreationConfigV2 {
-                contractAdmin: Default::default(),
-                contractURI: "".to_string(),
-                contractName: "".to_string(),
-            },
-            premint: PremintConfigV2 {
-                tokenConfig: TokenCreationConfigV2 {
-                    tokenURI: "".to_string(),
-                    maxSupply: Default::default(),
-                    maxTokensPerAddress: 0,
-                    pricePerToken: 0,
-                    mintStart: 0,
-                    mintDuration: 0,
-                    royaltyBPS: 0,
-                    payoutRecipient: Default::default(),
-                    fixedPriceMinter: Default::default(),
-                    createReferral: Default::default(),
-                },
-                uid: 0,
-                version: 0,
-                deleted: false,
-            },
-            collection_address: Address::default(),
-            chain_id: 0,
-            signature: String::default(),
-        }
-    }
-}
+    use super::*;
 
-impl ZoraPremintV2 {
-    pub fn eip712_domain(&self) -> Eip712Domain {
-        Eip712Domain {
-            name: Some(Cow::from("Preminter")),
-            version: Some(Cow::from("2")),
-            chain_id: Some(U256::from(self.chain_id)),
-            verifying_contract: Some(self.collection_address),
-            salt: None,
+    const PREMINT_JSON: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/valid_zora_v2_premint.json"
+    ));
+
+    #[tokio::test]
+    async fn test_is_valid_signature() {
+        let premint: V2 = serde_json::from_str(PREMINT_JSON).unwrap();
+        let context = RuleContext::test_default().await;
+        let result = V2::is_valid_signature(&premint, &context).await;
+
+        match result {
+            Ok(Accept) => {}
+            Ok(Ignore(reason)) => panic!("Should not be ignored: {}", reason),
+            Ok(Reject(reason)) => panic!("Rejected: {}", reason),
+            Err(err) => panic!("Error: {:?}", err),
         }
     }
 
-    /// Recreate a deterministic GUID for a premint
-    fn event_to_guid(chain_id: u64, event: &PremintedV2) -> String {
-        format!("{:?}:{:?}:{:?}", chain_id, event.contractAddress, event.uid)
-    }
-}
+    #[tokio::test]
+    async fn test_is_authorized_to_create_premint() {
+        let premint: V2 = serde_json::from_str(PREMINT_JSON).unwrap();
+        let context = RuleContext::test_default_rpc(7777777).await;
+        let result = V2::is_authorized_to_create_premint(&premint, &context).await;
 
-#[async_trait]
-impl Premint for ZoraPremintV2 {
-    fn metadata(&self) -> PremintMetadata {
-        let id = format!(
-            "{:?}:{:?}:{:?}",
-            self.chain_id, self.collection_address, self.premint.uid
-        );
-
-        PremintMetadata {
-            id,
-            version: self.premint.version as u64,
-            kind: PremintName("zora_premint_v2".to_string()),
-            signer: self.collection.contractAdmin,
-            chain_id: self.chain_id,
-            collection_address: Address::default(), // TODO: source this
-            token_id: U256::from(self.premint.uid),
-            uri: self.premint.tokenConfig.tokenURI.clone(),
+        match result {
+            Ok(Accept) => {}
+            Ok(Ignore(reason)) => panic!("Should not be ignored: {}", reason),
+            Ok(Reject(reason)) => panic!("Rejected: {}", reason),
+            Err(err) => panic!("Error: {:?}", err),
         }
-    }
-
-    fn check_filter(chain_id: u64) -> Option<Filter> {
-        let supported_chains = [7777777, 8453]; // TODO: add the rest here and enable testnet mode
-        if !supported_chains.contains(&chain_id) {
-            return None;
-        }
-        Some(
-            Filter::new()
-                .address(PREMINT_FACTORY_ADDR)
-                .event(ZoraPremintV2::PremintedV2::SIGNATURE),
-        )
-    }
-
-    fn map_claim(chain_id: u64, log: Log) -> eyre::Result<InclusionClaim> {
-        let event = ZoraPremintV2::PremintedV2::decode_raw_log(
-            log.topics(),
-            log.data().data.as_ref(),
-            true,
-        )?;
-
-        let id = Self::event_to_guid(chain_id, &event);
-
-        Ok(InclusionClaim {
-            premint_id: id,
-            chain_id,
-            tx_hash: log.transaction_hash.unwrap_or_default(),
-            log_index: log.log_index.unwrap_or_default(),
-            kind: "zora_premint_v2".to_string(),
-        })
-    }
-
-    async fn verify_claim(
-        &self,
-        chain_id: u64,
-        tx: TransactionReceipt,
-        log: Log,
-        claim: InclusionClaim,
-    ) -> bool {
-        let event =
-            ZoraPremintV2::PremintedV2::decode_raw_log(log.topics(), &log.data().data, true);
-        match event {
-            Ok(event) => {
-                let conditions = vec![
-                    log.address() == PREMINT_FACTORY_ADDR,
-                    log.transaction_hash.unwrap_or_default() == tx.transaction_hash,
-                    claim.tx_hash == tx.transaction_hash,
-                    claim.log_index == log.log_index.unwrap_or_default(),
-                    claim.premint_id == Self::event_to_guid(chain_id, &event),
-                    claim.kind == *"zora_premint_v2",
-                    claim.chain_id == chain_id,
-                    self.collection_address == event.contractAddress,
-                    self.premint.uid == event.uid,
-                ];
-
-                // confirm all conditions are true
-                conditions.into_iter().all(|x| x)
-            }
-            Err(e) => {
-                tracing::debug!("Failed to parse log: {}", e);
-                false
-            }
-        }
-    }
-}
-
-impl ZoraPremint for ZoraPremintV2 {
-    fn collection_address(&self) -> Address {
-        self.collection_address
-    }
-
-    fn chain_id(&self) -> u64 {
-        self.chain_id
-    }
-
-    fn signature(&self) -> String {
-        self.signature.clone()
     }
 }
