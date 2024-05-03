@@ -288,7 +288,11 @@ impl Controller {
                 .map(|_r| evaluation)
                 .wrap_err("Failed to store premint")
         } else {
-            tracing::info!("Premint failed validation: {:?}", premint);
+            tracing::info!(
+                "Premint {:?} failed validation: {:?}",
+                premint.metadata().id,
+                evaluation.only_failures()
+            );
             tracing::info!(histogram.rules_rejected = 1);
 
             Err(evaluation).wrap_err("Premint failed validation")

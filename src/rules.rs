@@ -118,6 +118,16 @@ impl Results {
                 .any(|r| matches!(r.result, Ok(Evaluation::Reject(_))))
     }
 
+    pub fn only_failures(&self) -> Self {
+        Self(
+            self.0
+                .iter()
+                .filter(|r| r.result.is_err() || matches!(r.result, Ok(Evaluation::Reject(_))))
+                .cloned()
+                .collect(),
+        )
+    }
+
     pub fn is_err(&self) -> bool {
         self.0.iter().any(|r| r.result.is_err())
     }
@@ -443,8 +453,9 @@ mod general {
                     Ok(Accept)
                 } else {
                     reject!(
-                        "Existing premint with higher version {} exists",
-                        existing.metadata().version
+                        "Existing premint with version {} exists, trying to store version {}",
+                        existing.metadata().version,
+                        meta.version
                     )
                 }
             }
