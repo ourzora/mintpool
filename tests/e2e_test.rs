@@ -16,10 +16,9 @@ use alloy::sol_types::{SolCall, SolValue};
 use alloy::transports::{RpcError, TransportErrorKind};
 use mintpool::config::{BootNodes, ChainInclusionMode, Config};
 use mintpool::controller::{ControllerCommands, DBQuery};
-use mintpool::premints::zora_premint_v2::types::IZoraPremintV2::MintArguments;
-use mintpool::premints::zora_premint_v2::types::{
-    IZoraPremintV2, ZoraPremintV2, PREMINT_FACTORY_ADDR,
-};
+use mintpool::premints::zora_premint::contract::IZoraPremintV2::MintArguments;
+use mintpool::premints::zora_premint::contract::{IZoraPremintV2, PREMINT_FACTORY_ADDR};
+use mintpool::premints::zora_premint::v2::V2;
 use mintpool::rules::RulesEngine;
 use mintpool::run;
 use mintpool::types::PremintTypes;
@@ -57,14 +56,14 @@ async fn test_zora_premint_v2_e2e() {
     let ctl = run::start_p2p_services(config.clone(), RulesEngine::new_with_default_rules(&config))
         .await
         .unwrap();
-    run::start_watch_chain::<ZoraPremintV2>(&config, ctl.clone()).await;
+    run::start_watch_chain::<V2>(&config, ctl.clone()).await;
 
     // ============================================================================================
     // Publish a premint to the mintpool
     // ============================================================================================
 
     // Push a message to the mintpool
-    let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
+    let premint: V2 = serde_json::from_str(PREMINT_JSON).unwrap();
 
     let (send, _recv) = tokio::sync::oneshot::channel();
     ctl.send_command(ControllerCommands::Broadcast {
@@ -211,7 +210,7 @@ async fn test_verify_e2e() {
     )
     .await
     .unwrap();
-    run::start_watch_chain::<ZoraPremintV2>(&config1, ctl1.clone()).await;
+    run::start_watch_chain::<V2>(&config1, ctl1.clone()).await;
 
     let ctl2 = run::start_p2p_services(
         config2.clone(),
@@ -244,7 +243,7 @@ async fn test_verify_e2e() {
     // ============================================================================================
     // Publish a premint to the mintpool
     // ============================================================================================
-    let premint: ZoraPremintV2 = serde_json::from_str(PREMINT_JSON).unwrap();
+    let premint: V2 = serde_json::from_str(PREMINT_JSON).unwrap();
 
     let (send, recv) = tokio::sync::oneshot::channel();
     ctl1.send_command(ControllerCommands::Broadcast {

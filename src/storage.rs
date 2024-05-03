@@ -1,5 +1,5 @@
-use crate::config::Config;
-use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
+use std::str::FromStr;
+
 use alloy::primitives::Address;
 use async_trait::async_trait;
 use eyre::WrapErr;
@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::Row;
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
-use std::str::FromStr;
+
+use crate::config::Config;
+use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
 
 async fn init_db(config: &Config) -> SqlitePool {
     let expect_msg =
@@ -320,13 +322,14 @@ fn build_query(options: &QueryOptions) -> QueryBuilder<Sqlite> {
 
 #[cfg(test)]
 mod test {
+    use std::ops::Sub;
+
     use alloy::primitives::Address;
     use chrono::{Duration, Utc};
     use sqlx::Row;
-    use std::ops::Sub;
 
     use crate::config::Config;
-    use crate::premints::zora_premint_v2::types::ZoraPremintV2;
+    use crate::premints::zora_premint::v2::V2;
     use crate::storage;
     use crate::storage::{
         list_all, list_all_with_options, PremintStorage, QueryOptions, Reader, Writer,
@@ -368,7 +371,7 @@ mod test {
 
         // now let's try to update
 
-        let mut premint = ZoraPremintV2::default();
+        let mut premint = V2::default();
         premint.premint.version = 2;
         let premint = PremintTypes::ZoraV2(premint);
         store.store(premint.clone()).await.unwrap();
@@ -513,7 +516,7 @@ mod test {
 
         let store = PremintStorage::new(&config).await;
 
-        let mut p = ZoraPremintV2::default();
+        let mut p = V2::default();
         p.premint.uid = 1;
         p.chain_id = 7777777;
         let premint_v2 = PremintTypes::ZoraV2(p);
@@ -546,7 +549,7 @@ mod test {
         let store = PremintStorage::new(&config).await;
 
         // Make sure IDs are different
-        let mut p = ZoraPremintV2::default();
+        let mut p = V2::default();
         p.premint.uid = 1;
         p.chain_id = 7777777;
         let premint_v2 = PremintTypes::ZoraV2(p);
