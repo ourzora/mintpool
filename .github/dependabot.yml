@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      libp2p:
+        patterns:
+          - "libp2p*"
+      alloy:
+        patterns:
+          - "alloy*"
+      opentelemetry:
+        patterns:
+          - "opentelemetry*"
+      prod-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
