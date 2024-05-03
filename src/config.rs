@@ -79,8 +79,8 @@ pub struct Config {
     #[envconfig(from = "SYNC_LOOKBACK_HOURS", default = "6")]
     pub sync_lookback_hours: u64,
 
-    #[envconfig(from = "ENABLE_RELAY", default = "false")]
-    pub enable_relay: bool,
+    #[envconfig(from = "ENABLE_RELAY_SERVER", default = "false")]
+    pub enable_relay_server: bool,
 }
 
 impl Config {
@@ -107,7 +107,7 @@ impl Config {
             rate_limit_rps: 1,
             boot_nodes: BootNodes::None,
             sync_lookback_hours: 6,
-            enable_relay: false,
+            enable_relay_server: false,
         }
     }
 }
