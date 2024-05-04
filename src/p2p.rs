@@ -433,6 +433,7 @@ impl SwarmController {
                         tracing::debug!("Discovered relay peer: {:?}", info);
 
                         for addr in info.listen_addrs {
+                            tracing::debug!("Adding relay address: {:?}", addr);
                             relay_manager.add_address(peer_id, addr);
                         }
                     }
@@ -453,11 +454,11 @@ impl SwarmController {
                     }
                     _ => {}
                 }
-                tracing::debug!("Ping event: {:?}", event);
+                tracing::trace!("Ping event: {:?}", event);
             }
 
             SwarmEvent::Behaviour(MintpoolBehaviourEvent::Relay(event)) => {
-                tracing::info!("Relay event: {:?}", event);
+                tracing::debug!("Relay event: {:?}", event);
             }
 
             SwarmEvent::Behaviour(MintpoolBehaviourEvent::Autonat(event)) => {
@@ -470,7 +471,7 @@ impl SwarmController {
             }
 
             SwarmEvent::Behaviour(MintpoolBehaviourEvent::Dcutr(event)) => {
-                tracing::info!("Dcutr event: {:?}", event);
+                tracing::debug!("Dcutr event: {:?}", event);
             }
 
             other => {
