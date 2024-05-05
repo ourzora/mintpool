@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::hash::Hasher;
 use std::time::Duration;
 
@@ -7,18 +8,17 @@ use futures_ticker::Ticker;
 use itertools::Itertools;
 use libp2p::autonat::NatStatus;
 use libp2p::futures::StreamExt;
-use libp2p::gossipsub::Version;
+use libp2p::gossipsub::{IdentTopic, TopicHash, Version};
 use libp2p::identify::Event;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::{MemoryStore, RecordStore};
-use libp2p::kad::GetProvidersOk::FoundProviders;
-use libp2p::kad::{Addresses, ProviderRecord, QueryResult, Record, RecordKey};
-use libp2p::multiaddr::{Error, Protocol};
-use libp2p::request_response::{InboundRequestId, Message, ProtocolSupport, ResponseChannel};
+use libp2p::kad::{Addresses, ProviderRecord, RecordKey};
+use libp2p::multiaddr::Protocol;
+use libp2p::request_response::{InboundRequestId, Message, ProtocolSupport};
 use libp2p::swarm::behaviour::toggle::Toggle;
 use libp2p::swarm::dial_opts::{DialOpts, PeerCondition};
 use libp2p::swarm::DialError::DialPeerConditionFalse;
-use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent, ToSwarm};
+use libp2p::swarm::{ConnectionId, NetworkBehaviour, NetworkInfo, SwarmEvent};
 use libp2p::{
     autonat, dcutr, gossipsub, kad, noise, relay, request_response, tcp, yamux, Multiaddr, PeerId,
     StreamProtocol,
@@ -30,6 +30,7 @@ use tokio::select;
 
 use crate::config::Config;
 use crate::controller::{P2PEvent, SwarmCommand};
+use crate::multi_ticker::MultiTicker;
 use crate::multiaddr_ext::MultiaddrExt;
 use crate::storage::QueryOptions;
 use crate::types::{
@@ -51,12 +52,18 @@ pub struct MintpoolBehaviour {
     dcutr: dcutr::Behaviour,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+enum SwarmTickers {
+    Bootstrap,
+    DiscoverGossipPeers,
+}
+
 pub struct SwarmController {
     swarm: libp2p::Swarm<MintpoolBehaviour>,
     command_receiver: tokio::sync::mpsc::Receiver<SwarmCommand>,
     event_sender: tokio::sync::mpsc::Sender<P2PEvent>,
     premint_names: Vec<PremintName>,
-    bootstrap_ticker: Ticker,
+    tickers: MultiTicker<SwarmTickers>,
     config: Config,
 }
 
@@ -94,11 +101,17 @@ impl SwarmController {
             event_sender,
             config: config.clone(),
             premint_names: config.premint_names(),
-            bootstrap_ticker: Ticker::new(
-                // spec suggests to run bootstrap every 5 minutes
-                // first time bootstrap will trigger after first connection
-                Duration::from_secs(60 * 5),
-            ),
+            tickers: MultiTicker::new(vec![
+                (
+                    // documentation suggests bootstrapping every 5 minutes
+                    SwarmTickers::Bootstrap,
+                    Ticker::new(Duration::from_secs(60 * 5)),
+                ),
+                (
+                    SwarmTickers::DiscoverGossipPeers,
+                    Ticker::new(Duration::from_secs(60)),
+                ),
+            ]),
         }
     }
 
@@ -216,20 +229,20 @@ impl SwarmController {
             .listen_on(format!("/ip4/{listen_ip}/tcp/{port}").parse()?)?;
 
         let registry_topic = announce_topic();
-        self.swarm
-            .behaviour_mut()
-            .gossipsub
-            .subscribe(&registry_topic)?;
+        self.gossip_subscribe(&registry_topic)?;
 
-        for premint_name in self.premint_names.iter() {
-            let topic = premint_name.msg_topic();
-            self.swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
-            let claim_topic = premint_name.claims_topic();
-            self.swarm
-                .behaviour_mut()
-                .gossipsub
-                .subscribe(&claim_topic)?;
-        }
+        // subscribe to all relevant topics
+        self.premint_names
+            .iter()
+            .flat_map(|name| vec![name.msg_topic(), name.claims_topic()])
+            .collect::<Vec<IdentTopic>>()
+            .iter()
+            .for_each(|topic| match self.gossip_subscribe(&topic) {
+                Ok(_) => {}
+                Err(err) => {
+                    tracing::error!("Error subscribing to topic: {:?}", err);
+                }
+            });
 
         self.run_loop().await;
         Ok(())
@@ -245,14 +258,27 @@ impl SwarmController {
                     }
                 }
                 event = self.swarm.select_next_some() => self.handle_swarm_event(event).await,
-                _tick = self.bootstrap_ticker.next() => {
-                    match self.swarm.behaviour_mut().kad.bootstrap() {
-                        Ok(_) => {}
-                        Err(err) => {
-                            tracing::error!("Error bootstrapping kad: {:?}", err);
+                tick = self.tickers.select_next_some() => {
+                    match tick {
+                        (SwarmTickers::Bootstrap, _) => {
+                            match self.swarm.behaviour_mut().kad.bootstrap() {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    tracing::error!("Error bootstrapping kad: {:?}", err);
+                                }
+                            }
+                        }
+                        (SwarmTickers::DiscoverGossipPeers, _) => {
+                            let b = self.swarm.behaviour_mut();
+
+                            b.gossipsub.topics().for_each(|topic| {
+                                // kad will automatically dial all discovered peers,
+                                // gossipsub will automatically sync topics with new peers
+                                b.kad.get_providers(Self::topic_to_record_key(topic));
+                            });
                         }
                     }
-                },
+                }
             }
         }
     }
@@ -433,6 +459,7 @@ impl SwarmController {
                         tracing::debug!("Discovered relay peer: {:?}", info);
 
                         for addr in info.listen_addrs {
+                            tracing::debug!("Adding relay address: {:?}", addr);
                             relay_manager.add_address(peer_id, addr);
                         }
                     }
@@ -453,11 +480,11 @@ impl SwarmController {
                     }
                     _ => {}
                 }
-                tracing::debug!("Ping event: {:?}", event);
+                tracing::trace!("Ping event: {:?}", event);
             }
 
             SwarmEvent::Behaviour(MintpoolBehaviourEvent::Relay(event)) => {
-                tracing::info!("Relay event: {:?}", event);
+                tracing::debug!("Relay event: {:?}", event);
             }
 
             SwarmEvent::Behaviour(MintpoolBehaviourEvent::Autonat(event)) => {
@@ -470,7 +497,7 @@ impl SwarmController {
             }
 
             SwarmEvent::Behaviour(MintpoolBehaviourEvent::Dcutr(event)) => {
-                tracing::info!("Dcutr event: {:?}", event);
+                tracing::debug!("Dcutr event: {:?}", event);
             }
 
             other => {
@@ -813,6 +840,31 @@ impl SwarmController {
         }
 
         Ok(())
+    }
+
+    fn gossip_subscribe(&mut self, topic: &IdentTopic) -> eyre::Result<()> {
+        tracing::info!("Subscribing to topic: {}", topic.to_string());
+        let b = self.swarm.behaviour_mut();
+
+        b.gossipsub.subscribe(&topic)?;
+        b.kad
+            .start_providing(Self::topic_to_record_key(&topic.hash()))?;
+
+        Ok(())
+    }
+
+    fn gossip_unsubscribe(&mut self, topic: &IdentTopic) -> eyre::Result<()> {
+        let b = self.swarm.behaviour_mut();
+
+        b.gossipsub.unsubscribe(topic)?;
+        b.kad
+            .stop_providing(&Self::topic_to_record_key(&topic.hash()));
+
+        Ok(())
+    }
+
+    fn topic_to_record_key(topic: &TopicHash) -> RecordKey {
+        RecordKey::new(&format!("topic::{}", topic.to_string()).as_bytes())
     }
 
     // Makes a Response for a request to sync from another node
