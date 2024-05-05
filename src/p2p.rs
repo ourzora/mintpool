@@ -7,7 +7,7 @@ use futures_ticker::Ticker;
 use itertools::Itertools;
 use libp2p::autonat::NatStatus;
 use libp2p::futures::StreamExt;
-use libp2p::gossipsub::Version;
+use libp2p::gossipsub::{IdentTopic, Version};
 use libp2p::identify::Event;
 use libp2p::identity::Keypair;
 use libp2p::kad::store::{MemoryStore, RecordStore};
@@ -216,20 +216,20 @@ impl SwarmController {
             .listen_on(format!("/ip4/{listen_ip}/tcp/{port}").parse()?)?;
 
         let registry_topic = announce_topic();
-        self.swarm
-            .behaviour_mut()
-            .gossipsub
-            .subscribe(&registry_topic)?;
+        self.gossip_subscribe(&registry_topic)?;
 
-        for premint_name in self.premint_names.iter() {
-            let topic = premint_name.msg_topic();
-            self.swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
-            let claim_topic = premint_name.claims_topic();
-            self.swarm
-                .behaviour_mut()
-                .gossipsub
-                .subscribe(&claim_topic)?;
-        }
+        // subscribe to all relevant topics
+        self.premint_names
+            .iter()
+            .flat_map(|name| vec![name.msg_topic(), name.claims_topic()])
+            .collect::<Vec<IdentTopic>>()
+            .iter()
+            .for_each(|topic| match self.gossip_subscribe(&topic) {
+                Ok(_) => {}
+                Err(err) => {
+                    tracing::error!("Error subscribing to topic: {:?}", err);
+                }
+            });
 
         self.run_loop().await;
         Ok(())
@@ -814,6 +814,29 @@ impl SwarmController {
         }
 
         Ok(())
+    }
+
+    fn gossip_subscribe(&mut self, topic: &IdentTopic) -> eyre::Result<()> {
+        tracing::info!("Subscribing to topic: {}", topic.to_string());
+        let b = self.swarm.behaviour_mut();
+
+        b.gossipsub.subscribe(&topic)?;
+        b.kad.start_providing(Self::topic_to_record_key(&topic))?;
+
+        Ok(())
+    }
+
+    fn gossip_unsubscribe(&mut self, topic: &IdentTopic) -> eyre::Result<()> {
+        let b = self.swarm.behaviour_mut();
+
+        b.gossipsub.unsubscribe(topic)?;
+        b.kad.stop_providing(&Self::topic_to_record_key(&topic));
+
+        Ok(())
+    }
+
+    fn topic_to_record_key(topic: &IdentTopic) -> RecordKey {
+        RecordKey::new(&format!("topic::{}", topic.to_string()).as_bytes())
     }
 
     // Makes a Response for a request to sync from another node
