@@ -4,6 +4,7 @@ pub mod chain_list;
 pub mod config;
 pub mod controller;
 pub mod metrics;
+pub mod multi_ticker;
 pub mod multiaddr_ext;
 pub mod p2p;
 pub mod premints;

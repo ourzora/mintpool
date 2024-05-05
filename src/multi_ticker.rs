@@ -7,11 +7,25 @@ use std::time::Instant;
 
 use futures::Stream;
 use futures_ticker::Ticker;
-use futures_util::stream::select_all;
+use futures_util::stream::{select_all, FusedStream};
 use futures_util::StreamExt;
 
-struct MultiTicker<T: Copy + Hash + Eq + Unpin + 'static> {
+pub struct MultiTicker<T: Copy + Hash + Eq + Unpin + 'static> {
     tickers: HashMap<T, Ticker>,
+}
+
+impl<T> MultiTicker<T>
+where
+    T: Copy + Hash + Eq + Unpin + Sized + 'static,
+{
+    pub fn new<I>(tickers: I) -> Self
+    where
+        I: IntoIterator<Item = (T, Ticker)>,
+    {
+        MultiTicker {
+            tickers: tickers.into_iter().collect::<HashMap<_, _>>(),
+        }
+    }
 }
 
 struct KeyedStream<T, S>(T, S);
@@ -34,6 +48,15 @@ where
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         (1, None)
+    }
+}
+
+impl<T> FusedStream for MultiTicker<T>
+where
+    T: Copy + Hash + Eq + Unpin + Sized + 'static,
+{
+    fn is_terminated(&self) -> bool {
+        self.tickers.is_empty()
     }
 }
 
