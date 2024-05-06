@@ -1,5 +1,4 @@
 use alloy::hex;
-use libp2p::identity;
 use libp2p::identity::Keypair;
 use std::time::Duration;
 use tracing::{info_span, Instrument};
@@ -10,7 +9,7 @@ use crate::config::{BootNodes, ChainInclusionMode, Config};
 use crate::controller::{Controller, ControllerCommands, ControllerInterface};
 use crate::p2p::SwarmController;
 use crate::rules::RulesEngine;
-use crate::storage::{PremintStorage, Reader};
+use crate::storage::PremintStorage;
 use crate::types::Premint;
 
 /// Starts the libp2p swarm, the controller, and the checkers if applicable, then wires them all up.

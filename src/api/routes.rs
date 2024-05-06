@@ -1,10 +1,7 @@
-use std::path::Display;
-
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use const_hex::ToHexExt;
-use itertools::Itertools;
 use libp2p::autonat::NatStatus;
 use serde::Serialize;
 use sqlx::{Executor, Row};

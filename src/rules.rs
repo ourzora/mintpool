@@ -9,7 +9,7 @@ use serde::{Serialize, Serializer};
 
 use crate::chain_list::{ChainListProvider, CHAINS};
 use crate::config::Config;
-use crate::storage::{PremintStorage, Reader};
+use crate::storage::Reader;
 use crate::types::PremintTypes;
 
 #[derive(Debug, PartialEq, Eq, Clone)]

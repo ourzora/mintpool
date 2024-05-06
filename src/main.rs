@@ -6,7 +6,6 @@ use mintpool::rules::RulesEngine;
 use mintpool::run::{start_p2p_services, start_watch_chain};
 use mintpool::stdin::watch_stdin;
 use tokio::signal::unix::{signal, SignalKind};
-use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {

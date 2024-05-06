@@ -9,7 +9,7 @@ use sqlx::Row;
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 
 use crate::config::Config;
-use crate::types::{InclusionClaim, Premint, PremintName, PremintTypes};
+use crate::types::{InclusionClaim, PremintName, PremintTypes};
 
 async fn init_db(config: &Config) -> SqlitePool {
     let expect_msg =

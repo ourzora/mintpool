@@ -1,8 +1,3 @@
-use crate::premints::zora_premint::v2::V2;
-use crate::rules::Rule;
-use crate::storage::Reader;
-use crate::typed_rule;
-use crate::types::PremintTypes;
 #[macro_export]
 macro_rules! zora_premint_rules {
     ($namespace:tt, $typ:ty, $version:literal) => {
