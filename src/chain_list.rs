@@ -1,4 +1,3 @@
-use alloy::network::Network;
 use alloy::providers::{ProviderBuilder, RootProvider};
 use alloy::pubsub::PubSubFrontend;
 use alloy::rpc::client::WsConnect;

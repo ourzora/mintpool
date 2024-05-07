@@ -9,7 +9,7 @@ use serde::{Serialize, Serializer};
 
 use crate::chain_list::{ChainListProvider, CHAINS};
 use crate::config::Config;
-use crate::storage::{PremintStorage, Reader};
+use crate::storage::Reader;
 use crate::types::PremintTypes;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -170,6 +170,9 @@ impl<T: Reader> RuleContext<T> {
         }
     }
 }
+
+#[cfg(test)]
+use crate::storage::PremintStorage;
 
 #[cfg(test)]
 impl RuleContext<PremintStorage> {
@@ -482,8 +485,8 @@ mod test {
     }
 
     async fn simple_rule<T: Reader>(
-        item: &PremintTypes,
-        context: &RuleContext<T>,
+        _item: &PremintTypes,
+        _context: &RuleContext<T>,
     ) -> eyre::Result<Evaluation> {
         Ok(Accept)
     }
@@ -546,7 +549,6 @@ mod test {
     #[tokio::test]
     async fn test_typed_rules_engine() {
         let (mut engine, storage) = test_rules_engine().await;
-        let context = RuleContext::test_default().await;
 
         let rule: Box<dyn Rule<PremintStorage>> =
             typed_rule!(PremintTypes::Simple, simple_typed_rule);

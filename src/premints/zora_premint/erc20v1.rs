@@ -2,7 +2,6 @@ use crate::{implement_zora_premint_traits, typed_rule};
 use alloy::primitives::Address;
 
 use crate::premints::zora_premint::contract::IZoraPremintERC20V1;
-use crate::premints::zora_premint::contract::IZoraPremintV2::IZoraPremintV2Errors;
 
 use crate::rules::Rule;
 use crate::storage::Reader;

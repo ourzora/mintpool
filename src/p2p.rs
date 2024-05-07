@@ -1,6 +1,4 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
-use std::hash::Hasher;
 use std::time::Duration;
 
 use eyre::WrapErr;
@@ -34,8 +32,8 @@ use crate::multi_ticker::MultiTicker;
 use crate::multiaddr_ext::MultiaddrExt;
 use crate::storage::QueryOptions;
 use crate::types::{
-    claims_topic_hashes, InclusionClaim, MintpoolNodeInfo, PeerInclusionClaim, Premint,
-    PremintName, PremintTypes,
+    claims_topic_hashes, InclusionClaim, MintpoolNodeInfo, PeerInclusionClaim, PremintName,
+    PremintTypes,
 };
 
 #[derive(NetworkBehaviour)]
@@ -853,6 +851,7 @@ impl SwarmController {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn gossip_unsubscribe(&mut self, topic: &IdentTopic) -> eyre::Result<()> {
         let b = self.swarm.behaviour_mut();
 

@@ -44,7 +44,7 @@ impl AppState {
     }
 }
 
-pub fn router_with_defaults(config: &Config) -> Router<AppState> {
+pub fn router_with_defaults(_config: &Config) -> Router<AppState> {
     Router::new()
         .route("/health", get(routes::health))
         .route("/list-all", get(routes::list_all))
