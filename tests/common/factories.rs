@@ -1,4 +1,4 @@
-use alloy::primitives::{Address, U256};
+use alloy::primitives::Address;
 use mintpool::types::SimplePremint;
 use rand::{Rng, RngCore};
 

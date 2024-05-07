@@ -334,7 +334,7 @@ mod test {
     use crate::storage::{
         list_all, list_all_with_options, PremintStorage, QueryOptions, Reader, Writer,
     };
-    use crate::types::{InclusionClaim, Premint, PremintTypes};
+    use crate::types::{InclusionClaim, PremintTypes};
 
     #[tokio::test]
     async fn test_insert_and_get() {

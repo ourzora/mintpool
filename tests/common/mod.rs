@@ -1,4 +1,6 @@
 pub mod factories;
+
+#[allow(dead_code)]
 pub mod mintpool_build {
     use mintpool::config::Config;
     use mintpool::controller::{ControllerCommands, ControllerInterface};
@@ -105,6 +107,7 @@ pub mod mintpool_build {
     }
 }
 
+#[allow(dead_code)]
 pub mod helpers {
     use mintpool::controller::ControllerCommands;
     use mintpool::types::PremintTypes;
@@ -126,6 +129,7 @@ pub mod helpers {
     }
 }
 
+#[allow(dead_code)]
 pub mod asserts {
     pub async fn expect_n_connections(ctl: &mintpool::controller::ControllerInterface, n: usize) {
         let state = ctl

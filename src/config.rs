@@ -202,7 +202,7 @@ pub fn init() -> Config {
 
 #[cfg(test)]
 mod test {
-    use crate::config::{BootNodes, ChainInclusionMode, Config};
+    use crate::config::{BootNodes, Config};
     use std::env;
     use std::str::FromStr;
 

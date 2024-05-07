@@ -172,6 +172,9 @@ impl<T: Reader> RuleContext<T> {
 }
 
 #[cfg(test)]
+use crate::storage::PremintStorage;
+
+#[cfg(test)]
 impl RuleContext<PremintStorage> {
     pub async fn test_default() -> Self {
         let config = Config::test_default();
@@ -482,8 +485,8 @@ mod test {
     }
 
     async fn simple_rule<T: Reader>(
-        item: &PremintTypes,
-        context: &RuleContext<T>,
+        _item: &PremintTypes,
+        _context: &RuleContext<T>,
     ) -> eyre::Result<Evaluation> {
         Ok(Accept)
     }
@@ -546,7 +549,6 @@ mod test {
     #[tokio::test]
     async fn test_typed_rules_engine() {
         let (mut engine, storage) = test_rules_engine().await;
-        let context = RuleContext::test_default().await;
 
         let rule: Box<dyn Rule<PremintStorage>> =
             typed_rule!(PremintTypes::Simple, simple_typed_rule);
