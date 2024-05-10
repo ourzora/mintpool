@@ -12,6 +12,7 @@ pub mod rules;
 pub mod run;
 pub mod stdin;
 pub mod storage;
+pub mod sync;
 pub mod types;
 
 pub mod built_info {
