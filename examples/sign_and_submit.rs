@@ -14,7 +14,9 @@ use mintpool::rules::RulesEngine;
 use mintpool::storage::PremintStorage;
 use mintpool::types::PremintTypes;
 
-// Create a premint, sign it, and simulate submitting it
+/// Create a premint, sign it, and simulate submitting it
+/// This involves creating a Zora V2 premint type, then signing the `CreatorAttribution` struct
+/// using typed messaged with the EIP-712 domain.
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     let chain_id = 7777777;
@@ -31,7 +33,7 @@ async fn main() -> eyre::Result<()> {
         contractName: "Example Zora premint mintpool message".to_string(),
     };
 
-    // Get the collection address the premint would be deployed at on chain
+    // Get the collection address the premint would be deployed at onchain
     let collection_address = {
         let addr = view_contract_call(
             IZoraPremintV2::getContractAddressCall {
@@ -44,6 +46,8 @@ async fn main() -> eyre::Result<()> {
         addr._0
     };
 
+    // this can be any available uint, ideally monotonically increasing.
+    // If contract doesn't exist use 1, else use # tokens + 1
     let uid = 1;
 
     // Token creation settings. Importantly includes the token uri.
