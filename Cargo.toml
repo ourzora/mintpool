@@ -61,7 +61,7 @@ futures-util = "0.3"
 futures-ticker = "0.0.3"
 mini-moka = "0.10.3"
 axum = "0.7.5"
-reqwest = "0.12.3"
+reqwest = { version = "0.12.3", features = ["json"] }
 url = "2.5.0"
 futures = "0.3.30"
 sha256 = "1.5.0"

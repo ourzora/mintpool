@@ -9,6 +9,7 @@ use serde::{Serialize, Serializer};
 
 use crate::chain_list::{ChainListProvider, CHAINS};
 use crate::config::Config;
+use crate::storage::PremintStorage;
 use crate::storage::Reader;
 use crate::types::PremintTypes;
 
@@ -279,7 +280,7 @@ macro_rules! typed_rule {
     }};
 }
 
-pub struct RulesEngine<T: Reader> {
+pub struct RulesEngine<T: Reader = PremintStorage> {
     rules: Vec<Box<dyn Rule<T>>>,
     use_rpc: bool,
 }
