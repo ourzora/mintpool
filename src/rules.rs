@@ -173,9 +173,6 @@ impl<T: Reader> RuleContext<T> {
 }
 
 #[cfg(test)]
-use crate::storage::PremintStorage;
-
-#[cfg(test)]
 impl RuleContext<PremintStorage> {
     pub async fn test_default() -> Self {
         let config = Config::test_default();

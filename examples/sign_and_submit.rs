@@ -26,6 +26,7 @@ async fn main() -> eyre::Result<()> {
     let chain = CHAINS.get_rpc(chain_id).await?;
     let contract_config = ContractCreationConfig {
         contractAdmin: user_address,
+        // Uploading to IPFS should be a separate step
         contractURI: "ipfs://someCollectionCid".to_string(),
         contractName: "Example Zora premint mintpool message".to_string(),
     };
@@ -47,6 +48,7 @@ async fn main() -> eyre::Result<()> {
 
     // Token creation settings. Importantly includes the token uri.
     let token_creation_config = TokenCreationConfig {
+        // Uploading to IPFS should be a separate step
         tokenURI: "ipfs://tokenIPFSCid".to_string(),
         maxSupply: U256::from(10000),
         maxTokensPerAddress: 10,
