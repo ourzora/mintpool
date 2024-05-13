@@ -109,7 +109,7 @@ async fn main() -> eyre::Result<()> {
     // can be any mintpool node
     let client = reqwest::Client::new();
     client
-        .post("http://mintpool.zora.co/submit-premint")
+        .post("https://mintpool.zora.co/submit-premint")
         .json(&premint_item)
         .send()
         .await?;
