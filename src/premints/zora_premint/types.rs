@@ -54,7 +54,7 @@ macro_rules! implement_zora_premint_traits {
                     kind: $crate::types::PremintName($kind.to_string()),
                     signer: self.collection.contractAdmin,
                     chain_id: self.chain_id,
-                    collection_address: Address::default(), // TODO: source this
+                    collection_address: self.collection_address,
                     token_id: alloy::primitives::U256::from(self.premint.uid),
                     uri: self.premint.tokenConfig.tokenURI.clone(),
                 }
