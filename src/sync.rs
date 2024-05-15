@@ -345,7 +345,6 @@ where
                         if self_node.hash != other_node.hash {
                             path.push(self_node.value.clone());
                             let mut children_diff = self_node.diff(path, other_node);
-                            path.pop();
 
                             // if there are no diffs in the children, it likely means that the tree is
                             // cut off further down. In that case we will mark the bottom-most node
@@ -357,6 +356,8 @@ where
                                 // otherwise just add the (more specific) diffs from the children
                                 diffs.append(&mut children_diff);
                             }
+
+                            path.pop();
                         }
 
                         self_item = self_iter.next();
@@ -470,7 +471,7 @@ mod tests {
             vec![
                 Diff::MissingOther(vec!["a", "b", "g"]),
                 Diff::MissingSelf(vec!["a", "b", "h"]),
-                Diff::HashMismatch(vec!["a", "b", "i"]),
+                Diff::HashMismatch(vec!["a", "b", "i", "6"]),
             ]
         );
     }
