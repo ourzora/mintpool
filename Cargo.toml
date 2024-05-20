@@ -94,11 +94,11 @@ alloy = { git = "https://github.com/alloy-rs/alloy", rev = "bbef8de", features =
 
 chrono = { version = "0.4.38", features = ["serde"] }
 tracing-opentelemetry = "0.23.0"
-opentelemetry = { version = "0.22.0", features = ["metrics"] }
+opentelemetry = { version = "0.23.0", features = ["metrics"] }
 opentelemetry_api = { version = "0.20.0", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.22.1", features = ["metrics", "rt-tokio"] }
-opentelemetry-stdout = { version = "0.3.0", features = ["logs", "metrics", "trace"] }
-opentelemetry-prometheus = "0.15.0"
+opentelemetry_sdk = { version = "0.23.0", features = ["metrics", "rt-tokio"] }
+opentelemetry-stdout = { version = "0.4.0", features = ["logs", "metrics", "trace"] }
+opentelemetry-prometheus = "0.16.0"
 prometheus = "0.13.4"
 built = "0.7.2"
 itertools = "0.12.1"
