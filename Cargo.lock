@@ -3755,9 +3755,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-relay-manager"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "243bb6a26c38d3a6658c795fa8e5b2bc4d3ecee8132d5cbc553434b901adb38f"
+checksum = "089ff9442d5a5a7b84c50bdff8e53969c12c1a9b705977f776471fa7298a65af"
 dependencies = [
  "anyhow",
  "futures",
