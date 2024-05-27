@@ -14,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 xxhash-rust = { version = "0.8.10", features = ["xxh3"] }
-const-hex = "1.11.3"
+const-hex = "1.11.4"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt", "json"] }
 test-log = { version = "0.2.16", features = ["trace"] }
@@ -42,7 +42,7 @@ tokio = { version = "1.36.0", features = ["full"] }
 eyre = "0.6.12"
 regex = "1.10.4"
 async-trait = "0.1.77"
-serde = { version = "1.0.202", features = ["derive"] }
+serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 serde_cbor = "0.11.2"
 clap = { version = "4.5.2", features = ["derive"] }
@@ -100,8 +100,8 @@ opentelemetry_sdk = { version = "0.22.1", features = ["metrics", "rt-tokio"] }
 opentelemetry-stdout = { version = "0.3.0", features = ["logs", "metrics", "trace"] }
 opentelemetry-prometheus = "0.15.0"
 prometheus = "0.13.4"
-built = "0.7.2"
-itertools = "0.12.1"
+built = "0.7.3"
+itertools = "0.13.0"
 
 
 [profile.dev.package.sqlx-macros]
@@ -109,4 +109,4 @@ opt-level = 3
 
 
 [build-dependencies]
-built = { version = "0.7.2", features = ["git2"] }
+built = { version = "0.7.3", features = ["git2"] }
