@@ -35,7 +35,7 @@ where
         })
 }
 
-/// Checks for new premints being brought onchain then sends to controller to handle
+/// Checks for new premints being brought onchain then sends to the controller to handle
 pub struct MintChecker {
     chain_id: u64,
     controller: ControllerInterface,

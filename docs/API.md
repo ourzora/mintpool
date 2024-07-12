@@ -1,6 +1,6 @@
 # API Docs
 
-Mintpool exposes a REST API for interacting with the node. The API is ratelimited by default to
+Mintpool exposes a REST API for interacting with the node. The API is rate-limited by default to
 prevent spam requests.
 See `src/api/mod.rs` for router definition
 
